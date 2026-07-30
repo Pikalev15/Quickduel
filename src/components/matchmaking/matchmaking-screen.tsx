@@ -5,14 +5,22 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/ui/header";
 import type { PublicProfile } from "@/types/database";
+import { getGame } from "@/games/registry";
+import type { GameId, PlaylistId } from "@/games/types";
 
 type QueueResult = { queued: boolean; match_id: string | null };
 
-async function postQueue(path: "join" | "heartbeat" | "leave") {
+async function postQueue(
+  path: "join" | "heartbeat" | "leave",
+  playlist: PlaylistId,
+  preferredGame: GameId | null,
+) {
   const response = await fetch(`/api/matchmaking/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: "{}",
+    body: JSON.stringify(
+      path === "leave" ? {} : { playlist, preferredGame },
+    ),
     cache: "no-store",
     keepalive: path === "leave",
   });
@@ -21,7 +29,13 @@ async function postQueue(path: "join" | "heartbeat" | "leave") {
   return body.data as QueueResult;
 }
 
-export function MatchmakingScreen() {
+export function MatchmakingScreen({
+  playlist,
+  preferredGame,
+}: {
+  playlist: PlaylistId;
+  preferredGame: GameId | null;
+}) {
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -48,7 +62,7 @@ export function MatchmakingScreen() {
     try {
       setStatus(navigator.onLine ? "connecting" : "offline");
       const [queue, profileResponse] = await Promise.all([
-        postQueue("join"),
+        postQueue("join", playlist, preferredGame),
         fetch("/api/profile", { cache: "no-store" }),
       ]);
       if (profileResponse.ok) {
@@ -60,7 +74,7 @@ export function MatchmakingScreen() {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Matchmaking failed.");
     }
-  }, [handleQueueResult]);
+  }, [handleQueueResult, playlist, preferredGame]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void join(), 0);
@@ -82,14 +96,14 @@ export function MatchmakingScreen() {
     const heartbeat = window.setInterval(async () => {
       if (leaving.current || status !== "searching") return;
       try {
-        handleQueueResult(await postQueue("heartbeat"));
+        handleQueueResult(await postQueue("heartbeat", playlist, preferredGame));
       } catch {
         setStatus(navigator.onLine ? "error" : "offline");
         setMessage(navigator.onLine ? "Connection interrupted" : "You are offline");
       }
     }, 5_000);
     return () => window.clearInterval(heartbeat);
-  }, [handleQueueResult, status]);
+  }, [handleQueueResult, playlist, preferredGame, status]);
 
   useEffect(() => {
     const goOffline = () => {
@@ -116,13 +130,13 @@ export function MatchmakingScreen() {
     window.addEventListener("pagehide", leave);
     return () => {
       window.removeEventListener("pagehide", leave);
-      if (!leaving.current) void postQueue("leave").catch(() => undefined);
+      if (!leaving.current) void postQueue("leave", playlist, preferredGame).catch(() => undefined);
     };
-  }, []);
+  }, [playlist, preferredGame]);
 
   async function cancel(destination = "/") {
     leaving.current = true;
-    await postQueue("leave").catch(() => undefined);
+    await postQueue("leave", playlist, preferredGame).catch(() => undefined);
     router.push(destination);
   }
 
@@ -139,7 +153,9 @@ export function MatchmakingScreen() {
           />
         </div>
         <p className="display text-sm tracking-[0.16em] text-[var(--accent)]">
-          {status === "searching" ? "Searching" : status}
+          {status === "searching"
+            ? `${playlist} · ${preferredGame ? getGame(preferredGame).name : "mixed games"}`
+            : status}
         </p>
         <h1 className="display mt-3 text-[clamp(2.8rem,8vw,5.5rem)] leading-none">
           {message}
@@ -182,7 +198,7 @@ export function MatchmakingScreen() {
               </Button>
               <Button
                 onClick={() =>
-                  void cancel(`/match/practice?seed=${Date.now()}`)
+                  void cancel(`/match/practice?game=${preferredGame ?? (playlist === "sensory" ? "frequency_recall" : playlist === "experimental" ? "reaction_test" : "memory_grid")}&seed=${Date.now()}`)
                 }
               >
                 Practise against bot

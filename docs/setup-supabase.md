@@ -1,15 +1,14 @@
 # Supabase setup
 
-These steps use only the public project URL and publishable key in the app. Never
-put a secret or `service_role` key in `.env.local`, chat, GitHub, or browser code.
+The browser uses only the project URL and publishable key. Ranked scoring also
+requires a modern `sb_secret_` key in the Next.js server environment. Never use
+that key in a `NEXT_PUBLIC_*` variable, browser code, chat, or GitHub.
 
 ## 1. Create and configure the project
 
 1. Create a free project at [Supabase](https://supabase.com/dashboard).
-2. In the project dashboard, open **Authentication → Providers → Anonymous
-   Sign-Ins** and enable anonymous sign-ins.
-3. Open **Project Settings → General** and copy the project reference ID.
-4. Initialize and log in with the current Supabase CLI:
+2. Open **Project Settings → General** and copy the project reference ID.
+3. Initialize and log in with the current Supabase CLI:
 
    ```bash
    npx supabase@latest init
@@ -19,6 +18,16 @@ put a secret or `service_role` key in `.env.local`, chat, GitHub, or browser cod
 
    `init` creates the local `supabase/config.toml`; it does not replace the
    committed migration or seed files.
+
+4. Review and push the tracked project configuration:
+
+   ```bash
+   npx supabase config push
+   ```
+
+   This enables anonymous sign-ins and configures the local Auth URLs. The
+   command shows the complete hosted configuration diff before applying it;
+   review that diff so unrelated dashboard settings are not overwritten.
 
 5. Preview and apply the versioned schema:
 
@@ -50,6 +59,7 @@ Then fill it locally:
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLIC_PUBLISHABLE_KEY
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+SUPABASE_SECRET_KEY=YOUR_MODERN_SB_SECRET_KEY
 ```
 
 Restart `npm run dev` after changing environment variables.
@@ -62,10 +72,24 @@ In **Authentication → URL Configuration**:
 - Add `http://localhost:3000/**` as a redirect URL if the dashboard requires it.
 - Later add `https://YOUR-VERCEL-PROJECT.vercel.app/**`.
 
-Anonymous sign-in does not use an OAuth redirect in the current app, but keeping
-the approved app origins accurate prevents future auth-linking surprises.
+## 4. Google sign-in and anonymous account linking
 
-## 4. Verify
+The application code and PKCE callback are included, and
+`enable_manual_linking = true` is tracked in `supabase/config.toml`. A Google
+OAuth client still belongs to the project owner:
+
+1. In Google Auth Platform, create a Web application OAuth client.
+2. Add the app origins (`http://localhost:3000` and the production URL).
+3. Add the Supabase callback URL shown in **Authentication → Providers → Google**.
+4. Paste the Google Client ID and Client Secret into that provider page and
+   enable Google.
+5. Keep `/auth/callback` URLs in Supabase’s redirect allow list.
+
+Do not commit the Google Client Secret. Existing anonymous players use
+`linkIdentity`, which preserves their profile ID, rating, and history. Signed-out
+players use a normal Google OAuth sign-in.
+
+## 5. Verify
 
 1. Press Play. In **Authentication → Users**, confirm an anonymous user exists.
 2. In **Table Editor**, confirm its profile exists with rating 1000.
@@ -75,7 +99,7 @@ the approved app origins accurate prevents future auth-linking surprises.
    publication and that the two match-participant policies exist on
    `realtime.messages`.
 5. Open the site normally and in an incognito window. Press Play in both.
-6. Confirm both sessions receive the same match ID and grid pattern.
+6. Confirm both sessions receive the same match ID and challenge.
 7. Submit both answers and confirm one completed match, two result rows, and one
    rating application.
 
