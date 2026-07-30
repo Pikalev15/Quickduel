@@ -6,12 +6,13 @@ The home screen signs a visitor in with Supabase anonymous Auth and calls
 `ensure_profile`. `/play` joins the queue through a same-origin route handler.
 That handler invokes a security-definer PostgreSQL function as the authenticated
 user. Once a match ID is returned, both players enter `/match/[matchId]`, mark
-ready, receive the same persisted seed, and render the challenge locally.
+ready, and receive the same phase-filtered public challenge.
 
-The browser submits only an array of selected cell indexes. PostgreSQL
-regenerates the expected cells, calculates the score, measures completion time
-from the official server-controlled start, and atomically finalizes the result
-and Elo when both answers exist.
+The browser submits a game-specific JSON object. A trusted Next.js route
+regenerates the challenge from the server-only seed, validates it with the
+definition’s Zod schema, and calculates a normalized result. PostgreSQL measures
+completion time from the official start and atomically finalizes the result,
+per-game stats, and Elo when both answers exist.
 
 ## Matchmaking transaction
 
@@ -20,9 +21,9 @@ and Elo when both answers exist.
 1. Validates `auth.uid()` and ensures a profile.
 2. Returns an existing active match for retry/idempotency.
 3. Removes expired queue rows.
-4. Upserts the caller's single queue row.
+4. Upserts the caller's single queue row with playlist/game preference.
 5. Selects one eligible opponent with `FOR UPDATE SKIP LOCKED`.
-6. Creates the match and both participant rows.
+6. Chooses one compatible game and creates the match and both participant rows.
 7. Deletes both queue rows in the same transaction.
 
 The initial rating window is 150 and widens with wait time. PostgreSQL's row
@@ -41,33 +42,34 @@ lock prevents two callers from claiming the same waiting opponent.
 
 ## Realtime responsibilities
 
-PostgreSQL remains authoritative. A private match channel observes changes to
-the participant's match and participant rows. Participant-scoped policies on
-`realtime.messages` authorize slow connection/page Presence without opening
-other match topics. On subscribe, reconnect, polling, and page refresh, the
-client reloads `get_match_snapshot`; it never attempts to reconstruct missed
-events. There is no custom WebSocket server or high-frequency animation data.
+PostgreSQL remains authoritative. A private match channel provides Presence,
+while a short phase-aware poll reloads the authoritative snapshot. Participant-
+scoped policies on `realtime.messages` prevent access to other match topics.
+There is no custom WebSocket server or high-frequency animation stream.
 
 ## Elo finalization
 
-Ranked human matches use K=32 and a 100–4000 clamp. Score wins first; server
-completion time breaks equal scores, with a 10ms effective draw window. Both
+Ranked human matches use K=32 and a 100–4000 clamp. Accuracy/result rank wins
+first; server completion time breaks equal results, with a 10ms draw window. Both
 profile updates, both `rating_after` values, statistics, winner, and completed
 timestamp commit together.
 
 ## Bot isolation
 
-Practice Bot is an explicit local route. It uses the same deterministic game and
-scoring functions but never creates a database match, calls Elo, or touches
+Practice Bot is an explicit local route. Each definition supplies its own bot,
+and practice uses the same deterministic engine and scoring functions but never
+creates a database match, calls Elo, or touches
 leaderboard statistics. It is only offered after eight seconds in the human
 queue and is always labelled `Practice Bot · UNRANKED`.
 
 ## Trust boundaries and tradeoffs
 
-- RLS allows participants to read only their own match data. Queue writes,
-  readiness, submissions, rematches, scores, and ratings are RPC-only.
-- Browser anti-cheat cannot be perfect: a determined user can inspect a seed
-  after it is delivered or automate clicks. The server prevents fabricated
+- RLS and column grants exclude challenge seeds. Queue writes, readiness,
+  submissions, rematches, scores, and ratings are RPC-only.
+- The modern Supabase secret is server-only and required only for challenge
+  regeneration/result recording.
+- Browser anti-cheat cannot be perfect: a determined user can record displayed
+  or audible stimuli or automate clicks. The server prevents fabricated
   outcomes, timestamps, cross-match writes, double rating, invalid arrays, and
   early/late submissions, but stronger challenge delivery and replay analysis
   would be needed for high-stakes competition.
@@ -79,6 +81,6 @@ queue and is always labelled `Practice Bot · UNRANKED`.
 ## Future hardening
 
 Add CAPTCHA at abuse thresholds, stronger per-user/IP rate limits, abuse
-monitoring, audit logs, account linking, match replay validation, better bot
+monitoring, audit logs, match replay validation, better bot
 detection, and more advanced cheat detection. Do not add invasive
 fingerprinting or unnecessary personal data.

@@ -15,6 +15,18 @@ export type PublicProfile = {
   draws: number;
   matches_played: number;
   rank: number;
+  accent_colour: "volt" | "cyan" | "coral" | "violet" | "white";
+  game_stats: Record<
+    string,
+    {
+      played: number;
+      wins: number;
+      losses: number;
+      draws: number;
+      best_rank_score: number | null;
+      best_time_ms: number | null;
+    }
+  >;
 };
 
 export type MatchPlayer = {
@@ -30,14 +42,34 @@ export type MatchPlayer = {
   rating_after: number | null;
   rating_delta: number | null;
   rematch_requested_at: string | null;
+  result: {
+    rankScore: number;
+    accuracy: number;
+    summary: string;
+    details: Record<string, number | string | boolean>;
+  } | null;
 };
 
 export type MatchSnapshot = {
   id: string;
   status: MatchStatus;
-  challenge_seed: string;
-  grid_size: number;
-  highlight_count: number;
+  game_type:
+    | "memory_grid"
+    | "frequency_recall"
+    | "colour_recall"
+    | "time_recall"
+    | "shape_recall"
+    | "rhythm_recall"
+    | "dot_estimate"
+    | "number_order"
+    | "odd_one_out"
+    | "pattern_complete"
+    | "reaction_test"
+    | "target_tap";
+  game_version: 1;
+  ranked: boolean;
+  phase: "waiting" | "countdown" | "reveal" | "answer" | "result";
+  challenge: Record<string, unknown>;
   reveal_duration_ms: number;
   answer_duration_ms: number;
   starts_at: string | null;

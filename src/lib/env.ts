@@ -28,3 +28,19 @@ export function requirePublicEnv() {
   }
   return env;
 }
+
+const serverEnvSchema = z.object({
+  SUPABASE_SECRET_KEY: z.string().min(20),
+});
+
+export function requireServerEnv() {
+  const result = serverEnvSchema.safeParse({
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+  });
+  if (!result.success) {
+    throw new Error(
+      "Ranked game scoring is not configured. Add SUPABASE_SECRET_KEY to the server environment.",
+    );
+  }
+  return result.data;
+}

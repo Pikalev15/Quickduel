@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ShareIcon } from "@/components/ui/icons";
-import type { Outcome } from "@/lib/game/types";
+import type { DuelOutcome } from "@/games/types";
 
 export type ResultSide = {
   name: string;
@@ -13,10 +13,12 @@ export type ResultSide = {
   timeMs: number;
   ratingBefore: number;
   ratingAfter: number;
+  summary?: string;
 };
 
 export function ResultPanel({
   outcome,
+  gameName,
   player,
   opponent,
   unranked = false,
@@ -25,7 +27,8 @@ export function ResultPanel({
   onNext,
   onHome,
 }: {
-  outcome: Outcome;
+  outcome: DuelOutcome;
+  gameName?: string;
   player: ResultSide;
   opponent: ResultSide;
   unranked?: boolean;
@@ -39,7 +42,7 @@ export function ResultPanel({
     outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw";
 
   async function share() {
-    const text = `${title} in QuickDuel — ${player.score.toFixed(1)} to ${opponent.score.toFixed(1)}. Beat strangers in 30-second challenges.`;
+    const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""} — ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "QuickDuel result", text, url: location.origin });
@@ -62,6 +65,7 @@ export function ResultPanel({
       >
         {title}
       </h1>
+      {gameName && <p className="game-kicker mt-4">{gameName}</p>}
 
       <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
         <ResultColumn label="YOU" side={player} accent />
@@ -138,8 +142,8 @@ function ResultColumn({
       >
         {label}
       </div>
-      <div className="display mt-2 text-[clamp(3rem,9vw,5rem)] leading-none">
-        {side.score.toFixed(1)}
+      <div className="display mt-2 text-[clamp(1.8rem,5vw,3.2rem)] leading-none">
+        {side.summary ?? side.score.toFixed(1)}
       </div>
       <div className="mt-3 text-xs text-[var(--muted)] sm:text-sm">
         <span className="text-[var(--accent)]">{side.correct} correct</span>

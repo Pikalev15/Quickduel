@@ -2,53 +2,68 @@
 
 ## Direction
 
-QuickDuel is a compact competitive game surface, not a marketing site or a
-dashboard. The visual language is an open near-black arena with acid-lime
-competition cues, cut-corner controls, condensed display type, and a restrained
-4×4 grid motif.
+QuickDuel is a calm game surface, not a dense dashboard. The default home view
+offers one primary action, one secondary action, three suggested games, and a
+single collapsed collection. The remaining controls are still available through
+the game disclosure, profile drawer, settings popover, leaderboard route, and
+matchmaking screen.
 
-Reference concepts:
-
-- `docs/design-references/home-concept.png`
-- `docs/design-references/game-result-concept.png`
+The warm-white direction borrows the restraint of focused skill games without
+copying another product's branding, layout, or assets. The generated concept in
+`docs/design-references/minimal-white-hub-concept.png` was used as a composition
+reference; implementation screenshots are in `docs/screenshots/`.
 
 ## Tokens
 
-- Background: `#050b14`; raised surface: `#091321`; inset: `#07101c`
-- Primary text: `#f5f7f2`; muted text: `#9aa6b5`
-- Accent: `#d7ff00`; accent ink: `#071000`
-- Danger: `#ff5263`; success: `#d7ff00`; border: `#263345`
-- Display type: bundled Open Sans Condensed ExtraBold
-- UI type: bundled Red Hat Display variable
-- Corners: 0–8px, with clipped corners on primary controls
-- Motion: 120–240ms for controls, 360ms for screen entrances; no motion when
-  `prefers-reduced-motion` is enabled
+- Background: `#f7f6f2`; surface: `#ffffff`; inset: `#f0efeb`
+- Primary text: `#171717`; muted text: `#6d6c67`
+- Accent: `#3157d5`; accent ink: `#ffffff`
+- Danger: `#b42336`; success: `#237a57`; border: `#deddd8`
+- Display and UI type: the bundled sans-serif stack
+- Corners: 10–14px on contained surfaces; controls never use decorative clipping
+- Motion: 150–180ms with an ease-out curve for direct manipulation
 
-## Component rules
+## Hierarchy and disclosure
 
-- Header is quiet: wordmark, activity, and leaderboard navigation only.
-- The home CTA is the largest control. It is the sole strong glow.
-- Major layouts remain open. Borders divide regions; cards are reserved for
-  errors, results comparison, and table containment.
-- Buttons use uppercase condensed text. Primary is solid acid-lime; secondary
-  is transparent with a one-pixel border.
-- Grid cells are square, high-contrast, touch-friendly, and use the accent fill
-  only for reveal or selected states.
-- Status is communicated with text and a dot, never color alone.
-- Keyboard focus is a two-pixel warm-white outline with a three-pixel offset.
+- The first viewport leads with **Quick play**, then **Choose a game**.
+- Suggested games are compact rows. **All games** expands the other nine
+  challenges, so all twelve remain one interaction away.
+- Interface settings persist locally and can keep the full library, leaderboard
+  preview, or three-step explanation visible.
+- Profile customization and Google account linking remain in the profile drawer.
+- Playlist and specific-game selection remain on `/play`; direct Practice and
+  Duel actions remain on every game row.
+- Accuracy is the primary outcome. Trusted server time is shown as the
+  tiebreaker, never marketed as a reason to answer carelessly.
+
+## Interaction rules
+
+- Show motion only when it explains origin, hierarchy, or state change.
+- Use CSS transitions for hover, press, popover, and disclosure interactions.
+- Buttons press to `scale(0.97)` and return with a short ease-out transition.
+- Hover effects are enabled only on fine pointers.
+- Popovers and disclosures originate from their trigger and finish within
+  180ms.
+- `prefers-reduced-motion` removes non-essential transitions and animations.
+- Focus is a visible two-pixel accent outline with a three-pixel offset.
+- Minimum interactive target is 44×44px.
 
 ## Responsive model
 
-- Desktop keeps the home loop and leaderboard side by side; the game grid is
-  centered in an open arena.
-- Mobile collapses information to one column, keeps the 4×4 grid within the
-  viewport, and turns result actions into a vertical stack.
-- Minimum interactive target is 44×44px. No horizontal scrolling is allowed at
-  320px.
+- Desktop uses generous whitespace and keeps controls aligned to a narrow,
+  readable content column.
+- Mobile stacks the hero actions, removes duplicate header navigation, and turns
+  each game row into two full-width actions.
+- Game arenas remain centered and inherit the same warm-white palette.
+- No horizontal scrolling is permitted at 320px or wider.
 
-## Copy lock
+## Functional preservation checklist
 
-The first viewport uses only: `QUICKDUEL`, `Beat strangers in 30-second
-challenges.`, `PLAY NOW`, `RATING`, `ONLINE`, `MATCH`, `PLAY`, `CLIMB`, and
-`VIEW LEADERBOARD`, plus live values. No eyebrow, promotional badge, or
-secondary hero claim is permitted.
+- Quick matchmaking and playlist/specific-game matchmaking
+- Twelve game Practice and Duel paths
+- Profile name and accent editing
+- Google sign-in/linking capability gate
+- Leaderboard route and optional preview
+- Online and rating status
+- How-it-works content
+- Ranked results, rematch, next opponent, share, and home actions

@@ -8,6 +8,7 @@ dist/
 
 # Tests
 coverage/
+test-results/
 
 # Local environment (keep the example)
 .env
@@ -29,3 +30,4 @@ Thumbs.db
 *.log
 .eslintcache
 *.tsbuildinfo
+.vercel

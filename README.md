@@ -1,44 +1,51 @@
 # QuickDuel
 
-Beat strangers in 30-second challenges.
+Accuracy first. Speed breaks ties.
 
-QuickDuel is a production-minded MVP browser game with anonymous entry,
-concurrency-safe human matchmaking, a deterministic Memory Grid duel,
-server-authoritative scoring/Elo, an all-time leaderboard, and a clearly
-labelled unranked Practice Bot.
+QuickDuel is a production-minded multiplayer collection of twelve short browser
+games. It has anonymous entry, optional Google account linking, editable player
+profiles, playlist-aware human matchmaking, server-authoritative scoring/Elo,
+an all-time leaderboard, and clearly labelled game-specific Practice Bots.
 
 ## Screenshots
 
-Implementation screenshots can be added here after the first connected
-deployment. The design references live in `docs/design-references/`.
+![Minimal white QuickDuel home](docs/screenshots/minimal-home-desktop.png)
+
+Mobile, gameplay, and live-duel captures are in [`docs/screenshots`](docs/screenshots/).
+Generated composition references live in `docs/design-references/`.
 
 ## MVP features
 
-- Anonymous Supabase Auth with safe generated display names
-- Concurrency-safe rating-aware queue with expiry and heartbeat
+- Anonymous Supabase Auth with upgrade-in-place Google linking
+- Editable display name and profile accent
+- Concurrency-safe rating-aware queue with Quick, Sensory, Mind, Experimental,
+  and single-game preferences
 - Explicit Practice Bot offer after eight seconds; never disguised or ranked
-- Synchronized countdown, deterministic 4×4 grid, 1.75s reveal, 12s answer
-- Mouse, touch, arrow-key, Space, and Enter controls
-- Server-regenerated score, server-measured time, atomic idempotent Elo
+- Ten ranked games and two experimental unranked games
+- Memory Grid answer window reduced from 12 seconds to 8 seconds
+- Correctness/accuracy first; server-measured completion time breaks ties
+- Deterministic versioned challenges, Zod validation, and game-specific bots
+- Server-regenerated results, server-measured time, atomic idempotent Elo
 - Private per-match realtime subscription with authoritative reload on reconnect
 - Two-party rematch, next opponent, Web Share/clipboard fallback
 - Top-100 all-time leaderboard with current-player highlighting
-- Responsive, high-contrast UI with reduced-motion support
+- Responsive calm-light UI with progressive disclosure and reduced-motion support
 - Structured loading, offline, expiry, configuration, and validation errors
 
 ## Stack
 
 Next.js App Router, strict TypeScript, React, Tailwind CSS, Supabase Postgres/Auth/
-Realtime, Zod, Vitest, npm, GitHub Actions, and Vercel-compatible serverless
-routes. No privileged Supabase key, custom WebSocket server, Redis, worker, or
-persistent Node server is required.
+Realtime, Web Audio, Zod, Vitest, npm, GitHub Actions, and Vercel serverless
+routes. No custom WebSocket server, Redis, worker, or persistent Node server is
+required.
 
 ## Architecture
 
-The browser is a renderer and input source, not the match authority. Route
-handlers authenticate the Supabase session and call narrowly granted
-security-definer RPCs. PostgreSQL owns queue locking, challenge verification,
-timing, completion, stats, and Elo in transactions. See
+The browser is a renderer and input source, not the ranked match authority.
+Authenticated route handlers use a server-only modern Supabase secret to
+regenerate deterministic challenges and calculate results. PostgreSQL owns queue
+locking, trusted timing, completion, per-game stats, and Elo transactions. The
+secret never enters a browser bundle. See
 [`docs/architecture.md`](docs/architecture.md).
 
 ## Local development
@@ -58,6 +65,7 @@ profiles, online activity, and leaderboard data require:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+SUPABASE_SECRET_KEY=
 ```
 
 Follow [`docs/setup-supabase.md`](docs/setup-supabase.md) to enable anonymous
@@ -81,32 +89,37 @@ Connected database verification is documented in
 
 ## Deploy
 
-Import the GitHub repository into Vercel, set the same three public environment
-variables, deploy, then add the final Vercel URL to Supabase Auth URL
-Configuration. Exact steps: [`docs/deploy-vercel.md`](docs/deploy-vercel.md).
+Import the GitHub repository into Vercel, set the three public values plus the
+server-only sensitive `SUPABASE_SECRET_KEY`, deploy, then configure Supabase
+Auth URLs. Exact steps: [`docs/deploy-vercel.md`](docs/deploy-vercel.md).
 
 ## Security model
 
-- No service-role or secret key is used by the application.
+- A modern `sb_secret_` key is used only in Next.js route handlers and stored as
+  a sensitive Vercel variable. It is never committed or exposed client-side.
 - RLS is enabled on every public table.
 - Direct queue, match, score, result, rating, and statistics writes are denied.
 - Authenticated security-definer functions validate `auth.uid()`, participant
   membership, phase timing, cell bounds/uniqueness, and duplicate submission.
 - Match finalization locks the match row and is idempotent.
 - Browser anti-cheat is not perfect; the server blocks fabricated outcomes but
-  a determined browser user can still inspect delivered challenge data.
+  users can record stimuli that must necessarily be displayed or played.
 
 ## Current limitations
 
 - A live two-user/RLS/realtime test requires a user-owned Supabase project.
 - Incomplete matches expire without a rating forfeit.
-- Anonymous accounts are device/browser-session scoped until account linking is
-  added.
-- Match history UI, seasons, more games, moderation tooling, and stronger abuse
-  controls are outside this MVP.
+- Google OAuth needs a user-owned Google Client ID and Client Secret configured
+  in Supabase before its button becomes operational.
+- Match history UI, seasons, moderation tooling, and stronger abuse controls
+  remain outside this MVP.
 
 ## Roadmap
 
-Account linking, CAPTCHA at abuse thresholds, stronger rate limits, abuse
-monitoring, audit logs, replay validation, advanced cheat detection, seasonal
-leaderboards, and additional skill games.
+CAPTCHA at abuse thresholds, stronger rate limits, abuse monitoring, audit logs,
+replay validation, advanced cheat detection, and seasonal leaderboards.
+
+Game, audio, scoring, and fairness references:
+[`docs/games.md`](docs/games.md), [`docs/audio.md`](docs/audio.md),
+[`docs/scoring.md`](docs/scoring.md), and
+[`docs/fairness-limitations.md`](docs/fairness-limitations.md).

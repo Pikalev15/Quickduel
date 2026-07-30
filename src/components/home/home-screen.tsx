@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ArrowIcon, PlayIcon, SignalIcon, TrophyIcon } from "@/components/ui/icons";
 import { Header } from "@/components/ui/header";
 import { Button } from "@/components/ui/button";
+import type { PublicProfile } from "@/types/database";
+import { ProfileDrawer } from "@/components/profile/profile-drawer";
+import { GameLibrary } from "./game-library";
+import {
+  SettingsPopover,
+  type HomePreferences,
+} from "./settings-popover";
 
 type Leader = {
   rank: number;
@@ -15,22 +23,46 @@ type Leader = {
   rating: number;
 };
 
-type Profile = {
-  rating: number;
+const defaultPreferences: HomePreferences = {
+  showGameLibrary: false,
+  showLeaderboardPreview: false,
+  showHowItWorks: false,
 };
 
 export function HomeScreen() {
   const router = useRouter();
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [online, setOnline] = useState<number | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preferences, setPreferences] = useState(defaultPreferences);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const libraryRef = useRef<HTMLDivElement>(null);
+  const shouldFocusLibrary = useRef(false);
 
   useEffect(() => {
     let active = true;
+    const supabase = getSupabaseBrowserClient();
+    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUser(session?.user ?? null);
+      if (!session) setProfile(null);
+    });
+    const loadPreferences = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem("quickduel:home-preferences");
+        if (stored && active) {
+          setPreferences({ ...defaultPreferences, ...JSON.parse(stored) });
+        }
+      } catch {
+        // Invalid local settings fall back to calm defaults.
+      }
+    }, 0);
+
     async function load() {
-      const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
       const [overview, sessionResult] = await Promise.all([
         fetch("/api/public/overview", { cache: "no-store" }),
@@ -41,10 +73,10 @@ export function HomeScreen() {
         setLeaders(body.data.leaderboard ?? []);
         setOnline(Number(body.data.activity?.online_count ?? 0));
       }
-
       const {
         data: { session },
       } = sessionResult;
+      if (active) setUser(session?.user ?? null);
       if (!session) return;
       const response = await fetch("/api/profile", { cache: "no-store" });
       if (response.ok && active) {
@@ -55,8 +87,33 @@ export function HomeScreen() {
     void load();
     return () => {
       active = false;
+      window.clearTimeout(loadPreferences);
+      authListener?.data.subscription.unsubscribe();
     };
   }, []);
+
+  const updatePreferences = useCallback((next: HomePreferences) => {
+    setPreferences(next);
+    window.localStorage.setItem("quickduel:home-preferences", JSON.stringify(next));
+  }, []);
+
+  const chooseGame = useCallback(() => {
+    shouldFocusLibrary.current = true;
+    updatePreferences({ ...preferences, showGameLibrary: true });
+  }, [preferences, updatePreferences]);
+
+  useEffect(() => {
+    if (!preferences.showGameLibrary || !shouldFocusLibrary.current) return;
+    shouldFocusLibrary.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      const library = libraryRef.current;
+      if (!library) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      library.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+      library.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [preferences.showGameLibrary]);
 
   async function play() {
     setStarting(true);
@@ -64,12 +121,9 @@ export function HomeScreen() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
       setStarting(false);
-      setError(
-        "Ranked play needs Supabase configuration. You can still try an unranked practice round.",
-      );
+      setError("Ranked play needs Supabase configuration. Practice remains available.");
       return;
     }
-
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -91,112 +145,130 @@ export function HomeScreen() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden">
-      <Header onlineCount={online} />
-      <div className="arena-grid pointer-events-none absolute inset-x-0 top-[73px] h-[650px] opacity-80" />
+    <main className="calm-home min-h-screen">
+      <Header
+        profileSlot={
+          <div className="header-controls">
+            <SettingsPopover
+              open={settingsOpen}
+              preferences={preferences}
+              onOpenChange={setSettingsOpen}
+              onChange={updatePreferences}
+            />
+            <button type="button" className="profile-chip" onClick={() => setProfileOpen(true)}>
+              <span className={`accent-${profile?.accent_colour ?? "volt"}`}>
+                {(profile?.display_name ?? "QD").slice(0, 2).toUpperCase()}
+              </span>
+              <b>{profile?.display_name ?? "Profile"}</b>
+            </button>
+          </div>
+        }
+      />
 
-      <section className="page-shell screen-enter relative flex min-h-[570px] flex-col items-center justify-center py-14 text-center">
-        <h1 className="display italic leading-[0.82] text-[clamp(4.7rem,13vw,9.6rem)] drop-shadow-[0_10px_30px_rgba(0,0,0,.45)]">
-          Quick<span className="text-[var(--accent)]">Duel</span>
-        </h1>
-        <p className="mt-7 max-w-xl text-[clamp(1.08rem,2.2vw,1.5rem)] font-bold tracking-[-0.02em] text-white">
-          Beat strangers in 30-second challenges.
+      <section className="page-shell calm-hero">
+        <p className="calm-eyebrow">Fast multiplayer perception games</p>
+        <h1>A quick test of<br />what you notice.</h1>
+        <p className="calm-subtitle">
+          Twelve short challenges. Better answers win; trusted speed settles ties.
         </p>
-        <button
-          type="button"
-          onClick={play}
-          disabled={starting}
-          className="home-play clip-button accent-glow display mt-10 flex min-h-[92px] w-full max-w-[570px] items-center justify-center gap-5 border-2 border-[var(--accent)] bg-[var(--accent)] px-8 tracking-[0.04em] text-[var(--accent-ink)] transition hover:scale-[1.015] hover:bg-white disabled:cursor-wait disabled:opacity-70"
-        >
-          <PlayIcon className="h-11 w-11" />
-          {starting ? "Entering…" : "Play now"}
-        </button>
-        <div className="mt-5 flex items-center divide-x divide-[var(--border)] text-left">
-          <div className="px-5">
-            <div className="text-[0.65rem] font-bold tracking-[0.14em] text-[var(--muted)]">
-              RATING
-            </div>
-            <div className="display text-2xl">{profile?.rating ?? "—"}</div>
-          </div>
-          <div className="flex items-center gap-2 px-5">
-            <SignalIcon className="h-7 w-7 text-[var(--accent)]" />
-            <span className="display text-2xl">{online ?? "—"}</span>
-            <span className="text-xs font-bold tracking-[0.12em] text-[var(--muted)]">
-              ONLINE
-            </span>
-          </div>
+        <div className="calm-hero-actions">
+          <button type="button" className="calm-primary" onClick={play} disabled={starting}>
+            <PlayIcon className="h-5 w-5" />
+            {starting ? "Joining…" : "Quick play"}
+          </button>
+          <button
+            type="button"
+            className="calm-secondary"
+            aria-controls="game-library"
+            onClick={chooseGame}
+          >
+            Choose a game <ArrowIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="calm-player-line">
+          <span><b>{profile?.rating ?? "—"}</b> rating</span>
+          <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
+          <span>Accuracy first · 8s Memory Grid</span>
         </div>
         {error && (
-          <div
-            role="alert"
-            className="mt-6 max-w-xl border-l-2 border-[var(--danger)] bg-[var(--surface)] px-5 py-4 text-left text-sm text-[var(--muted)]"
-          >
-            <p>{error}</p>
-            <Button
-              className="mt-4"
-              onClick={() => router.push(`/match/practice?seed=${Date.now()}`)}
-            >
-              Play practice
+          <div role="alert" className="calm-error">
+            <span>{error}</span>
+            <Button onClick={() => router.push("/match/practice?game=memory_grid&seed=fallback")}>
+              Practice instead
             </Button>
           </div>
         )}
       </section>
 
-      <section className="relative border-y border-[var(--border)] bg-[rgb(5_11_20/88%)]">
-        <div className="page-shell grid gap-10 py-10 lg:grid-cols-[1fr_360px] lg:items-center">
-          <div>
-            <h2 className="display mb-8 text-center text-lg tracking-[0.12em] text-[var(--muted)] lg:text-left">
-              The 30-second loop
-            </h2>
-            <ol className="grid gap-8 sm:grid-cols-3">
-              {[
-                ["01", "Match", "Find a real opponent."],
-                ["02", "Play", "Memorize. Select. Submit."],
-                ["03", "Climb", "Win rating. Rise higher."],
-              ].map(([step, title, copy]) => (
-                <li key={step} className="relative border-l border-[var(--border)] pl-5">
-                  <span className="display text-sm text-[var(--accent)]">{step}</span>
-                  <h3 className="display mt-2 text-3xl">{title}</h3>
-                  <p className="mt-2 text-sm text-[var(--muted)]">{copy}</p>
+      <div className="page-shell calm-content">
+        <div className="game-library-anchor" ref={libraryRef} tabIndex={-1}>
+          <GameLibrary
+            expanded={preferences.showGameLibrary}
+            onExpand={() =>
+              updatePreferences({
+                ...preferences,
+                showGameLibrary: !preferences.showGameLibrary,
+              })
+            }
+          />
+        </div>
+
+        {preferences.showHowItWorks && (
+          <section className="calm-steps" aria-label="How QuickDuel works">
+            {[
+              ["01", "Match", "Choose a playlist or a specific challenge."],
+              ["02", "Play", "Both players receive the same deterministic test."],
+              ["03", "Compare", "Accuracy wins; database time breaks equal results."],
+            ].map(([step, title, copy]) => (
+              <article key={step}>
+                <span>{step}</span>
+                <h2>{title}</h2>
+                <p>{copy}</p>
+              </article>
+            ))}
+          </section>
+        )}
+
+        {preferences.showLeaderboardPreview && (
+          <section className="calm-leaderboard">
+            <div className="calm-section-head">
+              <div>
+                <span><TrophyIcon className="h-4 w-4" /> Top duelists</span>
+                <p>All-time ranked players.</p>
+              </div>
+              <Link href="/leaderboard">Full leaderboard</Link>
+            </div>
+            <ol>
+              {leaders.slice(0, 5).map((leader) => (
+                <li key={leader.id}>
+                  <span>{leader.rank}</span>
+                  <b>{leader.display_name}</b>
+                  <strong>{leader.rating}</strong>
                 </li>
               ))}
             </ol>
-          </div>
+          </section>
+        )}
+      </div>
 
-          <div className="border border-[var(--border)] bg-[var(--inset)]">
-            <div className="flex items-center gap-2 border-b border-[var(--border)] px-5 py-4">
-              <TrophyIcon className="h-5 w-5 text-[var(--accent)]" />
-              <h2 className="display text-lg tracking-[0.08em]">Top duelists</h2>
-            </div>
-            {leaders.length > 0 ? (
-              <ol>
-                {leaders.map((leader) => (
-                  <li
-                    key={leader.id}
-                    className="grid grid-cols-[32px_1fr_auto] border-b border-[var(--border)] px-5 py-3 text-sm"
-                  >
-                    <span className="display text-[var(--accent)]">{leader.rank}</span>
-                    <span>{leader.display_name}</span>
-                    <strong className="display text-[var(--accent)]">
-                      {leader.rating}
-                    </strong>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="px-5 py-8 text-sm text-[var(--muted)]">
-                The first duelists will claim these spots.
-              </p>
-            )}
-            <Link
-              href="/leaderboard"
-              className="display flex min-h-12 items-center justify-center gap-2 px-5 text-sm tracking-[0.08em] text-[var(--accent)] hover:text-white"
-            >
-              View leaderboard <ArrowIcon className="h-5 w-5" />
-            </Link>
-          </div>
-        </div>
-      </section>
+      <footer className="page-shell calm-footer">
+        <span>QuickDuel</span>
+        <nav>
+          <Link href="/play?playlist=quick">Play</Link>
+          <Link href="/leaderboard">Leaderboard</Link>
+          <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
+        </nav>
+      </footer>
+
+      {profileOpen && (
+        <ProfileDrawer
+          open
+          profile={profile}
+          user={user}
+          onClose={() => setProfileOpen(false)}
+          onUpdated={setProfile}
+        />
+      )}
     </main>
   );
 }
