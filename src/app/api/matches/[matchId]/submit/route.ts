@@ -42,17 +42,32 @@ export async function POST(
       return apiError(409, "CONFLICT", "Match is not ready for answers.");
     }
     const game = getGame(match.game_type);
-    const submission = game.submissionSchema.safeParse(parsed.data.submission);
+    const answerStartedAt = Date.parse(match.starts_at) + match.reveal_duration_ms;
+    const answerDeadline = answerStartedAt + match.answer_duration_ms;
+    if (parsed.data.timedOut && Date.now() < answerDeadline - 250) {
+      return apiError(409, "CONFLICT", "The answer window is still open.");
+    }
+    const challenge = game.generate(String(match.challenge_seed));
+    const submission = parsed.data.timedOut
+      ? { success: true as const, data: { timedOut: true } }
+      : game.submissionSchema.safeParse(parsed.data.submission);
     if (!submission.success) {
       return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues);
     }
-    const answerStartedAt = Date.parse(match.starts_at) + match.reveal_duration_ms;
-    const completionTimeMs = Math.max(
-      0,
-      Math.min(match.answer_duration_ms, Date.now() - answerStartedAt),
-    );
-    const challenge = game.generate(String(match.challenge_seed));
-    const calculated = game.calculate(challenge, submission.data, completionTimeMs);
+    const completionTimeMs = parsed.data.timedOut
+      ? match.answer_duration_ms
+      : Math.max(
+          0,
+          Math.min(match.answer_duration_ms, Date.now() - answerStartedAt),
+        );
+    const calculated = parsed.data.timedOut
+      ? {
+          rankScore: -999_999,
+          accuracy: 0,
+          summary: "No answer",
+          details: { timedOut: true },
+        }
+      : game.calculate(challenge, submission.data, completionTimeMs);
     const correct = Number(calculated.details.correct ?? calculated.details.hits ?? 0);
     const incorrect = Number(
       calculated.details.incorrect ??

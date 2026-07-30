@@ -17,7 +17,10 @@ export const selectedCellsSchema = z
   });
 
 export const submitAnswerSchema = z
-  .object({ submission: z.record(z.string(), z.unknown()) })
+  .object({
+    submission: z.record(z.string(), z.unknown()),
+    timedOut: z.boolean().optional().default(false),
+  })
   .strict();
 
 export const queueRequestSchema = z

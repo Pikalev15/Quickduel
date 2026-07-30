@@ -35,10 +35,13 @@ export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }
   }, [answerEnd, canSubmit, submittedAt]);
 
   useEffect(() => {
-    if (submittedAt !== null || !canSubmit) return;
-    const timeout = window.setTimeout(submit, Math.max(0, answerEnd - Date.now()));
+    if (submittedAt !== null) return;
+    const timeout = window.setTimeout(
+      () => setSubmittedAt((current) => current ?? answerEnd),
+      Math.max(0, answerEnd - Date.now()),
+    );
     return () => window.clearTimeout(timeout);
-  }, [answerEnd, canSubmit, submit, submittedAt]);
+  }, [answerEnd, submittedAt]);
 
   let phase: Phase;
   if (submittedAt !== null) {

@@ -29,6 +29,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [rematchWaiting, setRematchWaiting] = useState(false);
   const readySent = useRef(false);
+  const submissionSent = useRef(false);
 
   const reload = useCallback(async () => {
     try {
@@ -110,27 +111,29 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (phase !== "answer" || !answerEnd || me?.submitted_at) return;
     if (game?.autoSubmitOnValid && canSubmit) {
-      void submit();
+      void submit(false);
       return;
     }
     const timer = window.setTimeout(() => {
-      if (canSubmit) void submit();
+      void submit(true);
     }, Math.max(0, answerEnd - Date.now()));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answerEnd, canSubmit, game?.autoSubmitOnValid, phase, me?.submitted_at]);
 
-  async function submit() {
-    if (!canSubmit) return;
+  async function submit(timedOut = false) {
+    if ((!timedOut && !canSubmit) || submissionSent.current) return;
+    submissionSent.current = true;
     try {
       await request(`/api/matches/${matchId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ submission }),
+        body: JSON.stringify({ submission, timedOut }),
       });
       await reload();
     } catch (caught) {
+      submissionSent.current = false;
       setError(caught instanceof Error ? caught.message : "Submission failed.");
     }
   }
@@ -278,7 +281,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               )}
             </div>
             {phase === "answer" && !game?.autoSubmitOnValid && (
-              <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit()}>
+              <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
                 Lock answer
               </Button>
             )}
