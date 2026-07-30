@@ -106,6 +106,18 @@ export function HomeScreen() {
     updatePreferences(defaultPreferences);
   }, [updatePreferences]);
 
+  const signIn = useCallback(async () => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return "Google sign-in is unavailable without Supabase configuration.";
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback?next=/`,
+      },
+    });
+    return signInError ? "Could not open Google sign-in. Please try again." : null;
+  }, []);
+
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return "Sign out is unavailable without Supabase configuration.";
@@ -180,6 +192,7 @@ export function HomeScreen() {
               onChange={updatePreferences}
               onOpenProfile={openProfile}
               onReset={resetPreferences}
+              onSignIn={signIn}
               onSignOut={signOut}
             />
             <button type="button" className="profile-chip" onClick={openProfile}>

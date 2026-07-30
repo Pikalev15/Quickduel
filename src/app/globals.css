@@ -1005,6 +1005,10 @@ header .page-shell {
   color: var(--danger);
 }
 
+.settings-actions .settings-wide-action {
+  grid-column: 1 / -1;
+}
+
 .settings-feedback {
   margin: 0 1rem 0.85rem;
   border-left: 2px solid var(--accent);

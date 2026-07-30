@@ -192,15 +192,21 @@ export function ProfileDrawer({
               : googleAvailable === null
                 ? "Checking Google sign-in…"
                 : user?.is_anonymous
-                  ? "Protect progress with Google"
-                  : "Sign in with Google"}
+                  ? "Protect this guest with Google"
+                  : user
+                    ? "Connect Google"
+                    : "Continue with Google"}
         </Button>
         <p className="profile-note">
           {googleAvailable === false
             ? "The app is ready, but the project owner must add a Google Client ID and Client Secret in Supabase Auth."
             : googleConnected
-            ? "Your rating and customized profile travel with your Google account."
-            : "Linking upgrades this exact player account, preserving its rating and match history."}
+              ? "Your rating and customized profile travel with your Google account."
+              : user?.is_anonymous
+                ? "This links Google to this exact guest, preserving its rating and match history."
+                : user
+                  ? "Connect Google as another way to sign into this account."
+                  : "Google signs you into an existing QuickDuel account, or creates one if you are new."}
         </p>
         {message && <p className="profile-message" role="status">{message}</p>}
       </aside>

@@ -24,6 +24,7 @@ export function SettingsPopover({
   onChange,
   onOpenProfile,
   onReset,
+  onSignIn,
   onSignOut,
 }: {
   open: boolean;
@@ -34,12 +35,15 @@ export function SettingsPopover({
   onChange: (preferences: HomePreferences) => void;
   onOpenProfile: () => void;
   onReset: () => void;
+  onSignIn: () => Promise<string | null>;
   onSignOut: () => Promise<string | null>;
 }) {
   const wrapper = useRef<HTMLDivElement>(null);
   const { preference, resolvedTheme, setPreference } = useTheme();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [confirmGuestExit, setConfirmGuestExit] = useState(false);
+  const [confirmGuestLogin, setConfirmGuestLogin] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export function SettingsPopover({
       if (!wrapper.current?.contains(event.target as Node)) {
         setFeedback(null);
         setConfirmGuestExit(false);
+        setConfirmGuestLogin(false);
         onOpenChange(false);
       }
     };
@@ -59,6 +64,7 @@ export function SettingsPopover({
     if (open) {
       setFeedback(null);
       setConfirmGuestExit(false);
+      setConfirmGuestLogin(false);
     }
     onOpenChange(!open);
   }
@@ -66,6 +72,7 @@ export function SettingsPopover({
   function openProfile() {
     setFeedback(null);
     setConfirmGuestExit(false);
+    setConfirmGuestLogin(false);
     onOpenProfile();
   }
 
@@ -81,14 +88,31 @@ export function SettingsPopover({
     user?.email ??
     (isGuest ? "Guest player" : user ? "QuickDuel player" : "No player session");
   const accountDetail = googleConnected
-    ? user?.email ?? "Google account connected"
-    : isGuest
-      ? "Guest progress is stored on this device."
-      : "Create a profile or connect Google to save progress.";
+      ? user?.email ?? "Google account connected"
+      : isGuest
+        ? "Guest progress is stored on this device."
+        : "Sign in with Google or start with a guest profile.";
+
+  async function signIn() {
+    if (isGuest && !confirmGuestLogin) {
+      setConfirmGuestLogin(true);
+      setConfirmGuestExit(false);
+      setFeedback(
+        "Signing in switches to your existing account. Choose Protect guest if you want to keep this guest profile instead.",
+      );
+      return;
+    }
+    setSigningIn(true);
+    setFeedback(null);
+    const message = await onSignIn();
+    setSigningIn(false);
+    if (message) setFeedback(message);
+  }
 
   async function signOut() {
     if (isGuest && !confirmGuestExit) {
       setConfirmGuestExit(true);
+      setConfirmGuestLogin(false);
       setFeedback("Guest progress cannot be recovered after ending this session unless it is linked to Google.");
       return;
     }
@@ -132,10 +156,42 @@ export function SettingsPopover({
             </span>
           </div>
           <div className="settings-actions">
-            <button type="button" onClick={openProfile}>
-              {user ? "Manage profile" : "Sign in or create profile"}
-            </button>
-            {user && (
+            {!user ? (
+              <>
+                <button
+                  type="button"
+                  disabled={signingIn}
+                  onClick={() => void signIn()}
+                >
+                  {signingIn ? "Opening Google…" : "Sign in with Google"}
+                </button>
+                <button type="button" onClick={openProfile}>
+                  Create guest profile
+                </button>
+              </>
+            ) : isGuest ? (
+              <>
+                <button type="button" onClick={openProfile}>
+                  Protect guest
+                </button>
+                <button
+                  type="button"
+                  disabled={signingIn}
+                  onClick={() => void signIn()}
+                >
+                  {signingIn
+                    ? "Opening Google…"
+                    : confirmGuestLogin
+                      ? "Confirm sign in"
+                      : "Sign in instead"}
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={openProfile}>
+                Manage profile
+              </button>
+            )}
+            {user && !isGuest && (
               <button
                 type="button"
                 className="settings-danger"
@@ -144,11 +200,21 @@ export function SettingsPopover({
               >
                 {signingOut
                   ? "Signing out…"
-                  : isGuest && confirmGuestExit
+                  : "Sign out"}
+              </button>
+            )}
+            {isGuest && (
+              <button
+                type="button"
+                className="settings-danger settings-wide-action"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
+                {signingOut
+                  ? "Ending session…"
+                  : confirmGuestExit
                     ? "Confirm end session"
-                    : isGuest
-                      ? "End guest session"
-                      : "Sign out"}
+                    : "End guest session"}
               </button>
             )}
           </div>
