@@ -3,17 +3,17 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "QuickDuel — 30-second skill challenges",
+    default: "QuickDuel — fast multiplayer perception games",
     template: "%s · QuickDuel",
   },
   description:
-    "Beat strangers in fast, fair, server-authoritative Memory Grid duels.",
+    "Play twelve short, fair, server-authoritative perception games against other players.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#050b14",
+  themeColor: "#f7f6f2",
 };
 
 export default function RootLayout({
