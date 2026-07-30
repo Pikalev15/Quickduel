@@ -905,7 +905,10 @@ header .page-shell {
   top: calc(100% + 0.75rem);
   right: 0;
   width: min(360px, calc(100vw - 1.5rem));
-  overflow: hidden;
+  max-height: calc(100dvh - 5.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
@@ -934,6 +937,91 @@ header .page-shell {
 .preference-toggle small {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.settings-account {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-top: 1px solid var(--subtle-border);
+  padding: 0.85rem 1rem;
+}
+
+.settings-avatar {
+  display: grid;
+  width: 36px;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #1f1f1f;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.settings-account > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.settings-account strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-account small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.settings-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  padding: 0 1rem 0.85rem;
+}
+
+.settings-actions button,
+.settings-reset {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding-inline: 0.65rem;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.settings-actions button:hover,
+.settings-reset:hover {
+  background: var(--inset);
+}
+
+.settings-actions .settings-danger {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.settings-feedback {
+  margin: 0 1rem 0.85rem;
+  border-left: 2px solid var(--accent);
+  background: var(--inset);
+  padding: 0.6rem 0.7rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.settings-section-label {
+  border-top: 1px solid var(--subtle-border);
+  padding: 0.65rem 1rem 0.45rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .preference-toggle {
@@ -1033,6 +1121,11 @@ header .page-shell {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 1px 3px rgb(0 0 0 / 14%);
+}
+
+.settings-reset {
+  width: calc(100% - 2rem);
+  margin: 0 1rem 1rem;
 }
 
 .calm-hero {
@@ -1451,12 +1544,20 @@ header .page-shell {
 .accent-white { background: #ecebe6 !important; }
 
 .profile-overlay {
+  overflow: hidden;
   background: rgb(24 24 21 / 28%);
 }
 
 .profile-drawer {
+  height: 100dvh;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border-color: var(--border);
   background: var(--surface);
+  padding-bottom: max(clamp(1.25rem, 4vw, 2rem), env(safe-area-inset-bottom));
   box-shadow: -20px 0 60px rgb(30 30 25 / 12%);
   transition: transform 260ms var(--ease-drawer);
 }
@@ -1611,5 +1712,11 @@ header .page-shell {
   }
   .settings-popover {
     right: -3.25rem;
+  }
+  .settings-actions {
+    grid-template-columns: 1fr;
+  }
+  .profile-drawer {
+    border-left: 0;
   }
 }

@@ -97,6 +97,28 @@ export function HomeScreen() {
     window.localStorage.setItem("quickduel:home-preferences", JSON.stringify(next));
   }, []);
 
+  const openProfile = useCallback(() => {
+    setSettingsOpen(false);
+    setProfileOpen(true);
+  }, []);
+
+  const resetPreferences = useCallback(() => {
+    updatePreferences(defaultPreferences);
+  }, [updatePreferences]);
+
+  const signOut = useCallback(async () => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return "Sign out is unavailable without Supabase configuration.";
+    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+    if (signOutError) return "Could not sign out. Please try again.";
+    setUser(null);
+    setProfile(null);
+    setProfileOpen(false);
+    setSettingsOpen(false);
+    router.refresh();
+    return null;
+  }, [router]);
+
   const chooseGame = useCallback(() => {
     shouldFocusLibrary.current = true;
     updatePreferences({ ...preferences, showGameLibrary: true });
@@ -152,10 +174,15 @@ export function HomeScreen() {
             <SettingsPopover
               open={settingsOpen}
               preferences={preferences}
+              profile={profile}
+              user={user}
               onOpenChange={setSettingsOpen}
               onChange={updatePreferences}
+              onOpenProfile={openProfile}
+              onReset={resetPreferences}
+              onSignOut={signOut}
             />
-            <button type="button" className="profile-chip" onClick={() => setProfileOpen(true)}>
+            <button type="button" className="profile-chip" onClick={openProfile}>
               <span className={`accent-${profile?.accent_colour ?? "volt"}`}>
                 {(profile?.display_name ?? "QD").slice(0, 2).toUpperCase()}
               </span>
@@ -256,7 +283,7 @@ export function HomeScreen() {
         <nav>
           <Link href="/play?playlist=quick">Play</Link>
           <Link href="/leaderboard">Leaderboard</Link>
-          <button type="button" onClick={() => setProfileOpen(true)}>Profile</button>
+          <button type="button" onClick={openProfile}>Profile</button>
         </nav>
       </footer>
 
