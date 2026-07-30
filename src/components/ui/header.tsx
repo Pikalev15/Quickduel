@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { SignalIcon, TrophyIcon } from "./icons";
 import { Wordmark } from "./wordmark";
+import type { ReactNode } from "react";
 
 export function Header({
   onlineCount,
   simple = false,
+  profileSlot,
 }: {
   onlineCount?: number | null;
   simple?: boolean;
+  profileSlot?: ReactNode;
 }) {
   return (
     <header className="border-b border-[var(--border)]">
@@ -28,6 +31,7 @@ export function Header({
             <span className="hidden sm:inline">View leaderboard</span>
             <span className="sm:hidden">Ranks</span>
           </Link>
+          {profileSlot}
         </nav>
       </div>
     </header>

@@ -59,3 +59,16 @@ export function ShareIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function SettingsIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8 3.5-2.1-1.1.1-2.4-2.5-1.4-2 1.3L11.5 7 9 8.4 7 7.1 4.5 8.5l.1 2.4L2.5 12l2.1 1.1-.1 2.4L7 16.9l2-1.3 2.5 1.4 2-1.4 2 1.3 2.5-1.4-.1-2.4L20 12Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
