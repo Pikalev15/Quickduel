@@ -1,0 +1,3 @@
+-- Optional local-development leaderboard rows should be created through real
+-- anonymous Auth users so the profiles foreign key remains valid.
+-- Production does not require seed data.

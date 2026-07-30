@@ -1,0 +1,16 @@
+-- Run after linking a disposable Supabase project:
+--   npx supabase test db
+--
+-- Manual security/concurrency verification checklist:
+-- 1. Create two anonymous sessions and call join_matchmaking concurrently.
+--    Assert exactly one active match exists and each user has one match row.
+-- 2. Submit twice from one session. The second call must fail and ratings must
+--    remain unchanged until the other participant submits.
+-- 3. Call submit_match_answer from a third user. It must fail.
+-- 4. Call finalize_match_locked through SQL as an authenticated role. Execute
+--    permission must be denied. Re-reading a completed match must not change
+--    profiles or match_players.
+-- 5. Insert an expired queue row as postgres, then join. The expired row must be
+--    deleted and never selected.
+-- 6. Reload an active match from a participant session. get_match_snapshot must
+--    return its current authoritative phase and both participant rows.

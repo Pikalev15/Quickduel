@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+dist/
+
+# Tests
+coverage/
+
+# Local environment (keep the example)
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs and caches
+*.log
+.eslintcache
+*.tsbuildinfo
