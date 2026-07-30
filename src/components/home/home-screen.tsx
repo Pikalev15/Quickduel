@@ -13,6 +13,7 @@ import { ProfileDrawer } from "@/components/profile/profile-drawer";
 import { GameLibrary } from "./game-library";
 import {
   SettingsPopover,
+  type AuthIntent,
   type HomePreferences,
 } from "./settings-popover";
 
@@ -106,14 +107,31 @@ export function HomeScreen() {
     updatePreferences(defaultPreferences);
   }, [updatePreferences]);
 
-  const signIn = useCallback(async () => {
+  const authenticate = useCallback(async (intent: AuthIntent) => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) return "Google sign-in is unavailable without Supabase configuration.";
+    if (!supabase) return "Google authentication is unavailable without Supabase configuration.";
+    const options = {
+      redirectTo: `${location.origin}/auth/callback?next=/`,
+    };
+
+    if (intent === "signup") {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        const { error: guestError } = await supabase.auth.signInAnonymously();
+        if (guestError) return "Could not start account creation. Please try again.";
+      }
+      const { error: signUpError } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options,
+      });
+      return signUpError ? "Could not open Google sign-up. Please try again." : null;
+    }
+
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${location.origin}/auth/callback?next=/`,
-      },
+      options,
     });
     return signInError ? "Could not open Google sign-in. Please try again." : null;
   }, []);
@@ -192,7 +210,7 @@ export function HomeScreen() {
               onChange={updatePreferences}
               onOpenProfile={openProfile}
               onReset={resetPreferences}
-              onSignIn={signIn}
+              onAuthenticate={authenticate}
               onSignOut={signOut}
             />
             <button type="button" className="profile-chip" onClick={openProfile}>

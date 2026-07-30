@@ -15,6 +15,8 @@ export type HomePreferences = {
   showHowItWorks: boolean;
 };
 
+export type AuthIntent = "signin" | "signup";
+
 export function SettingsPopover({
   open,
   preferences,
@@ -24,7 +26,7 @@ export function SettingsPopover({
   onChange,
   onOpenProfile,
   onReset,
-  onSignIn,
+  onAuthenticate,
   onSignOut,
 }: {
   open: boolean;
@@ -35,7 +37,7 @@ export function SettingsPopover({
   onChange: (preferences: HomePreferences) => void;
   onOpenProfile: () => void;
   onReset: () => void;
-  onSignIn: () => Promise<string | null>;
+  onAuthenticate: (intent: AuthIntent) => Promise<string | null>;
   onSignOut: () => Promise<string | null>;
 }) {
   const wrapper = useRef<HTMLDivElement>(null);
@@ -43,7 +45,7 @@ export function SettingsPopover({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [confirmGuestExit, setConfirmGuestExit] = useState(false);
   const [confirmGuestLogin, setConfirmGuestLogin] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
+  const [authenticating, setAuthenticating] = useState<AuthIntent | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -88,24 +90,24 @@ export function SettingsPopover({
     user?.email ??
     (isGuest ? "Guest player" : user ? "QuickDuel player" : "No player session");
   const accountDetail = googleConnected
-      ? user?.email ?? "Google account connected"
-      : isGuest
-        ? "Guest progress is stored on this device."
-        : "Sign in with Google or start with a guest profile.";
+    ? user?.email ?? "Google account connected"
+    : isGuest
+      ? "Sign up to keep this guest, or sign in to switch accounts."
+      : "Sign in to an existing account or create a new one.";
 
-  async function signIn() {
-    if (isGuest && !confirmGuestLogin) {
+  async function authenticate(intent: AuthIntent) {
+    if (intent === "signin" && isGuest && !confirmGuestLogin) {
       setConfirmGuestLogin(true);
       setConfirmGuestExit(false);
       setFeedback(
-        "Signing in switches to your existing account. Choose Protect guest if you want to keep this guest profile instead.",
+        "Signing in switches to your existing account. Choose Sign up if you want to keep this guest profile.",
       );
       return;
     }
-    setSigningIn(true);
+    setAuthenticating(intent);
     setFeedback(null);
-    const message = await onSignIn();
-    setSigningIn(false);
+    const message = await onAuthenticate(intent);
+    setAuthenticating(null);
     if (message) setFeedback(message);
   }
 
@@ -133,12 +135,13 @@ export function SettingsPopover({
     <div className="settings-anchor" ref={wrapper}>
       <button
         type="button"
-        className="icon-button"
+        className="icon-button settings-trigger"
         aria-label="Settings"
         aria-expanded={open}
         onClick={togglePopover}
       >
         <SettingsIcon className="h-5 w-5" />
+        <span>Settings</span>
       </button>
       {open && (
         <section className="settings-popover" aria-label="Settings">
@@ -160,30 +163,45 @@ export function SettingsPopover({
               <>
                 <button
                   type="button"
-                  disabled={signingIn}
-                  onClick={() => void signIn()}
+                  disabled={authenticating !== null}
+                  onClick={() => void authenticate("signin")}
                 >
-                  {signingIn ? "Opening Google…" : "Sign in with Google"}
+                  {authenticating === "signin" ? "Opening Google…" : "Sign in"}
                 </button>
-                <button type="button" onClick={openProfile}>
-                  Create guest profile
+                <button
+                  type="button"
+                  disabled={authenticating !== null}
+                  onClick={() => void authenticate("signup")}
+                >
+                  {authenticating === "signup" ? "Opening Google…" : "Sign up"}
+                </button>
+                <button
+                  type="button"
+                  className="settings-wide-action"
+                  onClick={openProfile}
+                >
+                  Continue as guest
                 </button>
               </>
             ) : isGuest ? (
               <>
-                <button type="button" onClick={openProfile}>
-                  Protect guest
+                <button
+                  type="button"
+                  disabled={authenticating !== null}
+                  onClick={() => void authenticate("signup")}
+                >
+                  {authenticating === "signup" ? "Opening Google…" : "Sign up"}
                 </button>
                 <button
                   type="button"
-                  disabled={signingIn}
-                  onClick={() => void signIn()}
+                  disabled={authenticating !== null}
+                  onClick={() => void authenticate("signin")}
                 >
-                  {signingIn
+                  {authenticating === "signin"
                     ? "Opening Google…"
                     : confirmGuestLogin
                       ? "Confirm sign in"
-                      : "Sign in instead"}
+                      : "Sign in"}
                 </button>
               </>
             ) : (

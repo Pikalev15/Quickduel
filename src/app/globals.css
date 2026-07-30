@@ -895,6 +895,19 @@ header .page-shell {
     border-color 140ms ease;
 }
 
+.settings-trigger {
+  display: flex;
+  width: auto;
+  aspect-ratio: auto;
+  gap: 0.4rem;
+  padding-inline: 0.65rem;
+}
+
+.settings-trigger span {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .settings-anchor {
   position: relative;
 }
