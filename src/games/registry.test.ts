@@ -31,4 +31,10 @@ describe("game registry", () => {
   it("uses an eight-second Memory Grid answer window", () => {
     expect(getGame("memory_grid").answerDurationMs).toBe(8000);
   });
+
+  it("stops Number Order as soon as all targets are selected", () => {
+    const game = getGame("number_order");
+    expect(game.answerDurationMs).toBe(8000);
+    expect(game.autoSubmitOnValid).toBe(true);
+  });
 });

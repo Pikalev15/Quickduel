@@ -46,6 +46,7 @@ export type GameDefinition = {
   ranked: boolean;
   revealDurationMs: number;
   answerDurationMs: number;
+  autoSubmitOnValid?: boolean;
   submissionSchema: z.ZodType<Submission>;
   generate: (seed: string) => Challenge;
   publicChallenge: (challenge: Challenge, phase: GamePhase) => Challenge;

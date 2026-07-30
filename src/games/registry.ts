@@ -350,7 +350,8 @@ const numberOrder: GameDefinition = {
   instructions: "Tap all numbers in ascending order. Errors add a 750ms penalty.",
   ranked: true,
   revealDurationMs: 0,
-  answerDurationMs: 12000,
+  answerDurationMs: 8000,
+  autoSubmitOnValid: true,
   submissionSchema: object({ order: z.array(z.number().int().min(0).max(9)).length(10) }) as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
@@ -377,7 +378,7 @@ const numberOrder: GameDefinition = {
     const numbers = challenge.numbers as Array<{ value: number }>;
     const order = numbers.map((_, index) => index).sort((a, b) => numbers[a].value - numbers[b].value);
     if (random() < 0.3) [order[7], order[8]] = [order[8], order[7]];
-    return { submission: { order }, completionTimeMs: botTime(random, 12000) };
+    return { submission: { order }, completionTimeMs: botTime(random, 8000) };
   },
 };
 

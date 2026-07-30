@@ -13,13 +13,13 @@ export function GameLibrary({
 }) {
   const featured = gameCatalog.filter((game) => featuredIds.has(game.id));
   return (
-    <section className="calm-library" aria-label="Game library">
+    <section id="game-library" className="calm-library" aria-label="Game library">
       <div className="calm-section-head">
         <div>
           <span>Suggested games</span>
           <p>Start with a familiar test, or open the full collection.</p>
         </div>
-        <button type="button" onClick={onExpand} aria-expanded={expanded}>
+        <button type="button" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
           {expanded ? "Hide all" : "See all"}
         </button>
       </div>
@@ -30,13 +30,13 @@ export function GameLibrary({
         ))}
       </div>
 
-      <button type="button" className="all-games-disclosure" onClick={onExpand} aria-expanded={expanded}>
+      <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
         <span><b>All games</b><small>12 challenges across sensory, mind, and experimental playlists</small></span>
         <span>{expanded ? "−" : "+"}</span>
       </button>
 
       {expanded && (
-        <div className="all-games-list">
+        <div id="all-games-list" className="all-games-list">
           {gameCatalog
             .filter((game) => !featuredIds.has(game.id))
             .map((game) => (

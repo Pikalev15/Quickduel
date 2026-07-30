@@ -50,6 +50,31 @@ export function ProfileDrawer({
   async function save() {
     setSaving(true);
     setMessage(null);
+    if (!profile) {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) {
+        setSaving(false);
+        setMessage("Profile creation needs Supabase configuration.");
+        return;
+      }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          setSaving(false);
+          setMessage("Could not create your player account. Please try again.");
+          return;
+        }
+      }
+      const { error } = await supabase.rpc("ensure_profile");
+      if (error) {
+        setSaving(false);
+        setMessage("Could not create your player profile. Please try again.");
+        return;
+      }
+    }
     const response = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -135,8 +160,11 @@ export function ProfileDrawer({
           </dl>
         )}
 
-        <Button onClick={() => void save()} disabled={saving || !profile}>
-          {saving ? "Saving…" : "Save profile"}
+        <Button
+          onClick={() => void save()}
+          disabled={saving || name.trim().length < 3}
+        >
+          {saving ? "Saving…" : profile ? "Save profile" : "Create profile"}
         </Button>
         <Button
           variant="secondary"

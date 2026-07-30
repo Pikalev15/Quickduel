@@ -7,6 +7,7 @@ import { Header } from "@/components/ui/header";
 import type { PublicProfile } from "@/types/database";
 import { getGame } from "@/games/registry";
 import type { GameId, PlaylistId } from "@/games/types";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type QueueResult = { queued: boolean; match_id: string | null };
 
@@ -61,6 +62,17 @@ export function MatchmakingScreen({
   const join = useCallback(async () => {
     try {
       setStatus(navigator.onLine ? "connecting" : "offline");
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) throw new Error("Matchmaking needs Supabase configuration.");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+      }
+      const { error: profileError } = await supabase.rpc("ensure_profile");
+      if (profileError) throw profileError;
       const [queue, profileResponse] = await Promise.all([
         postQueue("join", playlist, preferredGame),
         fetch("/api/profile", { cache: "no-store" }),

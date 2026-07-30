@@ -310,13 +310,13 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
   const numbers = (challenge.numbers as Array<{ value: number; x: number; y: number }> | undefined) ?? [];
   const [order, setOrder] = useState<number[]>([]);
   return (
-    <div className="number-field">
+    <div className="number-field" aria-label="Number selection grid">
       {numbers.map((number, index) => (
         <button
           type="button"
           disabled={disabled || order.includes(index)}
           key={index}
-          style={{ left: `${number.x}%`, top: `${number.y}%` }}
+          aria-label={`Select ${number.value}`}
           onClick={() => {
             const next = [...order, index];
             setOrder(next);
@@ -413,7 +413,12 @@ export function ReactionTestGame({ challenge, disabled, onChange }: GameComponen
     onChange({ reactionTimesMs: next, falseStarts: next.filter((value) => value === 1000).length }, next.length === waits.length);
   };
   return (
-    <button type="button" className={go ? "reaction-pad is-go" : "reaction-pad"} onClick={click}>
+    <button
+      type="button"
+      className={go ? "reaction-pad is-go" : "reaction-pad"}
+      disabled={disabled || trial >= waits.length}
+      onClick={click}
+    >
       {trial >= waits.length ? "Trials complete" : go ? "CLICK" : "Wait…"}
     </button>
   );

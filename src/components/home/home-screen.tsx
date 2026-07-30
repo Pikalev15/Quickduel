@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -40,9 +40,17 @@ export function HomeScreen() {
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const libraryRef = useRef<HTMLDivElement>(null);
+  const shouldFocusLibrary = useRef(false);
 
   useEffect(() => {
     let active = true;
+    const supabase = getSupabaseBrowserClient();
+    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUser(session?.user ?? null);
+      if (!session) setProfile(null);
+    });
     const loadPreferences = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem("quickduel:home-preferences");
@@ -55,7 +63,6 @@ export function HomeScreen() {
     }, 0);
 
     async function load() {
-      const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
       const [overview, sessionResult] = await Promise.all([
         fetch("/api/public/overview", { cache: "no-store" }),
@@ -81,6 +88,7 @@ export function HomeScreen() {
     return () => {
       active = false;
       window.clearTimeout(loadPreferences);
+      authListener?.data.subscription.unsubscribe();
     };
   }, []);
 
@@ -88,6 +96,24 @@ export function HomeScreen() {
     setPreferences(next);
     window.localStorage.setItem("quickduel:home-preferences", JSON.stringify(next));
   }, []);
+
+  const chooseGame = useCallback(() => {
+    shouldFocusLibrary.current = true;
+    updatePreferences({ ...preferences, showGameLibrary: true });
+  }, [preferences, updatePreferences]);
+
+  useEffect(() => {
+    if (!preferences.showGameLibrary || !shouldFocusLibrary.current) return;
+    shouldFocusLibrary.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      const library = libraryRef.current;
+      if (!library) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      library.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+      library.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [preferences.showGameLibrary]);
 
   async function play() {
     setStarting(true);
@@ -153,9 +179,8 @@ export function HomeScreen() {
           <button
             type="button"
             className="calm-secondary"
-            onClick={() =>
-              updatePreferences({ ...preferences, showGameLibrary: true })
-            }
+            aria-controls="game-library"
+            onClick={chooseGame}
           >
             Choose a game <ArrowIcon className="h-4 w-4" />
           </button>
@@ -176,15 +201,17 @@ export function HomeScreen() {
       </section>
 
       <div className="page-shell calm-content">
-        <GameLibrary
-          expanded={preferences.showGameLibrary}
-          onExpand={() =>
-            updatePreferences({
-              ...preferences,
-              showGameLibrary: !preferences.showGameLibrary,
-            })
-          }
-        />
+        <div className="game-library-anchor" ref={libraryRef} tabIndex={-1}>
+          <GameLibrary
+            expanded={preferences.showGameLibrary}
+            onExpand={() =>
+              updatePreferences({
+                ...preferences,
+                showGameLibrary: !preferences.showGameLibrary,
+              })
+            }
+          />
+        </div>
 
         {preferences.showHowItWorks && (
           <section className="calm-steps" aria-label="How QuickDuel works">
@@ -233,14 +260,15 @@ export function HomeScreen() {
         </nav>
       </footer>
 
-      <ProfileDrawer
-        key={`${profile?.display_name}:${profile?.accent_colour}`}
-        open={profileOpen}
-        profile={profile}
-        user={user}
-        onClose={() => setProfileOpen(false)}
-        onUpdated={setProfile}
-      />
+      {profileOpen && (
+        <ProfileDrawer
+          open
+          profile={profile}
+          user={user}
+          onClose={() => setProfileOpen(false)}
+          onUpdated={setProfile}
+        />
+      )}
     </main>
   );
 }

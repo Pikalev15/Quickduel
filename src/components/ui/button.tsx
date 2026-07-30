@@ -11,7 +11,7 @@ export function Button({
 }: Props) {
   const variants = {
     primary:
-      "bg-[var(--text)] text-[var(--accent-ink)] border-[var(--text)] hover:bg-[#2b2b2b] disabled:bg-[var(--border)] disabled:text-[var(--muted)]",
+      "bg-[var(--text)] text-[var(--accent-ink)] border-[var(--text)] hover:bg-[var(--primary-hover)] disabled:bg-[var(--border)] disabled:text-[var(--muted)]",
     secondary:
       "bg-transparent text-[var(--text)] border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)]",
     quiet:

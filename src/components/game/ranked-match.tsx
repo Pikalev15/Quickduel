@@ -109,13 +109,17 @@ export function RankedMatch({ matchId }: { matchId: string }) {
 
   useEffect(() => {
     if (phase !== "answer" || !answerEnd || me?.submitted_at) return;
+    if (game?.autoSubmitOnValid && canSubmit) {
+      void submit();
+      return;
+    }
     const timer = window.setTimeout(() => {
       if (canSubmit) void submit();
     }, Math.max(0, answerEnd - Date.now()));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answerEnd, canSubmit, phase, me?.submitted_at]);
+  }, [answerEnd, canSubmit, game?.autoSubmitOnValid, phase, me?.submitted_at]);
 
   async function submit() {
     if (!canSubmit) return;
@@ -273,7 +277,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 />
               )}
             </div>
-            {phase === "answer" && (
+            {phase === "answer" && !game?.autoSubmitOnValid && (
               <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit()}>
                 Lock answer
               </Button>

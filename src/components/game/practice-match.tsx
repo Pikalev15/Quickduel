@@ -141,10 +141,13 @@ export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }
                 onChange={(next, valid) => {
                   setSubmission(next);
                   setCanSubmit(valid);
+                  if (game.autoSubmitOnValid && valid && submittedAt === null) {
+                    setSubmittedAt(Math.min(Date.now(), answerEnd));
+                  }
                 }}
               />
             </div>
-            {phase === "answer" && (
+            {phase === "answer" && !game.autoSubmitOnValid && (
               <Button className="game-submit" disabled={!canSubmit} onClick={submit}>
                 Lock answer
               </Button>

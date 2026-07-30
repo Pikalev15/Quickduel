@@ -2,6 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { SettingsIcon } from "@/components/ui/icons";
+import {
+  useTheme,
+  type ThemePreference,
+} from "@/components/theme/theme-provider";
 
 export type HomePreferences = {
   showGameLibrary: boolean;
@@ -21,6 +25,7 @@ export function SettingsPopover({
   onChange: (preferences: HomePreferences) => void;
 }) {
   const wrapper = useRef<HTMLDivElement>(null);
+  const { preference, resolvedTheme, setPreference } = useTheme();
 
   useEffect(() => {
     if (!open) return;
@@ -69,9 +74,27 @@ export function SettingsPopover({
             checked={preferences.showHowItWorks}
             onChange={() => toggle("showHowItWorks")}
           />
-          <div className="theme-readout">
-            <span><i /> Theme</span>
-            <strong>Calm light</strong>
+          <div className="theme-picker">
+            <div>
+              <strong>Theme</strong>
+              <small>
+                {preference === "system"
+                  ? `Following system · ${resolvedTheme}`
+                  : `${preference[0].toUpperCase()}${preference.slice(1)} appearance`}
+              </small>
+            </div>
+            <div className="theme-options" aria-label="Theme" role="group">
+              {(["light", "dark", "system"] as ThemePreference[]).map((theme) => (
+                <button
+                  type="button"
+                  key={theme}
+                  aria-pressed={preference === theme}
+                  onClick={() => setPreference(theme)}
+                >
+                  {theme === "system" ? "Auto" : `${theme[0].toUpperCase()}${theme.slice(1)}`}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -91,7 +114,12 @@ function PreferenceToggle({
   onChange: () => void;
 }) {
   return (
-    <button type="button" className="preference-toggle" onClick={onChange}>
+    <button
+      type="button"
+      className="preference-toggle"
+      aria-pressed={checked}
+      onClick={onChange}
+    >
       <span>
         <strong>{label}</strong>
         <small>{help}</small>
