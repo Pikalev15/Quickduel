@@ -1,8 +1,8 @@
 # QuickDuel
 
-Accuracy first. Speed breaks ties.
+Accuracy first. Speed breaks ties—except Typing Sprint, where net WPM is the score.
 
-QuickDuel is a production-minded multiplayer collection of twelve short browser
+QuickDuel is a production-minded multiplayer collection of thirteen short browser
 games. It has anonymous entry, optional Google account linking, public and
 private duels, server-authoritative scoring/Elo, personal progression, weekly
 competition, lightweight friends, and clearly labelled Practice Bots.
@@ -21,9 +21,9 @@ Generated composition references live in `docs/design-references/`.
 - Concurrency-safe rating-aware queue with Quick, Sensory, Mind, Experimental,
   and single-game preferences
 - Explicit Practice Bot offer after eight seconds; never disguised or ranked
-- Ten ranked games and two experimental unranked games
+- Eleven ranked games and two experimental unranked games
 - Memory Grid answer window reduced from 12 seconds to 8 seconds
-- Correctness/accuracy first; server-measured completion time breaks ties
+- Correctness/accuracy first for most games; Typing Sprint ranks net WPM
 - Deterministic versioned challenges, Zod validation, and game-specific bots
 - Server-regenerated results, server-measured time, atomic idempotent Elo
 - Private per-match realtime subscription with authoritative reload on reconnect
@@ -138,3 +138,30 @@ New product and operations references:
 [`friends`](docs/friends.md), [`analytics`](docs/analytics.md),
 [`security`](docs/security.md), [`privacy`](docs/privacy.md), and
 [`admin`](docs/admin.md).
+
+## Ranked integrity and match chat
+
+Ranked ruleset 2 is server-authoritative. After both players are ready, the
+server assigns `starts_at`; once that official start is reached, the match is
+committed. The answer deadline is the start plus reveal and answer durations,
+followed by one database-owned five-second grace period. One valid submission
+versus one missing submission becomes a timeout forfeit with atomic Elo. Two
+missing submissions become a double timeout with no Elo or season points.
+Presence and browser timers are never proof of abandonment.
+
+Anonymous ratings remain visible to their owner but provisional. Permanent and
+weekly public leaderboards require a linked identity, five ranked human matches,
+and a normal account state. High-risk routes add short-lived HMAC network
+buckets and adaptive Turnstile verification.
+
+Live chat is limited to the two match participants. Blocking disables access,
+sends are rate limited, messages can be reported, and messages expire after
+seven days. There is no global chat or inbox.
+
+## Dependency updates
+
+Direct dependencies are pinned to exact lockfile versions and Node 22 is the
+supported production runtime. Dependabot opens grouped monthly npm and Actions
+PRs; security alerts may open sooner and are never auto-merged. Review upstream
+changelogs, run lint/typecheck/unit/E2E/build, perform browser smoke tests, and
+merge upgrades intentionally.

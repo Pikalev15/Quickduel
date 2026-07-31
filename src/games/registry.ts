@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { createRandom, integer, round, shuffle } from "./random";
+import {
+  TYPING_SPRINT_DURATION_MS,
+  TYPING_SPRINT_SUBMISSION_ALLOWANCE,
+  TYPING_SPRINT_WORD_COUNT,
+  typingSprintStatistics,
+} from "./typing-sprint";
 import type {
   Challenge,
   GameDefinition,
@@ -9,7 +15,9 @@ import type {
   PlaylistId,
   Submission,
 } from "./types";
-import { GAME_IDS } from "./types";
+import { ACTIVE_GAME_IDS } from "./types";
+import { TYPING_SPRINT_WORDS } from "./word-lists";
+import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
 
 const numberArray = (length: number, min: number, max: number) =>
   z.array(z.number().finite().min(min).max(max)).length(length);
@@ -40,7 +48,7 @@ const memoryGrid: GameDefinition = {
   description: "Memorize six charged cells, then recall them before the clock closes.",
   instructions: "Memorize the lit cells. Select every remembered cell; accuracy wins, speed breaks ties.",
   ranked: true,
-  revealDurationMs: 1750,
+  revealDurationMs: MEMORY_GRID_REVEAL_DURATION_MS,
   answerDurationMs: 8000,
   submissionSchema: object({
     selectedCells: z.array(z.number().int().min(0).max(15)).min(1).max(16),
@@ -167,6 +175,117 @@ const colourRecall: GameDefinition = {
         })),
       },
       completionTimeMs: botTime(random, 16000),
+    };
+  },
+};
+
+const frequencyRecallV2: GameDefinition = {
+  id: "frequency_recall_v2",
+  version: 2,
+  name: "Frequency Recall",
+  shortName: "Frequency",
+  category: "sensory",
+  description: "Reconstruct five tones one at a time for a score out of 50.",
+  instructions: "Five rounds. Hear one tone, rebuild it, then continue. Each round scores 0–10.",
+  ranked: true,
+  revealDurationMs: 0,
+  answerDurationMs: 30_000,
+  submissionSchema: object({ guessesHz: numberArray(5, 120, 2000) }) as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    return {
+      frequencies: Array.from({ length: 5 }, () =>
+        Math.round(120 * 2 ** (random() * Math.log2(2000 / 120))),
+      ),
+    };
+  },
+  publicChallenge: alwaysPublic,
+  calculate(challenge, submission) {
+    const expected = challenge.frequencies as number[];
+    const guesses = submission.guessesHz as number[];
+    const roundScores = expected.map((frequency, index) => {
+      const error = Math.abs(Math.log2(guesses[index] / frequency));
+      return round(10 * clamp01(1 - error / 1.5), 3);
+    });
+    const totalScore = round(roundScores.reduce((total, score) => total + score, 0), 3);
+    return result(totalScore, totalScore / 50, `${round(totalScore, 1)}/50`, {
+      totalScore,
+      ...Object.fromEntries(roundScores.map((score, index) => [`round${index + 1}`, score])),
+    });
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    return {
+      submission: {
+        guessesHz: (challenge.frequencies as number[]).map((frequency) =>
+          Math.max(
+            120,
+            Math.min(2000, Math.round(frequency * 2 ** ((random() - 0.5) * 0.28))),
+          ),
+        ),
+      },
+      completionTimeMs: botTime(random, 30_000),
+    };
+  },
+};
+
+const colourRecallV2: GameDefinition = {
+  id: "colour_recall_v2",
+  version: 2,
+  name: "Colour Recall",
+  shortName: "Colour",
+  category: "sensory",
+  description: "Reconstruct five colours one at a time for a score out of 50.",
+  instructions: "Five rounds. Study one colour, rebuild it, then continue. Each round scores 0–10.",
+  ranked: true,
+  revealDurationMs: 0,
+  answerDurationMs: 40_000,
+  submissionSchema: object({ colors: z.array(colorSchema).length(5) }) as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    return {
+      colors: Array.from({ length: 5 }, () => ({
+        l: integer(random, 45, 82),
+        c: integer(random, 10, 28),
+        h: integer(random, 0, 359),
+      })),
+    };
+  },
+  publicChallenge: alwaysPublic,
+  calculate(challenge, submission) {
+    const expected = challenge.colors as Array<{ l: number; c: number; h: number }>;
+    const guesses = submission.colors as typeof expected;
+    const roundScores = expected.map((color, index) => {
+      const guess = guesses[index];
+      const hue = Math.min(
+        Math.abs(color.h - guess.h),
+        360 - Math.abs(color.h - guess.h),
+      ) / 180;
+      const distance = Math.sqrt(
+        ((color.l - guess.l) / 55) ** 2 +
+        ((color.c - guess.c) / 28) ** 2 +
+        hue ** 2,
+      );
+      return round(10 * clamp01(1 - distance / 1.2), 3);
+    });
+    const totalScore = round(roundScores.reduce((total, score) => total + score, 0), 3);
+    return result(totalScore, totalScore / 50, `${round(totalScore, 1)}/50`, {
+      totalScore,
+      ...Object.fromEntries(roundScores.map((score, index) => [`round${index + 1}`, score])),
+    });
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const colors = challenge.colors as Array<{ l: number; c: number; h: number }>;
+    return {
+      submission: {
+        colors: colors.map((color) => ({
+          l: Math.max(35, Math.min(90, color.l + integer(random, -7, 7))),
+          c: Math.max(4, Math.min(32, color.c + integer(random, -4, 4))),
+          h: (color.h + integer(random, -26, 26) + 360) % 360,
+        })),
+      },
+      completionTimeMs: botTime(random, 40_000),
     };
   },
 };
@@ -456,6 +575,100 @@ const patternComplete: GameDefinition = {
   },
 };
 
+const typingSprint: GameDefinition = {
+  id: "typing_sprint",
+  version: 1,
+  name: "Typing Sprint",
+  shortName: "Typing",
+  category: "mind",
+  description: "Type a deterministic word stream for fifteen seconds.",
+  instructions: "Type quickly and accurately. Errors reduce your WPM.",
+  ranked: true,
+  revealDurationMs: 0,
+  answerDurationMs: TYPING_SPRINT_DURATION_MS,
+  submitAtDeadline: true,
+  submissionSchema: object({
+    typed: z
+      .string()
+      .max(1600)
+      .regex(/^[a-z ]*$/, "Use lowercase letters and spaces only."),
+  }) as z.ZodType<Submission>,
+  validateSubmission(challenge, submission) {
+    return (
+      typeof submission.typed === "string" &&
+      submission.typed.length <=
+        String(challenge.text).length + TYPING_SPRINT_SUBMISSION_ALLOWANCE
+    );
+  },
+  generate(seed) {
+    const random = createRandom(seed);
+    const words: string[] = [];
+    while (words.length < TYPING_SPRINT_WORD_COUNT) {
+      let index = Math.floor(random() * TYPING_SPRINT_WORDS.length);
+      if (words.at(-1) === TYPING_SPRINT_WORDS[index]) {
+        index = (index + 1) % TYPING_SPRINT_WORDS.length;
+      }
+      words.push(TYPING_SPRINT_WORDS[index]);
+    }
+    return {
+      words,
+      text: words.join(" "),
+      durationMs: TYPING_SPRINT_DURATION_MS,
+    };
+  },
+  publicChallenge: alwaysPublic,
+  calculate(challenge, submission) {
+    const statistics = typingSprintStatistics(
+      String(challenge.text),
+      String(submission.typed),
+    );
+    return result(
+      statistics.netWpm,
+      statistics.accuracy,
+      `${Math.round(statistics.netWpm)} wpm · ${Math.round(statistics.accuracy * 100)}% accuracy`,
+      {
+        correct: statistics.correctChars,
+        incorrect: statistics.incorrectChars,
+        grossWpm: round(statistics.grossWpm, 3),
+        netWpm: round(statistics.netWpm, 3),
+        accuracy: round(statistics.accuracy, 4),
+        typedChars: statistics.typedChars,
+        completedWords: statistics.completedWords,
+      },
+    );
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const targetWpm = 35 + random() * 30;
+    const targetLength = Math.min(
+      String(challenge.text).length,
+      Math.max(1, Math.round(targetWpm * 5 * (TYPING_SPRINT_DURATION_MS / 60_000))),
+    );
+    const characters = String(challenge.text).slice(0, targetLength).split("");
+    const letterPositions = characters
+      .map((character, index) => (/^[a-z]$/.test(character) ? index : -1))
+      .filter((index) => index >= 0);
+    const mistakes = Math.max(1, Math.round(letterPositions.length * (0.02 + random() * 0.05)));
+    for (let cursor = 0; cursor < mistakes; cursor += 1) {
+      const position = letterPositions[Math.floor(random() * letterPositions.length)];
+      const original = characters[position];
+      let replacement = String.fromCharCode(97 + Math.floor(random() * 26));
+      if (replacement === original) replacement = original === "z" ? "a" : String.fromCharCode(original.charCodeAt(0) + 1);
+      characters[position] = replacement;
+    }
+    if (random() < 0.5 && letterPositions.length > 8) {
+      characters.splice(letterPositions[Math.floor(random() * letterPositions.length)], 1);
+    } else if (letterPositions.length > 8) {
+      const position = letterPositions[Math.floor(random() * letterPositions.length)];
+      characters.splice(position, 0, characters[position]);
+    }
+    return {
+      submission: { typed: characters.join("") },
+      completionTimeMs: TYPING_SPRINT_DURATION_MS,
+    };
+  },
+};
+
 const reactionTest: GameDefinition = {
   id: "reaction_test",
   version: 1,
@@ -527,7 +740,9 @@ export const gameRegistry = new Map<GameId, GameDefinition>(
   [
     memoryGrid,
     frequencyRecall,
+    frequencyRecallV2,
     colourRecall,
+    colourRecallV2,
     timeRecall,
     shapeRecall,
     rhythmRecall,
@@ -535,6 +750,7 @@ export const gameRegistry = new Map<GameId, GameDefinition>(
     numberOrder,
     oddOneOut,
     patternComplete,
+    typingSprint,
     reactionTest,
     targetTap,
   ].map((game) => [game.id, game]),
@@ -547,10 +763,10 @@ export function getGame(gameId: string): GameDefinition {
 }
 
 export const playlistGames: Record<PlaylistId, GameId[]> = {
-  quick: GAME_IDS.filter((id) => getGame(id).ranked),
-  sensory: GAME_IDS.filter((id) => getGame(id).category === "sensory"),
-  mind: GAME_IDS.filter((id) => getGame(id).category === "mind"),
-  experimental: GAME_IDS.filter((id) => getGame(id).category === "experimental"),
+  quick: ACTIVE_GAME_IDS.filter((id) => getGame(id).ranked),
+  sensory: ACTIVE_GAME_IDS.filter((id) => getGame(id).category === "sensory"),
+  mind: ACTIVE_GAME_IDS.filter((id) => getGame(id).category === "mind"),
+  experimental: ACTIVE_GAME_IDS.filter((id) => getGame(id).category === "experimental"),
 };
 
 export function pickGame(seed: string, playlist: PlaylistId, preferredGame?: GameId | null) {

@@ -25,4 +25,32 @@ test.describe("live Supabase multiplayer", () => {
     ]);
     await Promise.all([first.close(), second.close()]);
   });
+
+  test("one missing submission becomes one idempotent timeout forfeit", async ({
+    browser,
+  }) => {
+    const first = await browser.newContext();
+    const second = await browser.newContext();
+    const firstPage = await first.newPage();
+    const secondPage = await second.newPage();
+    await Promise.all([firstPage.goto("/play"), secondPage.goto("/play")]);
+    await Promise.all([
+      firstPage.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 45_000 }),
+      secondPage.waitForURL(/\/match\/[0-9a-f-]{36}/, { timeout: 45_000 }),
+    ]);
+    await expect(firstPage.getByText(/Ranked duel/i)).toBeVisible({ timeout: 20_000 });
+    await second.close();
+    const submit = firstPage.getByRole("button", { name: "Lock answer" });
+    if (await submit.isVisible()) await submit.click();
+    await expect(
+      firstPage.getByText("Opponent failed to submit. Win by forfeit."),
+    ).toBeVisible({ timeout: 90_000 });
+    const ratingText = await firstPage.getByText(/→/).textContent();
+    await firstPage.reload();
+    await expect(
+      firstPage.getByText("Opponent failed to submit. Win by forfeit."),
+    ).toBeVisible();
+    expect(await firstPage.getByText(/→/).textContent()).toBe(ratingText);
+    await first.close();
+  });
 });

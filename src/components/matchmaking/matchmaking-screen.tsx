@@ -10,6 +10,7 @@ import type { GameId, PlaylistId } from "@/games/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
+import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
 type QueueResult = { queued: boolean; match_id: string | null };
 
@@ -17,10 +18,14 @@ async function postQueue(
   path: "join" | "heartbeat" | "leave",
   playlist: PlaylistId,
   preferredGame: GameId | null,
+  challengeToken?: string,
 ) {
   const response = await fetch(`/api/matchmaking/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(challengeToken ? { "x-quickduel-challenge": challengeToken } : {}),
+    },
     body: JSON.stringify(
       path === "leave" ? {} : { playlist, preferredGame },
     ),
@@ -28,8 +33,23 @@ async function postQueue(
     keepalive: path === "leave",
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "Matchmaking failed.");
+  if (!response.ok) {
+    const details = body.error?.details as {
+      challengeRequired?: boolean;
+      siteKey?: string | null;
+    } | undefined;
+    if (details?.challengeRequired) {
+      throw new QueueChallengeError(details.siteKey ?? null);
+    }
+    throw new Error(body.error?.message ?? "Matchmaking failed.");
+  }
   return body.data as QueueResult;
+}
+
+class QueueChallengeError extends Error {
+  constructor(readonly siteKey: string | null) {
+    super("Verification required");
+  }
 }
 
 export function MatchmakingScreen({
@@ -52,6 +72,7 @@ export function MatchmakingScreen({
   const [queueActivity, setQueueActivity] = useState<number | null>(null);
   const [duplicateTab, setDuplicateTab] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [challengeSiteKey, setChallengeSiteKey] = useState<string | null>(null);
   const queueStartedAt = useRef(0);
   const tabId = useRef("");
   const leaving = useRef(false);
@@ -81,7 +102,7 @@ export function MatchmakingScreen({
     [activeGame, activePlaylist, notificationsEnabled, router],
   );
 
-  const join = useCallback(async () => {
+  const join = useCallback(async (challengeToken?: string) => {
     try {
       setStatus(navigator.onLine ? "connecting" : "offline");
       const supabase = getSupabaseBrowserClient();
@@ -96,7 +117,7 @@ export function MatchmakingScreen({
       const { error: profileError } = await supabase.rpc("ensure_profile");
       if (profileError) throw profileError;
       const [queue, profileResponse] = await Promise.all([
-        postQueue("join", activePlaylist, activeGame),
+        postQueue("join", activePlaylist, activeGame, challengeToken),
         fetch("/api/profile", { cache: "no-store" }),
       ]);
       if (profileResponse.ok) {
@@ -108,7 +129,14 @@ export function MatchmakingScreen({
         playlist: activePlaylist,
         gameType: activeGame,
       });
+      setChallengeSiteKey(null);
     } catch (error) {
+      if (error instanceof QueueChallengeError) {
+        setStatus(error.siteKey ? "connecting" : "error");
+        setMessage(error.siteKey ? "Verification required" : "Verification is temporarily unavailable");
+        setChallengeSiteKey(error.siteKey);
+        return;
+      }
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Matchmaking failed.");
     }
@@ -279,6 +307,14 @@ export function MatchmakingScreen({
         <time className="display mt-7 text-5xl tabular-nums" aria-live="polite">
           00:{String(seconds).padStart(2, "0")}
         </time>
+        {challengeSiteKey && (
+          <AdaptiveChallenge
+            siteKey={challengeSiteKey}
+            onToken={(token) => {
+              if (token) void join(token);
+            }}
+          />
+        )}
         <div className="mt-7 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-[var(--muted)]">
           <span>
             Player{" "}
@@ -338,7 +374,7 @@ export function MatchmakingScreen({
               </Button>
               <Button
                 onClick={() =>
-                  void cancel(`/match/practice?game=${activeGame ?? (activePlaylist === "sensory" ? "frequency_recall" : activePlaylist === "experimental" ? "reaction_test" : "memory_grid")}&seed=${Date.now()}`)
+                  void cancel(`/match/practice?game=${activeGame ?? (activePlaylist === "sensory" ? "frequency_recall_v2" : activePlaylist === "experimental" ? "reaction_test" : "memory_grid")}&seed=${Date.now()}`)
                 }
               >
                 Practise against bot

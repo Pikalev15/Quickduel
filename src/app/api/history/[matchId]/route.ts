@@ -26,11 +26,21 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type")
+      .select("challenge_seed,game_type,game_version")
       .eq("id", matchId.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing");
-    const challenge = getGame(privateMatch.game_type).generate(String(privateMatch.challenge_seed));
+    const game = getGame(privateMatch.game_type);
+    if (game.version !== privateMatch.game_version) {
+      return apiError(
+        409,
+        "CONFLICT",
+        "Match game version is not supported.",
+        undefined,
+        correlationId,
+      );
+    }
+    const challenge = game.generate(String(privateMatch.challenge_seed));
     return apiSuccess({ ...data, challenge }, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/history/[matchId]");

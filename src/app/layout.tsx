@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s · QuickDuel",
   },
   description:
-    "Play twelve short, fair, server-authoritative perception games against other players.",
+    "Play thirteen short, fair, server-authoritative perception games against other players.",
 };
 
 export const viewport: Viewport = {

@@ -1,3 +1,5 @@
+import type { GameId } from "@/games/types";
+
 export type MatchStatus =
   | "waiting"
   | "countdown"
@@ -76,21 +78,18 @@ export type MatchPlayer = {
 export type MatchSnapshot = {
   id: string;
   status: MatchStatus;
-  game_type:
-    | "memory_grid"
-    | "frequency_recall"
-    | "colour_recall"
-    | "time_recall"
-    | "shape_recall"
-    | "rhythm_recall"
-    | "dot_estimate"
-    | "number_order"
-    | "odd_one_out"
-    | "pattern_complete"
-    | "reaction_test"
-    | "target_tap";
-  game_version: 1;
+  game_type: GameId;
+  game_version: number;
   ranked: boolean;
+  ruleset_version?: number;
+  completion_reason?:
+    | "normal"
+    | "timeout_forfeit"
+    | "double_timeout"
+    | "cancelled_before_start"
+    | "admin_invalidated"
+    | null;
+  committed_at?: string | null;
   phase: "waiting" | "countdown" | "reveal" | "answer" | "result";
   challenge: Record<string, unknown>;
   reveal_duration_ms: number;
@@ -146,6 +145,13 @@ export type MatchHistoryItem = {
   player_time_ms: number;
   opponent_time_ms: number;
   completed_at: string;
+  completion_reason:
+    | "normal"
+    | "timeout_forfeit"
+    | "double_timeout"
+    | "cancelled_before_start"
+    | "admin_invalidated"
+    | null;
   source: "public_queue" | "private_duel";
   private_duel_id: string | null;
   series_round: number | null;

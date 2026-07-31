@@ -14,6 +14,12 @@ definition’s Zod schema, and calculates a normalized result. PostgreSQL measur
 completion time from the official start and atomically finalizes the result,
 per-game stats, and Elo when both answers exist.
 
+The registry contains thirteen active IDs plus the immutable
+`frequency_recall` and `colour_recall` v1 definitions. New matches select the v2
+IDs, while historical rows keep resolving to the exact legacy definition. The
+submission and challenge routes verify that the registry definition's numeric
+version matches the persisted `game_version`.
+
 ## Matchmaking transaction
 
 `join_matchmaking`:
@@ -54,7 +60,8 @@ public cards use a separate opt-in projection.
 - Both ready calls are required before `starts_at` is assigned.
 - `starts_at` is three seconds in the future and cannot be submitted by clients.
 - The reveal and answer windows are derived from persisted durations.
-- Expired incomplete matches become `abandoned` with no automatic rating award.
+- Ruleset-1 incomplete matches retain their historical abandonment behavior.
+  Ruleset-2 expiry uses the locked timeout-forfeit finalizer described below.
 - Duplicate answer writes are rejected by the `submitted_at is null` guard.
 - Completion locks the match row and returns immediately if already completed.
 
@@ -65,12 +72,19 @@ while a short phase-aware poll reloads the authoritative snapshot. Participant-
 scoped policies on `realtime.messages` prevent access to other match topics.
 There is no custom WebSocket server or high-frequency animation stream.
 
-## Elo finalization
+## Scoring and Elo finalization
 
 Ranked human matches use K=32 and a 100–4000 clamp. Accuracy/result rank wins
 first; server completion time breaks equal results, with a 10ms draw window. Both
 profile updates, both `rating_after` values, statistics, winner, and completed
 timestamp commit together.
+
+Most QuickDuel games rank accuracy first and use speed only as a tiebreaker.
+Typing Sprint is an explicit exception: net WPM is the primary result because
+speed and accuracy are inseparable parts of typing performance. Its server
+scoring always uses the fixed 15-second duration, then compares accuracy,
+correct characters, fewer incorrect characters, and trusted receipt time only
+when net WPM is equal.
 
 ## Bot isolation
 
@@ -103,7 +117,24 @@ webhook receives sanitized errors. Database roles protect admin aggregates and
 enforcement; audit rows record sensitive changes. Analytics is best effort and
 isolated from match completion.
 
-Future hardening includes edge/IP throttling, CAPTCHA only at demonstrated abuse
-thresholds, scheduled analytics deletion, compensating Elo corrections, replay
-validation, and better bot detection. Do not add invasive fingerprinting or
-unnecessary personal data.
+Future hardening includes scheduled analytics deletion, compensating Elo
+corrections, replay validation, and better bot detection. The current HMAC
+network throttling and threshold-triggered CAPTCHA deliberately avoid invasive
+fingerprinting and unnecessary personal data.
+
+## Ruleset 2 expiry lifecycle
+
+`mark_match_ready` writes the official `starts_at` after both participant rows
+have `ready_at`. That persisted schedule, not Realtime Presence, defines the
+commitment and deadline. `ranked_forfeit_grace_seconds()` is the single source
+for the five-second grace period.
+
+Submissions and expiry share `finalize_match_outcome_locked`. It locks the match,
+rechecks terminal state, calculates one outcome, updates ratings, records the
+reason, and completes the match in one transaction. The batch finalizer uses
+`FOR UPDATE SKIP LOCKED`; repeated calls are terminal no-ops. Existing rows keep
+ruleset 1, so no historical abandonment is reinterpreted.
+
+`match_chat_messages` is a short-retention participant projection. Authenticated
+RPCs own sends/reports, Postgres Changes provides low-latency delivery, and a
+three-second poll is the fallback. Chat has no authority over match state.

@@ -17,7 +17,16 @@ and manual ban. Restrictions are checked in database functions, not only in the
 UI. Blocks are bilateral for social/duel interaction but do not reveal who
 blocked whom.
 
-Current limits are account based. Excessive account creation and cross-account
-simultaneous sessions cannot be safely correlated without edge data or invasive
-fingerprinting, so they are not automatically flagged in this release. IP-layer
-throttling/CAPTCHA should be added at the edge only if public abuse warrants it.
+Account limits remain the first layer. Ruleset 2 adds an edge layer: trusted
+routes use a separate HMAC network
+bucket for queue joins, submissions, duel creation, friend requests,
+invitations, and match-chat actions. Limits are generous because homes, schools,
+carrier NAT, and public Wi-Fi legitimately share addresses. Digests are
+short-lived review/throttle inputs, never automatic permanent-ban evidence.
+
+At 70% of a network threshold, anonymous traffic receives an adaptive Cloudflare
+Turnstile check. Siteverify and its secret stay server-side. Anonymous accounts
+can still play and keep their history/rating, but public rankings require a
+linked identity, five ranked human matches, and no restriction. Low opponent
+diversity and high-frequency ranked pairs create deduplicated review flags.
+These controls raise farming cost; they do not make Sybil abuse impossible.

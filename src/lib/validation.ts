@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GAME_IDS } from "../games/types";
+import { ACTIVE_GAME_IDS, GAME_IDS } from "../games/types";
 
 export const matchIdSchema = z.string().uuid();
 
@@ -28,13 +28,13 @@ export const queueRequestSchema = z
     playlist: z
       .enum(["quick", "sensory", "mind", "experimental"])
       .default("quick"),
-    preferredGame: z.enum(GAME_IDS).nullable().default(null),
+    preferredGame: z.enum(ACTIVE_GAME_IDS).nullable().default(null),
   })
   .strict()
   .superRefine((value, context) => {
     const category: Record<string, string> = {
-      frequency_recall: "sensory",
-      colour_recall: "sensory",
+      frequency_recall_v2: "sensory",
+      colour_recall_v2: "sensory",
       time_recall: "sensory",
       shape_recall: "sensory",
       rhythm_recall: "sensory",
@@ -43,6 +43,7 @@ export const queueRequestSchema = z
       number_order: "mind",
       odd_one_out: "mind",
       pattern_complete: "mind",
+      typing_sprint: "mind",
       reaction_test: "experimental",
       target_tap: "experimental",
     };
@@ -91,7 +92,7 @@ export const duelCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9]{8
 export const privateDuelCreateSchema = z
   .object({
     selectionKind: z.enum(["game", "playlist"]),
-    game: z.enum(GAME_IDS).nullable().default(null),
+    game: z.enum(ACTIVE_GAME_IDS).nullable().default(null),
     playlist: z.enum(["quick", "sensory", "mind", "experimental"]),
     bestOf: z.union([z.literal(1), z.literal(3), z.literal(5)]),
     ranked: z.boolean().default(false),
@@ -122,6 +123,15 @@ export const historyCursorSchema = z.object({
   before: z.string().datetime({ offset: true }).optional(),
   beforeId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const matchChatMessageSchema = z.object({
+  body: z.string().trim().min(1).max(280),
+});
+
+export const matchChatReportSchema = z.object({
+  messageId: z.string().uuid(),
+  reason: z.enum(["harassment", "spam", "personal_info", "other"]),
 });
 
 export const friendSearchSchema = z.object({

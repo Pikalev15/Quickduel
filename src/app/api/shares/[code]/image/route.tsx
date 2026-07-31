@@ -26,6 +26,7 @@ export async function GET(
   if (error || !data) return new Response("Not found", { status: 404 });
   const players = data.players as SharedPlayer[];
   const game = getGame(data.game_type);
+  const typingSprint = data.game_type === "typing_sprint";
   const winner = players.find((player) => player.winner);
   return new ImageResponse(
     (
@@ -50,7 +51,7 @@ export async function GET(
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", fontSize: 28, color: "#3157d5", textTransform: "uppercase", letterSpacing: 4 }}>
-            {game.name}
+            {typingSprint ? "QUICKDUEL TYPING SPRINT" : game.name}
           </div>
           <div style={{ display: "flex", fontSize: 92, lineHeight: 1, fontWeight: 800, marginTop: 18 }}>
             {winner ? "Victory" : "Draw"}
@@ -81,7 +82,9 @@ export async function GET(
           ))}
         </div>
         <div style={{ display: "flex", fontSize: 22, color: "#6d6c67" }}>
-          Accuracy first. Speed breaks ties.
+          {typingSprint
+            ? "Typing Sprint ranks net WPM. Errors reduce your score."
+            : "Accuracy first. Speed breaks ties."}
         </div>
       </div>
     ),

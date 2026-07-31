@@ -53,8 +53,9 @@ keep the home page focused.
 
 ### Matches, scoring, and rematches
 
-- Twelve games are registered in a deterministic server/client registry.
-- Ten games are ranked; Reaction Test and Target Tap are experimental unranked.
+- Thirteen active games plus two immutable legacy recall versions are registered
+  in the deterministic server/client registry.
+- Eleven games are ranked; Reaction Test and Target Tap are experimental unranked.
 - Challenge seeds are stored in `matches` and never included in participant
   table grants.
 - The server regenerates challenges, validates submissions with each game's Zod
@@ -96,7 +97,8 @@ authenticated navigation and server error/correlation handling are minimal.
 
 ## Existing test coverage
 
-- All twelve challenge generators and submission schemas
+- All thirteen active challenge generators, both legacy versions, and their
+  submission schemas
 - Game scoring and accuracy-before-speed comparison
 - Practice Bot payloads
 - Elo symmetry, bounds, and draws

@@ -11,6 +11,8 @@ import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
 import { track } from "@/lib/analytics";
+import { MatchChat } from "@/components/match-chat/match-chat";
+import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -22,7 +24,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export function RankedMatch({ matchId }: { matchId: string }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
-  const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [connected, setConnected] = useState(true);
@@ -31,6 +32,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [rematchWaiting, setRematchWaiting] = useState(false);
   const readySent = useRef(false);
   const submissionSent = useRef(false);
+  const submissionRef = useRef<Submission>({});
+  const canSubmitRef = useRef(false);
   const trackedStatuses = useRef(new Set<string>());
 
   const reload = useCallback(async () => {
@@ -121,7 +124,19 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         ? "ended"
         : me?.submitted_at
           ? "submitted"
-          : snapshot?.phase ?? "waiting";
+          : start === null
+            ? snapshot?.phase ?? "waiting"
+            : now < start
+              ? "countdown"
+              : answerStart !== null && now < answerStart
+                ? "reveal"
+                : "answer";
+  const phaseElapsedMs =
+    phase === "reveal" && start !== null ? Math.max(0, now - start) : 0;
+  const memoryHolding =
+    game?.id === "memory_grid" &&
+    phase === "reveal" &&
+    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
 
   useEffect(() => {
     if (!snapshot || trackedStatuses.current.has(snapshot.status)) return;
@@ -151,21 +166,28 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       return;
     }
     const timer = window.setTimeout(() => {
-      void submit(true);
+      void submit(!game?.submitAtDeadline);
     }, Math.max(0, answerEnd - Date.now()));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answerEnd, canSubmit, game?.autoSubmitOnValid, phase, me?.submitted_at]);
+  }, [
+    answerEnd,
+    canSubmit,
+    game?.autoSubmitOnValid,
+    game?.submitAtDeadline,
+    phase,
+    me?.submitted_at,
+  ]);
 
   async function submit(timedOut = false) {
-    if ((!timedOut && !canSubmit) || submissionSent.current) return;
+    if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
     submissionSent.current = true;
     try {
       await request(`/api/matches/${matchId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ submission, timedOut }),
+        body: JSON.stringify({ submission: submissionRef.current, timedOut }),
       });
       await reload();
     } catch (caught) {
@@ -209,14 +231,27 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }
 
   if (phase === "result" && snapshot && me?.result && opponent?.result) {
-    const outcome = compareGameResults(
-      me.result,
-      me.completion_time_ms ?? 0,
-      opponent.result,
-      opponent.completion_time_ms ?? 0,
-    );
+    const outcome = snapshot.completion_reason === "timeout_forfeit"
+      ? snapshot.winner_id === currentUserId ? "win" : "loss"
+      : snapshot.completion_reason === "double_timeout"
+        ? "draw"
+        : compareGameResults(
+            me.result,
+            me.completion_time_ms ?? 0,
+            opponent.result,
+            opponent.completion_time_ms ?? 0,
+          );
+    const completionNotice = snapshot.completion_reason === "timeout_forfeit"
+      ? outcome === "win"
+        ? "Opponent failed to submit. Win by forfeit."
+        : "You did not submit before the deadline. Ranked loss applied."
+      : snapshot.completion_reason === "double_timeout"
+        ? "Neither player submitted. No rating change."
+        : snapshot.completion_reason === "admin_invalidated"
+          ? "This match was invalidated. No rating change."
+          : undefined;
     return (
-      <main className="min-h-screen">
+      <main className="has-match-chat min-h-screen">
         <GameHeader
           player={me.display_name}
           playerRating={me.rating_after ?? me.rating_before}
@@ -237,6 +272,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             timeMs: me.completion_time_ms ?? 0,
             ratingBefore: me.rating_before,
             ratingAfter: me.rating_after ?? me.rating_before,
+            details: me.result.details,
           }}
           opponent={{
             name: opponent.display_name,
@@ -247,6 +283,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             timeMs: opponent.completion_time_ms ?? 0,
             ratingBefore: opponent.rating_before,
             ratingAfter: opponent.rating_after ?? opponent.rating_before,
+            details: opponent.result.details,
           }}
           unranked={!snapshot.ranked}
           rematchWaiting={rematchWaiting}
@@ -264,7 +301,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           rematchLabel={snapshot.private_duel_code ? "Return to series" : "Rematch"}
           nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
           onCreateShare={createShareUrl}
+          completionNotice={completionNotice}
+          resultTitle={snapshot.completion_reason === "double_timeout" ? "No result" : undefined}
         />
+        <MatchChat matchId={matchId} currentUserId={snapshot.current_user_id} />
       </main>
     );
   }
@@ -282,7 +322,11 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         />
         <section className="page-shell match-center text-center">
           <h1 className="display text-6xl">Match ended</h1>
-          <p className="mt-4 text-[var(--muted)]">The duel expired. No rating was awarded.</p>
+          <p className="mt-4 text-[var(--muted)]">
+            {snapshot?.completion_reason === "cancelled_before_start"
+              ? "Match cancelled before start. No rating change."
+              : "The duel ended. No rating was awarded."}
+          </p>
           <Button className="mt-7" onClick={() => router.push("/play")}>Find new opponent</Button>
         </section>
       </main>
@@ -293,7 +337,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
-    <main className="min-h-screen">
+    <main className={`has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader
         player={me?.display_name ?? "Loading…"}
         playerRating={me?.rating_before ?? 1000}
@@ -321,7 +365,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 <h1 className="display">{game?.name}</h1>
               </div>
               <div className="game-timer">
-                {phase === "reveal" ? "OBSERVE" : phase === "submitted" ? "LOCKED" : `${(remaining / 1000).toFixed(1)}s`}
+                {memoryHolding
+                  ? "HOLD"
+                  : phase === "reveal"
+                    ? "OBSERVE"
+                    : phase === "submitted"
+                      ? "LOCKED"
+                      : `${(remaining / 1000).toFixed(1)}s`}
               </div>
             </div>
             <p className="game-instructions">
@@ -332,18 +382,23 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <div className="game-stage">
               {snapshot && (
                 <GameRenderer
-                  key={`${snapshot?.id}:${snapshot?.phase}`}
+                  key={`${snapshot.id}:${phase}`}
                   gameId={snapshot.game_type}
-                  challenge={snapshot?.challenge ?? {}}
+                  challenge={game?.publicChallenge(
+                    snapshot?.challenge ?? {},
+                    phase === "reveal" ? "reveal" : "answer",
+                  ) ?? {}}
                   disabled={phase !== "answer"}
+                  phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {
-                    setSubmission(next);
+                    submissionRef.current = next;
+                    canSubmitRef.current = valid;
                     setCanSubmit(valid);
                   }}
                 />
               )}
             </div>
-            {phase === "answer" && !game?.autoSubmitOnValid && (
+            {phase === "answer" && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
               <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
                 Lock answer
               </Button>
@@ -352,6 +407,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           </>
         )}
       </section>
+      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} />}
       {error && <ErrorToast message={error} />}
     </main>
   );

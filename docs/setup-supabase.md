@@ -112,3 +112,14 @@ Bootstrap the first database-backed admin only if the deployment needs the
 restricted admin screen. Follow `docs/admin.md`; do not use a public environment
 variable or commit a user UUID. Anonymous sign-ins must remain enabled for
 unranked entry, and Google linking must upgrade the current identity.
+
+Apply `202607310002_ranked_integrity_and_match_chat.sql` only after a linked
+dry-run, database lint, and backup. Confirm `match_chat_messages` appears in the
+`supabase_realtime` publication.
+
+Create separate Cloudflare Turnstile widgets for localhost/test and production.
+The public key belongs in `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; the Siteverify secret
+belongs in `TURNSTILE_SECRET_KEY`. Generate `RATE_LIMIT_HASH_KEY` independently
+from Supabase keys. Rotation creates new buckets, so rotate during a quiet
+window and let old digests expire. Production must never enable
+`ABUSE_CHALLENGE_DEV_BYPASS`.

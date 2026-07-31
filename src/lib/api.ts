@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import type { ZodError } from "zod";
-
 export type ApiErrorCode =
   | "BACKEND_NOT_CONFIGURED"
   | "UNAUTHENTICATED"
@@ -15,7 +13,7 @@ export function apiError(
   status: number,
   code: ApiErrorCode,
   message: string,
-  details?: ZodError["issues"],
+  details?: unknown,
   correlationId?: string,
 ) {
   const id = correlationId ?? crypto.randomUUID();
