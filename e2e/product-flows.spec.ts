@@ -126,6 +126,7 @@ test("history renders cursor page and meaningful game summaries", async ({ page 
               player_time_ms: 2400,
               opponent_time_ms: 3100,
               completed_at: new Date().toISOString(),
+              completion_reason: "timeout_forfeit",
               source: "private_duel",
               private_duel_id: null,
               series_round: 2,
@@ -142,6 +143,104 @@ test("history renders cursor page and meaningful game summaries", async ({ page 
   await expect(page.getByText("34 pitch-error")).toBeVisible();
   await expect(page.getByText("+17 Elo")).toBeVisible();
   await expect(page.getByText("Private duel · Round 2")).toBeVisible();
+  await expect(page.getByText("Timeout forfeit")).toBeVisible();
+});
+
+test("timeout result is not presented as an accuracy win and match chat stays scoped", async ({
+  page,
+}, testInfo) => {
+  const matchId = "00000000-0000-4000-8000-000000000099";
+  const playerId = "00000000-0000-4000-8000-000000000001";
+  const opponentId = "00000000-0000-4000-8000-000000000002";
+  await page.route(`**/api/matches/${matchId}`, (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          id: matchId,
+          status: "completed",
+          game_type: "memory_grid",
+          game_version: 1,
+          ranked: true,
+          phase: "result",
+          challenge: {},
+          reveal_duration_ms: 1750,
+          answer_duration_ms: 8000,
+          starts_at: new Date(Date.now() - 20_000).toISOString(),
+          expires_at: new Date(Date.now() - 5_000).toISOString(),
+          winner_id: playerId,
+          completed_at: new Date().toISOString(),
+          completion_reason: "timeout_forfeit",
+          rematch_match_id: null,
+          current_user_id: playerId,
+          players: [
+            {
+              user_id: playerId,
+              display_name: "Levi",
+              ready_at: new Date().toISOString(),
+              submitted_at: new Date().toISOString(),
+              calculated_score: 100,
+              correct_count: 6,
+              incorrect_count: 0,
+              completion_time_ms: 1800,
+              rating_before: 1000,
+              rating_after: 1016,
+              rating_delta: 16,
+              rematch_requested_at: null,
+              result: {
+                rankScore: 100,
+                accuracy: 1,
+                summary: "6 remembered",
+                details: { correct: 6 },
+              },
+            },
+            {
+              user_id: opponentId,
+              display_name: "Nova",
+              ready_at: new Date().toISOString(),
+              submitted_at: null,
+              calculated_score: -999999,
+              correct_count: 0,
+              incorrect_count: 0,
+              completion_time_ms: 8000,
+              rating_before: 1000,
+              rating_after: 984,
+              rating_delta: -16,
+              rematch_requested_at: null,
+              result: {
+                rankScore: -999999,
+                accuracy: 0,
+                summary: "No answer",
+                details: { timedOut: true },
+              },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.route(`**/api/matches/${matchId}/chat`, (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: [{
+          id: "00000000-0000-4000-8000-000000000199",
+          sender_id: opponentId,
+          sender_name: "Nova",
+          body: "gg",
+          created_at: new Date().toISOString(),
+        }],
+      },
+    }),
+  );
+  await page.goto(`/match/${matchId}`);
+  await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible();
+  await expect(page.getByText("Opponent failed to submit. Win by forfeit.")).toBeVisible();
+  await expect(page.getByText("Match chat")).toBeVisible();
+  await expect(page.getByText("Only this 1v1 · kept 7 days")).toBeVisible();
+  await expect(page.getByText("gg", { exact: true })).toBeVisible();
+  await expect(page.getByText(/accuracy victory/i)).toHaveCount(0);
+  await captureProductScreenshot(page, testInfo, "ranked-timeout-chat");
 });
 
 test("statistics use game-specific metrics and division thresholds", async ({ page }) => {
