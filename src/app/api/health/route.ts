@@ -1,5 +1,6 @@
 import { apiSuccess, requestCorrelationId } from "@/lib/api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,10 @@ export async function GET(request: Request) {
   const correlationId = requestCorrelationId(request);
   let supabase = false;
   let migrationCompatible = false;
+  let expirySweep: {
+    last_expiry_sweep_at: string | null;
+    last_expiry_sweep_count: number;
+  } | null = null;
   try {
     const client = await createSupabaseServerClient();
     const [connectivity, migration] = await Promise.all([
@@ -15,6 +20,14 @@ export async function GET(request: Request) {
     ]);
     supabase = !connectivity.error;
     migrationCompatible = !migration.error;
+    if (migrationCompatible) {
+      const runtime = await createSupabaseAdminClient()
+        .from("integrity_runtime")
+        .select("last_expiry_sweep_at,last_expiry_sweep_count")
+        .eq("singleton", true)
+        .maybeSingle();
+      if (!runtime.error) expirySweep = runtime.data;
+    }
   } catch {
     // Health responses remain safe and explicit when configuration is absent.
   }
@@ -28,6 +41,7 @@ export async function GET(request: Request) {
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
       supabase,
       migrationCompatible,
+      expirySweep,
       timestamp: new Date().toISOString(),
     },
     supabase && migrationCompatible ? 200 : 503,
