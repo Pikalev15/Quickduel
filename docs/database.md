@@ -41,3 +41,19 @@ Run `npx supabase db push --dry-run`, `npx supabase db push`, then
 The new migration is
 `supabase/migrations/202607310001_retention_social_progression.sql`; its pgTAP
 contract is `supabase/tests/retention_verification.sql`.
+
+## Ranked integrity migration
+
+`202607310002_ranked_integrity_and_match_chat.sql` adds:
+
+- `matches.ruleset_version`, `committed_at`, and `completion_reason`;
+- locked normal/expiry finalizers and an `integrity_runtime` sweep heartbeat;
+- stable submission error details;
+- HMAC-only network buckets with short retention;
+- database-enforced public and season eligibility;
+- participant-only match chat, reports, RLS, Realtime publication, and cleanup;
+- an open-abuse-flag deduplication index and new farming review signals.
+
+Existing rows receive ruleset 1. Only newly created matches default to ruleset 2.
+The cron calls `finalize_expired_matches(200)` and
+`cleanup_integrity_data()`.

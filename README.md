@@ -138,3 +138,30 @@ New product and operations references:
 [`friends`](docs/friends.md), [`analytics`](docs/analytics.md),
 [`security`](docs/security.md), [`privacy`](docs/privacy.md), and
 [`admin`](docs/admin.md).
+
+## Ranked integrity and match chat
+
+Ranked ruleset 2 is server-authoritative. After both players are ready, the
+server assigns `starts_at`; once that official start is reached, the match is
+committed. The answer deadline is the start plus reveal and answer durations,
+followed by one database-owned five-second grace period. One valid submission
+versus one missing submission becomes a timeout forfeit with atomic Elo. Two
+missing submissions become a double timeout with no Elo or season points.
+Presence and browser timers are never proof of abandonment.
+
+Anonymous ratings remain visible to their owner but provisional. Permanent and
+weekly public leaderboards require a linked identity, five ranked human matches,
+and a normal account state. High-risk routes add short-lived HMAC network
+buckets and adaptive Turnstile verification.
+
+Live chat is limited to the two match participants. Blocking disables access,
+sends are rate limited, messages can be reported, and messages expire after
+seven days. There is no global chat or inbox.
+
+## Dependency updates
+
+Direct dependencies are pinned to exact lockfile versions and Node 22 is the
+supported production runtime. Dependabot opens grouped monthly npm and Actions
+PRs; security alerts may open sooner and are never auto-merged. Review upstream
+changelogs, run lint/typecheck/unit/E2E/build, perform browser smoke tests, and
+merge upgrades intentionally.

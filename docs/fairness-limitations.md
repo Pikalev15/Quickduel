@@ -15,7 +15,18 @@ display/audio capture, network latency, device refresh rate, input hardware, and
 accessibility needs also affect comparisons. Reaction Test and Target Tap are
 therefore experimental and unranked.
 
-The MVP does not include replay telemetry, device attestation, anomaly
-detection, moderation, CAPTCHA, or bans. A production competitive season should
-add those controls, rate limits, abuse monitoring, and a documented appeals
-process before awarding material prizes.
+The product includes review flags, enforcement states, adaptive CAPTCHA, and
+match-chat reporting, but not replay telemetry or device attestation. A
+production competition with material prizes would still require stronger
+moderation staffing, an appeals process, and additional anti-cheat evidence.
+
+Network HMAC buckets and provisional rankings reduce cheap anonymous rotation,
+but shared-network false positives require generous limits and sophisticated
+attackers can change networks. Turnstile raises automation cost; it does not
+prove one human equals one account.
+
+If the scheduler or database is unavailable, timeout finalization is delayed
+rather than guessed by the browser. Service outages around a deadline can still
+require operational review. Sensory and visual challenges can be recorded,
+replayed, or analyzed by browser automation; this remains a casual ranking
+system, not high-stakes cheat resistance.

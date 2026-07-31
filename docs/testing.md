@@ -67,3 +67,20 @@ npx supabase db lint --linked --level warning
 For Google, test both flows: signed-out OAuth creates a permanent player, and an
 anonymous player’s **Protect progress with Google** action keeps the same
 profile ID/rating after returning through `/auth/callback`.
+
+`supabase/tests/ranked_integrity_verification.sql` covers the ruleset boundary,
+grants, RLS, row locking, `SKIP LOCKED`, one-player timeout Elo, double-timeout
+no-Elo, pre-start cancellation, and retry idempotency. Run it only against a
+disposable fully migrated database.
+
+Run the live exploit case with:
+
+```bash
+E2E_LIVE_SUPABASE=1 npm run test:e2e:live
+```
+
+Manual verification requires two desktop contexts and a mobile viewport. Cover
+normal ranked completion, one missing submission, double timeout, pre-start
+departure, reconnect inside grace, ranked/unranked private series, history
+reason, provisional permanent/season boards, match chat send/Realtime fallback/
+mute/report/block, admin review, and at least one round in all twelve games.

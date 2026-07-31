@@ -103,7 +103,24 @@ webhook receives sanitized errors. Database roles protect admin aggregates and
 enforcement; audit rows record sensitive changes. Analytics is best effort and
 isolated from match completion.
 
-Future hardening includes edge/IP throttling, CAPTCHA only at demonstrated abuse
-thresholds, scheduled analytics deletion, compensating Elo corrections, replay
-validation, and better bot detection. Do not add invasive fingerprinting or
-unnecessary personal data.
+Future hardening includes scheduled analytics deletion, compensating Elo
+corrections, replay validation, and better bot detection. The current HMAC
+network throttling and threshold-triggered CAPTCHA deliberately avoid invasive
+fingerprinting and unnecessary personal data.
+
+## Ruleset 2 expiry lifecycle
+
+`mark_match_ready` writes the official `starts_at` after both participant rows
+have `ready_at`. That persisted schedule, not Realtime Presence, defines the
+commitment and deadline. `ranked_forfeit_grace_seconds()` is the single source
+for the five-second grace period.
+
+Submissions and expiry share `finalize_match_outcome_locked`. It locks the match,
+rechecks terminal state, calculates one outcome, updates ratings, records the
+reason, and completes the match in one transaction. The batch finalizer uses
+`FOR UPDATE SKIP LOCKED`; repeated calls are terminal no-ops. Existing rows keep
+ruleset 1, so no historical abandonment is reinterpreted.
+
+`match_chat_messages` is a short-retention participant projection. Authenticated
+RPCs own sends/reports, Postgres Changes provides low-latency delivery, and a
+three-second poll is the fallback. Chat has no authority over match state.
