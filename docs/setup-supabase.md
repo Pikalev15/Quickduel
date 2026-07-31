@@ -36,8 +36,9 @@ that key in a `NEXT_PUBLIC_*` variable, browser code, chat, or GitHub.
    npx supabase db push
    ```
 
-   If CLI linking is unavailable, open **SQL Editor → New query**, paste
-   `supabase/migrations/202607300001_initial_quickduel.sql`, and run it once.
+   If CLI linking is unavailable, apply the migration files in filename order in
+   the SQL editor. Do not skip
+   `202607310001_retention_social_progression.sql`.
 
 ## 2. Configure local public values
 
@@ -104,4 +105,10 @@ players use a normal Google OAuth sign-in.
    rating application.
 
 Use `supabase/tests/verification.sql` for the duplicate, authorization, expiry,
-and reconnect cases.
+and reconnect cases, then run the pgTAP contract in
+`supabase/tests/retention_verification.sql`.
+
+Bootstrap the first database-backed admin only if the deployment needs the
+restricted admin screen. Follow `docs/admin.md`; do not use a public environment
+variable or commit a user UUID. Anonymous sign-ins must remain enabled for
+unranked entry, and Google linking must upgrade the current identity.

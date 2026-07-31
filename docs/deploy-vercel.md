@@ -15,6 +15,7 @@ Do this after ranked play works locally with Supabase.
    - `NEXT_PUBLIC_APP_URL`: initially `https://YOUR-PROJECT.vercel.app`
    - `SUPABASE_SECRET_KEY`: a modern `sb_secret_` key, marked **Sensitive** in
      Production and Preview. Never prefix it with `NEXT_PUBLIC_`.
+   - `OBSERVABILITY_DSN`: optional server-only HTTPS error-ingestion endpoint.
 
 6. Deploy. Copy the exact generated `vercel.app` URL.
 7. If it differs from the value used above, update `NEXT_PUBLIC_APP_URL` and
@@ -29,3 +30,11 @@ Do this after ranked play works locally with Supabase.
 
 The free `vercel.app` domain is sufficient for the MVP. No custom domain or
 server process is required.
+
+Apply and verify Supabase migrations before deploying code that calls the new
+RPCs. Back up the database, dry-run/lint, apply
+`202607310001_retention_social_progression.sql`, deploy to Preview, and run the
+two-browser owner checklist in `docs/testing.md` before promotion. Confirm
+`/api/health`, OAuth, anonymous auth, private series, result-card images, and
+structured logs. No payment, analytics-vendor, Redis, worker, or custom WebSocket
+configuration is added.
