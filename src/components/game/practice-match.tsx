@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
@@ -8,10 +8,19 @@ import { ResultPanel } from "@/components/results/result-panel";
 import { compareGameResults, type GameId, type Submission } from "@/games/types";
 import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
+import { track } from "@/lib/analytics";
 
 type Phase = "countdown" | "reveal" | "answer" | "waiting" | "result";
 
-export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }) {
+export function PracticeMatch({
+  seed,
+  gameId,
+  onboardingStep,
+}: {
+  seed: string;
+  gameId: GameId;
+  onboardingStep?: 1 | 2 | 3;
+}) {
   const router = useRouter();
   const game = getGame(gameId);
   const challenge = useMemo(() => game.generate(seed), [game, seed]);
@@ -21,6 +30,14 @@ export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }
   const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
+  const resultRecorded = useRef(false);
+
+  useEffect(() => {
+    track("practice_started", {
+      gameType: gameId,
+      properties: { onboarding: Boolean(onboardingStep) },
+    });
+  }, [gameId, onboardingStep]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 50);
@@ -69,6 +86,47 @@ export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }
     bot.completionTimeMs,
   );
 
+  useEffect(() => {
+    if (phase !== "result" || !onboardingStep || resultRecorded.current) return;
+    resultRecorded.current = true;
+    const key = "quickduel:onboarding-results";
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{
+      category: string;
+      accuracy: number;
+    }>;
+    existing.push({ category: game.category, accuracy: playerResult.accuracy });
+    localStorage.setItem(key, JSON.stringify(existing.slice(-3)));
+  }, [game.category, onboardingStep, phase, playerResult.accuracy]);
+
+  async function nextOnboardingStep() {
+    if (!onboardingStep) return;
+    const sequence: GameId[] = ["memory_grid", "frequency_recall", "number_order"];
+    if (onboardingStep < 3) {
+      const nextStep = (onboardingStep + 1) as 2 | 3;
+      router.push(
+        `/match/practice?game=${sequence[nextStep - 1]}&seed=starter-${nextStep}&onboarding=${nextStep}`,
+      );
+      return;
+    }
+    const results = JSON.parse(
+      localStorage.getItem("quickduel:onboarding-results") ?? "[]",
+    ) as Array<{ category: "sensory" | "mind"; accuracy: number }>;
+    const sensory = results.filter((item) => item.category === "sensory");
+    const mind = results.filter((item) => item.category === "mind");
+    const average = (values: typeof results) =>
+      values.reduce((total, item) => total + item.accuracy, 0) /
+      Math.max(1, values.length);
+    const recommendation = average(sensory) > average(mind) ? "sensory" : "mind";
+    await fetch("/api/onboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: true, skipped: false, recommendation }),
+    });
+    track("onboarding_completed", { properties: { recommendation } });
+    localStorage.removeItem("quickduel:onboarding-results");
+    router.push(`/onboarding/complete?recommendation=${recommendation}`);
+  }
+
   if (phase === "result") {
     return (
       <main className="min-h-screen">
@@ -100,8 +158,11 @@ export function PracticeMatch({ seed, gameId }: { seed: string; gameId: GameId }
           onRematch={() =>
             router.replace(`/match/practice?game=${game.id}&seed=${Date.now()}`)
           }
-          onNext={() => router.push("/play")}
-          onHome={() => router.push("/")}
+          onNext={() => onboardingStep ? void nextOnboardingStep() : router.push("/play")}
+          onHome={() => onboardingStep ? router.push("/onboarding") : router.push("/")}
+          rematchLabel={onboardingStep ? "Try this game again" : "Rematch"}
+          nextLabel={onboardingStep ? (onboardingStep === 3 ? "See recommendation" : "Next starter game") : "Next opponent"}
+          homeLabel={onboardingStep ? "Leave starter sequence" : "Home"}
         />
       </main>
     );

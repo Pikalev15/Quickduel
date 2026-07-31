@@ -5,6 +5,9 @@ import type { User } from "@supabase/supabase-js";
 import type { PublicProfile } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { getDivision } from "@/lib/divisions";
+import { track } from "@/lib/analytics";
 
 const accents = ["volt", "cyan", "coral", "violet", "white"] as const;
 
@@ -114,6 +117,7 @@ export function ProfileDrawer({
       ? await supabase.auth.linkIdentity({ provider: "google", options })
       : await supabase.auth.signInWithOAuth({ provider: "google", options });
     if (error) setMessage(error.message);
+    else track("google_account_linked");
   }
 
   return (
@@ -166,12 +170,23 @@ export function ProfileDrawer({
         </fieldset>
 
         {profile && (
+          <>
+          <div className="profile-public-code">
+            <small>Player code</small>
+            <strong>{profile.display_name}#{profile.public_code ?? "—"}</strong>
+          </div>
           <dl className="profile-stats">
-            <div><dt>Rating</dt><dd>{profile.rating}</dd></div>
+            <div><dt>Rating</dt><dd>{profile.rating}</dd><small>{getDivision(profile.rating).name}</small></div>
             <div><dt>Rank</dt><dd>#{profile.rank}</dd></div>
             <div><dt>Wins</dt><dd>{profile.wins}</dd></div>
             <div><dt>Matches</dt><dd>{profile.matches_played}</dd></div>
           </dl>
+          <nav className="profile-links">
+            <Link href="/profile/stats">Personal statistics</Link>
+            <Link href="/history">Match history</Link>
+            <Link href="/profile/settings">Account and cosmetics</Link>
+          </nav>
+          </>
         )}
 
         <Button

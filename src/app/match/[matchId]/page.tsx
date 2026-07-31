@@ -11,14 +11,17 @@ export default async function MatchPage({
   searchParams,
 }: {
   params: Promise<{ matchId: string }>;
-  searchParams: Promise<{ seed?: string; game?: string }>;
+  searchParams: Promise<{ seed?: string; game?: string; onboarding?: string }>;
 }) {
   const { matchId } = await params;
-  const { seed, game } = await searchParams;
+  const { seed, game, onboarding } = await searchParams;
   if (matchId === "practice") {
     const practiceSeed = seed && /^[A-Za-z0-9:_-]{1,64}$/.test(seed) ? seed : "123456";
     const gameId = GAME_IDS.includes(game as GameId) ? (game as GameId) : "memory_grid";
-    return <PracticeMatch key={`${gameId}:${practiceSeed}`} seed={practiceSeed} gameId={gameId} />;
+    const onboardingStep = ["1", "2", "3"].includes(onboarding ?? "")
+      ? (Number(onboarding) as 1 | 2 | 3)
+      : undefined;
+    return <PracticeMatch key={`${gameId}:${practiceSeed}`} seed={practiceSeed} gameId={gameId} onboardingStep={onboardingStep} />;
   }
   return <RankedMatch matchId={matchId} />;
 }

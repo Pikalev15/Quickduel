@@ -1,16 +1,15 @@
-import { apiError, apiSuccess, safeMessage } from "@/lib/api";
+import { apiSuccess, requestCorrelationId } from "@/lib/api";
+import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const correlationId = requestCorrelationId(request);
   try {
     const { supabase } = await requireUser();
     const { error } = await supabase.rpc("leave_matchmaking");
     if (error) throw error;
-    return apiSuccess({ left: true });
+    return apiSuccess({ left: true }, 200, correlationId);
   } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
-      return apiError(401, "UNAUTHENTICATED", "Your session expired.");
-    }
-    return apiError(500, "SERVER_ERROR", safeMessage(error));
+    return rpcErrorResponse(error, correlationId, "/api/matchmaking/leave");
   }
 }

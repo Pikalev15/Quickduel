@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ShareIcon } from "@/components/ui/icons";
 import type { DuelOutcome } from "@/games/types";
+import { getDivision, getDivisionChange } from "@/lib/divisions";
 
 export type ResultSide = {
   name: string;
@@ -26,6 +27,10 @@ export function ResultPanel({
   onRematch,
   onNext,
   onHome,
+  rematchLabel = "Rematch",
+  nextLabel = "Next opponent",
+  homeLabel = "Home",
+  onCreateShare,
 }: {
   outcome: DuelOutcome;
   gameName?: string;
@@ -36,18 +41,25 @@ export function ResultPanel({
   onRematch: () => void;
   onNext: () => void;
   onHome: () => void;
+  rematchLabel?: string;
+  nextLabel?: string;
+  homeLabel?: string;
+  onCreateShare?: () => Promise<string>;
 }) {
   const [shared, setShared] = useState(false);
   const title =
     outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw";
+  const division = getDivision(player.ratingAfter);
+  const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
 
   async function share() {
     const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""} — ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
     try {
+      const url = onCreateShare ? await onCreateShare() : location.origin;
       if (navigator.share) {
-        await navigator.share({ title: "QuickDuel result", text, url: location.origin });
+        await navigator.share({ title: "QuickDuel result", text, url });
       } else {
-        await navigator.clipboard.writeText(`${text} ${location.origin}`);
+        await navigator.clipboard.writeText(`${text} ${url}`);
       }
       setShared(true);
       window.setTimeout(() => setShared(false), 2_000);
@@ -102,15 +114,24 @@ export function ResultPanel({
               </span>
             </div>
           )}
+          {!unranked && (
+            <p className={`mt-2 text-sm ${divisionChange === "promotion" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}>
+              {divisionChange === "promotion"
+                ? `Promoted to ${division.name}`
+                : divisionChange === "demotion"
+                  ? `Moved to ${division.name}`
+                  : `${division.name} division`}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
         <Button onClick={onRematch} disabled={rematchWaiting}>
-          {rematchWaiting ? "Waiting for opponent" : "Rematch"}
+          {rematchWaiting ? "Waiting for opponent" : rematchLabel}
         </Button>
         <Button variant="secondary" onClick={onNext}>
-          Next opponent
+          {nextLabel}
         </Button>
         <Button variant="secondary" onClick={() => void share()}>
           <span className="flex items-center justify-center gap-2">
@@ -119,7 +140,7 @@ export function ResultPanel({
           </span>
         </Button>
         <Button variant="quiet" onClick={onHome}>
-          Home
+          {homeLabel}
         </Button>
       </div>
     </section>
