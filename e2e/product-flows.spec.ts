@@ -69,6 +69,27 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("Memory Grid flashes briefly, holds the blank board, then unlocks", async ({
+  page,
+}) => {
+  await page.goto("/match/practice?game=memory_grid&seed=memory-retention");
+  const board = page.locator(".memory-board");
+  const cells = board.getByRole("button");
+  const activeCells = board.locator("button.is-active");
+  await expect(activeCells).toHaveCount(6, { timeout: 10_000 });
+
+  await expect(activeCells).toHaveCount(0, { timeout: 2_000 });
+  await expect(page.getByText(/^Hold · \d\.\ds$/)).toBeVisible();
+  await expect(cells.first()).toBeDisabled();
+
+  await expect(page.getByText(/^Hold · \d\.\ds$/)).toHaveCount(0, {
+    timeout: 3_000,
+  });
+  await expect(cells.first()).toBeEnabled();
+  await cells.first().click();
+  await expect(cells.first()).toHaveAttribute("aria-pressed", "true");
+});
+
 test("Target Tap ignores status text but counts genuine background misses", async ({ page }) => {
   await page.goto("/match/practice?game=target_tap&seed=target-tap-regression");
   const field = page.locator(".target-field");

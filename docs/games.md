@@ -14,7 +14,7 @@ generator, schema, and scoring behavior.
 
 | Game ID | Version | State | Playlist | Ranked | Format |
 | --- | ---: | --- | --- | --- | --- |
-| `memory_grid` | 1 | Active | Mind | Yes | 1.75s reveal / 8s answer |
+| `memory_grid` | 1 | Active | Mind | Yes | 1.2s flash + 1.75s hold / 8s answer |
 | `frequency_recall` | 1 | Legacy | Sensory | Yes | Three-tone batch; 2.4s / 12s |
 | `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five sequential rounds / 30s total |
 | `colour_recall` | 1 | Legacy | Sensory | Yes | Three-colour batch; 2.6s / 16s |
@@ -33,6 +33,14 @@ generator, schema, and scoring behavior.
 Quick Play contains the eleven active ranked IDs. The Sensory and Mind
 playlists use the active v2 recall modes and Typing Sprint. A rematch preserves
 the exact game ID and version while generating a fresh seed.
+
+## Memory Grid timing
+
+The six highlighted cells flash for 1.2 seconds, followed by a 1.75-second
+blank retention interval where the board remains locked. The full eight-second
+answer window begins only after that hold. Ranked matches persist the combined
+2.95-second reveal window so both players see the same server-authoritative
+schedule; already-created matches retain their stored timing.
 
 ## Frequency Recall v2
 

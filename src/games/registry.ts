@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
+import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
 
 const numberArray = (length: number, min: number, max: number) =>
   z.array(z.number().finite().min(min).max(max)).length(length);
@@ -47,7 +48,7 @@ const memoryGrid: GameDefinition = {
   description: "Memorize six charged cells, then recall them before the clock closes.",
   instructions: "Memorize the lit cells. Select every remembered cell; accuracy wins, speed breaks ties.",
   ranked: true,
-  revealDurationMs: 1750,
+  revealDurationMs: MEMORY_GRID_REVEAL_DURATION_MS,
   answerDurationMs: 8000,
   submissionSchema: object({
     selectedCells: z.array(z.number().int().min(0).max(15)).min(1).max(16),

@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { ACTIVE_GAME_IDS, GAME_IDS } from "./types";
 import { gameRegistry, getGame } from "./registry";
 import { gameCatalog } from "./catalog";
+import {
+  MEMORY_GRID_FLASH_MS,
+  MEMORY_GRID_RETENTION_MS,
+  MEMORY_GRID_REVEAL_DURATION_MS,
+} from "./memory-grid-timing";
 
 describe("game registry", () => {
   it("registers every game exactly once", () => {
@@ -28,8 +33,13 @@ describe("game registry", () => {
     expect(correct.rankScore).toBeGreaterThan(fastGuess.rankScore);
   });
 
-  it("uses an eight-second Memory Grid answer window", () => {
-    expect(getGame("memory_grid").answerDurationMs).toBe(8000);
+  it("uses a short Memory Grid flash, retention interval, and eight-second answer", () => {
+    const game = getGame("memory_grid");
+    expect(MEMORY_GRID_FLASH_MS).toBe(1200);
+    expect(MEMORY_GRID_RETENTION_MS).toBe(1750);
+    expect(MEMORY_GRID_REVEAL_DURATION_MS).toBe(2950);
+    expect(game.revealDurationMs).toBe(MEMORY_GRID_REVEAL_DURATION_MS);
+    expect(game.answerDurationMs).toBe(8000);
   });
 
   it("stops Number Order as soon as all targets are selected", () => {

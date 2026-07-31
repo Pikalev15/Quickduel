@@ -12,6 +12,7 @@ import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
 import { track } from "@/lib/analytics";
 import { MatchChat } from "@/components/match-chat/match-chat";
+import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -123,7 +124,19 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         ? "ended"
         : me?.submitted_at
           ? "submitted"
-          : snapshot?.phase ?? "waiting";
+          : start === null
+            ? snapshot?.phase ?? "waiting"
+            : now < start
+              ? "countdown"
+              : answerStart !== null && now < answerStart
+                ? "reveal"
+                : "answer";
+  const phaseElapsedMs =
+    phase === "reveal" && start !== null ? Math.max(0, now - start) : 0;
+  const memoryHolding =
+    game?.id === "memory_grid" &&
+    phase === "reveal" &&
+    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
 
   useEffect(() => {
     if (!snapshot || trackedStatuses.current.has(snapshot.status)) return;
@@ -352,7 +365,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 <h1 className="display">{game?.name}</h1>
               </div>
               <div className="game-timer">
-                {phase === "reveal" ? "OBSERVE" : phase === "submitted" ? "LOCKED" : `${(remaining / 1000).toFixed(1)}s`}
+                {memoryHolding
+                  ? "HOLD"
+                  : phase === "reveal"
+                    ? "OBSERVE"
+                    : phase === "submitted"
+                      ? "LOCKED"
+                      : `${(remaining / 1000).toFixed(1)}s`}
               </div>
             </div>
             <p className="game-instructions">
@@ -363,10 +382,14 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <div className="game-stage">
               {snapshot && (
                 <GameRenderer
-                  key={`${snapshot?.id}:${snapshot?.phase}`}
+                  key={`${snapshot.id}:${phase}`}
                   gameId={snapshot.game_type}
-                  challenge={snapshot?.challenge ?? {}}
+                  challenge={game?.publicChallenge(
+                    snapshot?.challenge ?? {},
+                    phase === "reveal" ? "reveal" : "answer",
+                  ) ?? {}}
                   disabled={phase !== "answer"}
+                  phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {
                     submissionRef.current = next;
                     canSubmitRef.current = valid;

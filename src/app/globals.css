@@ -514,6 +514,31 @@ a {
   aspect-ratio: 1;
 }
 
+.memory-grid-shell {
+  display: grid;
+  width: min(76vw, 390px);
+  justify-items: center;
+  gap: 0.8rem;
+}
+
+.memory-grid-shell .memory-board {
+  width: 100%;
+}
+
+.memory-board.is-retaining {
+  opacity: 0.78;
+}
+
+.memory-phase-status {
+  min-height: 1.25rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .memory-board button {
   border: 1px solid #3a4859;
   background: #101d2c;

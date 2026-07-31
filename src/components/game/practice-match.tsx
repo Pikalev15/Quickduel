@@ -9,6 +9,7 @@ import { compareGameResults, type GameId, type Submission } from "@/games/types"
 import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import { track } from "@/lib/analytics";
+import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 
 type Phase = "countdown" | "reveal" | "answer" | "waiting" | "result";
 
@@ -172,6 +173,11 @@ export function PracticeMatch({
 
   const countdown = Math.max(1, Math.ceil((startAt - now) / 1000));
   const remaining = Math.max(0, answerEnd - now);
+  const phaseElapsedMs = phase === "reveal" ? Math.max(0, now - startAt) : 0;
+  const memoryHolding =
+    game.id === "memory_grid" &&
+    phase === "reveal" &&
+    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
   const publicChallenge = game.publicChallenge(challenge, phase === "reveal" ? "reveal" : "answer");
 
   return (
@@ -192,7 +198,13 @@ export function PracticeMatch({
                 <h1 className="display">{game.name}</h1>
               </div>
               <div className="game-timer">
-                {phase === "reveal" ? "OBSERVE" : phase === "waiting" ? "LOCKED" : `${(remaining / 1000).toFixed(1)}s`}
+                {memoryHolding
+                  ? "HOLD"
+                  : phase === "reveal"
+                    ? "OBSERVE"
+                    : phase === "waiting"
+                      ? "LOCKED"
+                      : `${(remaining / 1000).toFixed(1)}s`}
               </div>
             </div>
             <p className="game-instructions">
@@ -204,6 +216,7 @@ export function PracticeMatch({
                 gameId={game.id}
                 challenge={publicChallenge}
                 disabled={phase !== "answer"}
+                phaseElapsedMs={phaseElapsedMs}
                 onChange={(next, valid) => {
                   setSubmission(next);
                   setCanSubmit(valid);

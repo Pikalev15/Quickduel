@@ -9,6 +9,10 @@ import {
   TYPING_SPRINT_SUBMISSION_ALLOWANCE,
   typingSprintStatistics,
 } from "./typing-sprint";
+import {
+  MEMORY_GRID_FLASH_MS,
+  MEMORY_GRID_REVEAL_DURATION_MS,
+} from "./memory-grid-timing";
 
 function Range({
   label,
@@ -47,33 +51,54 @@ function Range({
 export function MemoryGridGame({
   challenge,
   disabled,
+  phaseElapsedMs = 0,
   onChange,
 }: GameComponentProps) {
   const size = Number(challenge.size ?? 4);
   const revealed = (challenge.highlightedCells as number[] | undefined) ?? [];
   const [selected, setSelected] = useState<number[]>([]);
+  const revealing = revealed.length > 0;
+  const showingPattern = revealing && phaseElapsedMs < MEMORY_GRID_FLASH_MS;
+  const retentionRemainingMs = Math.max(
+    0,
+    MEMORY_GRID_REVEAL_DURATION_MS - phaseElapsedMs,
+  );
   return (
-    <div className="memory-board" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}>
-      {Array.from({ length: size * size }, (_, cell) => {
-        const active = revealed.includes(cell) || selected.includes(cell);
-        return (
-          <button
-            type="button"
-            aria-label={`Cell ${cell + 1}`}
-            aria-pressed={selected.includes(cell)}
-            disabled={disabled || revealed.length > 0}
-            className={active ? "is-active" : ""}
-            key={cell}
-            onClick={() => {
-              const next = selected.includes(cell)
-                ? selected.filter((value) => value !== cell)
-                : [...selected, cell];
-              setSelected(next);
-              onChange({ selectedCells: next }, next.length > 0);
-            }}
-          />
-        );
-      })}
+    <div className="memory-grid-shell">
+      <div
+        className={`memory-board${revealing && !showingPattern ? " is-retaining" : ""}`}
+        style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
+      >
+        {Array.from({ length: size * size }, (_, cell) => {
+          const active =
+            (showingPattern && revealed.includes(cell)) ||
+            selected.includes(cell);
+          return (
+            <button
+              type="button"
+              aria-label={`Cell ${cell + 1}`}
+              aria-pressed={selected.includes(cell)}
+              disabled={disabled || revealing}
+              className={active ? "is-active" : ""}
+              key={cell}
+              onClick={() => {
+                const next = selected.includes(cell)
+                  ? selected.filter((value) => value !== cell)
+                  : [...selected, cell];
+                setSelected(next);
+                onChange({ selectedCells: next }, next.length > 0);
+              }}
+            />
+          );
+        })}
+      </div>
+      {revealing && (
+        <p className="memory-phase-status" aria-live="polite">
+          {showingPattern
+            ? "Memorize"
+            : `Hold · ${(retentionRemainingMs / 1000).toFixed(1)}s`}
+        </p>
+      )}
     </div>
   );
 }

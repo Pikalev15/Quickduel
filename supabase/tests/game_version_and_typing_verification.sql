@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 select ok(
   exists (
@@ -27,6 +27,11 @@ select ok(
   'match versions permit only the supported v1 and v2 combinations'
 );
 
+select is(
+  public.game_reveal_duration('memory_grid'),
+  2950,
+  'Memory Grid persists its flash and retention interval'
+);
 select is(
   public.game_reveal_duration('frequency_recall_v2'),
   0,
