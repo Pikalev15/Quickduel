@@ -4,6 +4,8 @@ import { requireUser } from "@/lib/server/route";
 import { matchIdSchema, submitAnswerSchema } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getGame } from "@/games/registry";
+import { isDuplicateSubmission } from "@/lib/server/domain-errors";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export async function POST(
   request: Request,
@@ -29,6 +31,13 @@ export async function POST(
   }
   try {
     const { supabase, user } = await requireUser();
+    await enforceNetworkAbuseBoundary(
+      request,
+      "match_submission",
+      40,
+      60,
+      { adaptiveChallenge: user.is_anonymous === true },
+    );
     const rateLimit = await supabase.rpc("check_rate_limit", {
       requested_action: "match_submission",
       requested_limit: 30,
@@ -94,8 +103,8 @@ export async function POST(
       calculated_incorrect: Math.max(0, Math.min(32767, Math.round(incorrect))),
     });
     if (error) {
-      if (/already submitted/i.test(error.message)) {
-        void admin.from("abuse_flags").insert({
+      if (isDuplicateSubmission(error)) {
+        await admin.from("abuse_flags").insert({
           user_id: user.id,
           match_id: matchId.data,
           signal: "duplicate_submission",
@@ -103,14 +112,14 @@ export async function POST(
           evidence: {},
         });
       }
-      return apiError(409, "CONFLICT", error.message, undefined, correlationId);
+      throw error;
     }
     if (
       !parsed.data.timedOut &&
       completionTimeMs < 150 &&
       calculated.accuracy >= 0.99
     ) {
-      void admin.from("abuse_flags").insert({
+      await admin.from("abuse_flags").insert({
         user_id: user.id,
         match_id: matchId.data,
         signal: "impossible_completion_time",
