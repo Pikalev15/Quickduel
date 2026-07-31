@@ -69,6 +69,81 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("Target Tap ignores status text but counts genuine background misses", async ({ page }) => {
+  await page.goto("/match/practice?game=target_tap&seed=target-tap-regression");
+  const field = page.locator(".target-field");
+  const status = field.getByText(/0\/12 targets · 0 misses/);
+  await expect(field).toBeVisible({ timeout: 10_000 });
+  await expect(status).toBeVisible();
+
+  const statusBox = await status.boundingBox();
+  expect(statusBox).not.toBeNull();
+  await page.mouse.click(
+    statusBox!.x + statusBox!.width / 2,
+    statusBox!.y + statusBox!.height / 2,
+  );
+  await expect(status).toHaveText("0/12 targets · 0 misses");
+
+  const emptyPoint = await field.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const target = element.querySelector("button")?.getBoundingClientRect();
+    const overlay = element.querySelector("span")?.getBoundingClientRect();
+    const candidates = [
+      [bounds.left + bounds.width - 20, bounds.top + bounds.height - 20],
+      [bounds.left + 20, bounds.top + 20],
+      [bounds.left + bounds.width / 2, bounds.top + bounds.height - 20],
+    ];
+    const outside = (point: number[], rectangle?: DOMRect) =>
+      !rectangle ||
+      point[0] < rectangle.left ||
+      point[0] > rectangle.right ||
+      point[1] < rectangle.top ||
+      point[1] > rectangle.bottom;
+    return candidates.find(
+      (point) => outside(point, target) && outside(point, overlay),
+    ) ?? candidates[0];
+  });
+  await page.mouse.click(emptyPoint[0], emptyPoint[1]);
+  await expect(field.getByText(/0\/12 targets · 1 misses/)).toBeVisible();
+});
+
+test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/match/practice?game=typing_sprint&seed=typing-sprint-e2e");
+  const surface = page.locator(".typing-sprint");
+  const input = page.getByLabel("Type the displayed words");
+  await expect(surface).toBeVisible({ timeout: 10_000 });
+  await expect(input).toBeFocused();
+
+  const pastePrevented = await input.evaluate((element) => {
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    return !element.dispatchEvent(event);
+  });
+  expect(pastePrevented).toBe(true);
+
+  const firstWord = await page.locator(".typing-word").first().textContent();
+  expect(firstWord?.length).toBeGreaterThan(2);
+  await page.keyboard.type(firstWord!.slice(0, 2));
+  await expect(page.locator(".typing-word").first().locator(".is-correct")).toHaveCount(2);
+
+  const expectedThird = firstWord![2];
+  const wrongCharacter = expectedThird === "z" ? "a" : "z";
+  await page.keyboard.type(wrongCharacter);
+  await expect(page.locator(".typing-word").first().locator(".is-incorrect")).toHaveCount(1);
+  await page.keyboard.press("Backspace");
+  await expect(page.locator(".typing-word").first().locator(".is-incorrect")).toHaveCount(0);
+  await page.keyboard.type(`${firstWord!.slice(2)} `);
+  await expect(page.locator(".typing-word.is-current")).not.toHaveText(firstWord!);
+  await expect(page.locator(".typing-word.is-current .is-caret")).toHaveCount(1);
+  await captureProductScreenshot(page, testInfo, "typing-sprint-active");
+
+  await expect(page.getByRole("heading", { name: /Victory|Defeat|Draw/ })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Typing Sprint ranks net WPM. Errors reduce your score.")).toBeVisible();
+});
+
 test("private duel lobby exposes safe state and share controls", async ({ page }, testInfo) => {
   await page.route("**/api/duels/7K2M8PAA", (route) =>
     route.fulfill({
@@ -253,14 +328,14 @@ test("statistics use game-specific metrics and division thresholds", async ({ pa
           recent_form: ["win", "loss", "win"],
           overall: { total_matches: 24, wins: 13, losses: 9, draws: 2 },
           game_stats: {
-            frequency_recall: {
+            frequency_recall_v2: {
               played: 5,
               wins: 3,
               losses: 2,
               draws: 0,
-              best_rank_score: -0.1,
+              best_rank_score: 44,
               best_time_ms: 2200,
-              total_rank_score: -0.75,
+              total_rank_score: 190,
               total_time_ms: 15000,
               recent_results: [],
             },
@@ -271,7 +346,7 @@ test("statistics use game-specific metrics and division thresholds", async ({ pa
   );
   await page.goto("/profile/stats");
   await expect(page.getByText("Gold", { exact: true })).toBeVisible();
-  await expect(page.getByText("Average proportional pitch error")).toBeVisible();
+  await expect(page.getByText("Average score out of 50")).toBeVisible();
   await expect(page.getByText(/not measures of intelligence/i)).toBeVisible();
 });
 
@@ -327,7 +402,8 @@ test("onboarding is brief, playable, and skippable", async ({ page }) => {
   await page.goto("/onboarding");
   await expect(page.getByRole("heading", { name: "Learn by playing." })).toBeVisible();
   await expect(page.getByText("Accuracy comes first.")).toBeVisible();
-  await expect(page.getByText("Speed breaks ties.")).toBeVisible();
+  await expect(page.getByText("Speed usually breaks ties.")).toBeVisible();
+  await expect(page.getByText(/Typing Sprint ranks net WPM directly/i)).toBeVisible();
   await expect(page.getByText("Ranked games change Elo.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Play starter sequence" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Skip to Quick Play" })).toBeVisible();

@@ -374,7 +374,7 @@ export function MatchmakingScreen({
               </Button>
               <Button
                 onClick={() =>
-                  void cancel(`/match/practice?game=${activeGame ?? (activePlaylist === "sensory" ? "frequency_recall" : activePlaylist === "experimental" ? "reaction_test" : "memory_grid")}&seed=${Date.now()}`)
+                  void cancel(`/match/practice?game=${activeGame ?? (activePlaylist === "sensory" ? "frequency_recall_v2" : activePlaylist === "experimental" ? "reaction_test" : "memory_grid")}&seed=${Date.now()}`)
                 }
               >
                 Practise against bot

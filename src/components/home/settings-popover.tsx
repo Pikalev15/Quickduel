@@ -240,7 +240,7 @@ export function SettingsPopover({
           <div className="settings-section-label">Home screen</div>
           <PreferenceToggle
             label="Show game library"
-            help="Keep all twelve games expanded on the home screen."
+            help="Keep all thirteen games expanded on the home screen."
             checked={preferences.showGameLibrary}
             onChange={() => toggle("showGameLibrary")}
           />

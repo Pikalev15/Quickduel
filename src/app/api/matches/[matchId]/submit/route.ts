@@ -53,17 +53,37 @@ export async function POST(
     const admin = createSupabaseAdminClient();
     const { data: match, error: matchError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,starts_at,reveal_duration_ms,answer_duration_ms")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms")
       .eq("id", matchId.data)
       .single();
     if (matchError || !match || !match.starts_at) {
       return apiError(409, "CONFLICT", "Match is not ready for answers.", undefined, correlationId);
     }
     const game = getGame(match.game_type);
+    if (game.version !== match.game_version) {
+      return apiError(
+        409,
+        "CONFLICT",
+        "Match game version is not supported.",
+        undefined,
+        correlationId,
+      );
+    }
     const answerStartedAt = Date.parse(match.starts_at) + match.reveal_duration_ms;
     const answerDeadline = answerStartedAt + match.answer_duration_ms;
-    if (parsed.data.timedOut && Date.now() < answerDeadline - 250) {
+    const receivedAt = Date.now();
+    if (receivedAt < answerStartedAt) {
+      return apiError(409, "CONFLICT", "The answer window has not started.", undefined, correlationId);
+    }
+    if (parsed.data.timedOut && receivedAt < answerDeadline - 250) {
       return apiError(409, "CONFLICT", "The answer window is still open.", undefined, correlationId);
+    }
+    if (
+      !parsed.data.timedOut &&
+      game.submitAtDeadline &&
+      receivedAt < answerDeadline - 250
+    ) {
+      return apiError(409, "CONFLICT", "This game submits at the deadline.", undefined, correlationId);
     }
     const challenge = game.generate(String(match.challenge_seed));
     const submission = parsed.data.timedOut
@@ -72,11 +92,24 @@ export async function POST(
     if (!submission.success) {
       return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues, correlationId);
     }
+    if (
+      !parsed.data.timedOut &&
+      game.validateSubmission &&
+      !game.validateSubmission(challenge, submission.data)
+    ) {
+      return apiError(
+        400,
+        "INVALID_REQUEST",
+        "Game submission is invalid.",
+        undefined,
+        correlationId,
+      );
+    }
     const completionTimeMs = parsed.data.timedOut
       ? match.answer_duration_ms
       : Math.max(
           0,
-          Math.min(match.answer_duration_ms, Date.now() - answerStartedAt),
+          Math.min(match.answer_duration_ms, receivedAt - answerStartedAt),
         );
     const calculated = parsed.data.timedOut
       ? {
@@ -126,6 +159,23 @@ export async function POST(
         severity: 3,
         evidence: {
           completion_time_ms: completionTimeMs,
+          accuracy: calculated.accuracy,
+          game_type: match.game_type,
+        },
+      });
+    }
+    if (
+      match.game_type === "typing_sprint" &&
+      Number(calculated.details.netWpm ?? 0) > 180 &&
+      calculated.accuracy >= 0.98
+    ) {
+      await admin.from("abuse_flags").insert({
+        user_id: user.id,
+        match_id: matchId.data,
+        signal: "implausible_typing_speed",
+        severity: 2,
+        evidence: {
+          net_wpm: calculated.details.netWpm,
           accuracy: calculated.accuracy,
           game_type: match.game_type,
         },

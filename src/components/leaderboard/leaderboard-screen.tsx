@@ -81,7 +81,7 @@ export function LeaderboardScreen() {
               Leaderboard
             </h1>
             <p className="mt-4 text-sm text-[var(--muted)]">
-              Permanent Elo across all ten ranked games.
+              Permanent Elo across all eleven ranked games.
             </p>
           </div>
           <span className="display hidden text-sm tracking-[0.12em] text-[var(--muted)] sm:block">

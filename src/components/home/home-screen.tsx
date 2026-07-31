@@ -241,7 +241,7 @@ export function HomeScreen() {
         <p className="calm-eyebrow">Fast multiplayer perception games</p>
         <h1>A quick test of<br />what you notice.</h1>
         <p className="calm-subtitle">
-          Twelve short challenges. Better answers win; trusted speed settles ties.
+          Thirteen short challenges. Better performance wins; trusted timing settles ties.
         </p>
         <div className="calm-hero-actions">
           <button type="button" className="calm-primary" onClick={play} disabled={starting}>

@@ -15,6 +15,7 @@ export type ResultSide = {
   ratingBefore: number;
   ratingAfter: number;
   summary?: string;
+  details?: Record<string, number | string | boolean>;
 };
 
 export function ResultPanel({
@@ -85,6 +86,11 @@ export function ResultPanel({
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
       {completionNotice && (
         <p className="result-completion-notice" role="status">{completionNotice}</p>
+      )}
+      {gameName === "Typing Sprint" && (
+        <p className="result-completion-notice">
+          Typing Sprint ranks net WPM. Errors reduce your score.
+        </p>
       )}
 
       <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
@@ -181,6 +187,13 @@ function ResultColumn({
           {side.incorrect} incorrect
         </span>
       </div>
+      {typeof side.details?.grossWpm === "number" && (
+        <div className="mt-2 text-xs text-[var(--muted)]">
+          {Math.round(side.details.grossWpm)} gross WPM
+          {" · "}
+          {Number(side.details.completedWords ?? 0)} words completed
+        </div>
+      )}
     </div>
   );
 }

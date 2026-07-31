@@ -2,7 +2,7 @@ import Link from "next/link";
 import { gameCatalog, type GameCatalogEntry } from "@/games/catalog";
 import { ArrowIcon } from "@/components/ui/icons";
 
-const featuredIds = new Set(["memory_grid", "colour_recall", "frequency_recall"]);
+const featuredIds = new Set(["memory_grid", "colour_recall_v2", "frequency_recall_v2"]);
 
 export function GameLibrary({
   expanded,
@@ -31,7 +31,7 @@ export function GameLibrary({
       </div>
 
       <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
-        <span><b>All games</b><small>12 challenges across sensory, mind, and experimental playlists</small></span>
+        <span><b>All games</b><small>13 challenges across sensory, mind, and experimental playlists</small></span>
         <span>{expanded ? "−" : "+"}</span>
       </button>
 

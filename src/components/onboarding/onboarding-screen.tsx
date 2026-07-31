@@ -68,7 +68,7 @@ export function OnboardingScreen() {
         </div>
         <ol className="onboarding-rules">
           <li><span>01</span><div><h2>Accuracy comes first.</h2><p>The better validated answer wins the round.</p></div></li>
-          <li><span>02</span><div><h2>Speed breaks ties.</h2><p>Server-measured time matters only when results are effectively equal.</p></div></li>
+          <li><span>02</span><div><h2>Speed usually breaks ties.</h2><p>Most games use trusted time only when results are equal. Typing Sprint ranks net WPM directly.</p></div></li>
           <li><span>03</span><div><h2>Ranked games change Elo.</h2><p>This starter sequence is Practice Bot play and never changes your rating.</p></div></li>
         </ol>
         <div className="starter-sequence">

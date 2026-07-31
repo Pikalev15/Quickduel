@@ -1,8 +1,8 @@
 # QuickDuel
 
-Accuracy first. Speed breaks ties.
+Accuracy first. Speed breaks ties—except Typing Sprint, where net WPM is the score.
 
-QuickDuel is a production-minded multiplayer collection of twelve short browser
+QuickDuel is a production-minded multiplayer collection of thirteen short browser
 games. It has anonymous entry, optional Google account linking, public and
 private duels, server-authoritative scoring/Elo, personal progression, weekly
 competition, lightweight friends, and clearly labelled Practice Bots.
@@ -21,9 +21,9 @@ Generated composition references live in `docs/design-references/`.
 - Concurrency-safe rating-aware queue with Quick, Sensory, Mind, Experimental,
   and single-game preferences
 - Explicit Practice Bot offer after eight seconds; never disguised or ranked
-- Ten ranked games and two experimental unranked games
+- Eleven ranked games and two experimental unranked games
 - Memory Grid answer window reduced from 12 seconds to 8 seconds
-- Correctness/accuracy first; server-measured completion time breaks ties
+- Correctness/accuracy first for most games; Typing Sprint ranks net WPM
 - Deterministic versioned challenges, Zod validation, and game-specific bots
 - Server-regenerated results, server-measured time, atomic idempotent Elo
 - Private per-match realtime subscription with authoritative reload on reconnect

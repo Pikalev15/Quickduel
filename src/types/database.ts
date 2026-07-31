@@ -1,3 +1,5 @@
+import type { GameId } from "@/games/types";
+
 export type MatchStatus =
   | "waiting"
   | "countdown"
@@ -76,20 +78,8 @@ export type MatchPlayer = {
 export type MatchSnapshot = {
   id: string;
   status: MatchStatus;
-  game_type:
-    | "memory_grid"
-    | "frequency_recall"
-    | "colour_recall"
-    | "time_recall"
-    | "shape_recall"
-    | "rhythm_recall"
-    | "dot_estimate"
-    | "number_order"
-    | "odd_one_out"
-    | "pattern_complete"
-    | "reaction_test"
-    | "target_tap";
-  game_version: 1;
+  game_type: GameId;
+  game_version: number;
   ranked: boolean;
   ruleset_version?: number;
   completion_reason?:

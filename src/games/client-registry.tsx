@@ -2,8 +2,10 @@
 
 import {
   ColourRecallGame,
+  ColourRecallV2Game,
   DotEstimateGame,
   FrequencyRecallGame,
+  FrequencyRecallV2Game,
   MemoryGridGame,
   NumberOrderGame,
   OddOneOutGame,
@@ -13,6 +15,7 @@ import {
   ShapeRecallGame,
   TargetTapGame,
   TimeRecallGame,
+  TypingSprintGame,
 } from "./game-components";
 import type { GameComponentProps, GameId } from "./types";
 
@@ -25,8 +28,12 @@ export function GameRenderer({
       return <MemoryGridGame {...props} />;
     case "frequency_recall":
       return <FrequencyRecallGame {...props} />;
+    case "frequency_recall_v2":
+      return <FrequencyRecallV2Game {...props} />;
     case "colour_recall":
       return <ColourRecallGame {...props} />;
+    case "colour_recall_v2":
+      return <ColourRecallV2Game {...props} />;
     case "time_recall":
       return <TimeRecallGame {...props} />;
     case "shape_recall":
@@ -41,6 +48,8 @@ export function GameRenderer({
       return <OddOneOutGame {...props} />;
     case "pattern_complete":
       return <PatternCompleteGame {...props} />;
+    case "typing_sprint":
+      return <TypingSprintGame {...props} />;
     case "reaction_test":
       return <ReactionTestGame {...props} />;
     case "target_tap":

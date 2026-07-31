@@ -23,7 +23,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export function RankedMatch({ matchId }: { matchId: string }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
-  const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [connected, setConnected] = useState(true);
@@ -32,6 +31,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [rematchWaiting, setRematchWaiting] = useState(false);
   const readySent = useRef(false);
   const submissionSent = useRef(false);
+  const submissionRef = useRef<Submission>({});
+  const canSubmitRef = useRef(false);
   const trackedStatuses = useRef(new Set<string>());
 
   const reload = useCallback(async () => {
@@ -152,21 +153,28 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       return;
     }
     const timer = window.setTimeout(() => {
-      void submit(true);
+      void submit(!game?.submitAtDeadline);
     }, Math.max(0, answerEnd - Date.now()));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answerEnd, canSubmit, game?.autoSubmitOnValid, phase, me?.submitted_at]);
+  }, [
+    answerEnd,
+    canSubmit,
+    game?.autoSubmitOnValid,
+    game?.submitAtDeadline,
+    phase,
+    me?.submitted_at,
+  ]);
 
   async function submit(timedOut = false) {
-    if ((!timedOut && !canSubmit) || submissionSent.current) return;
+    if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
     submissionSent.current = true;
     try {
       await request(`/api/matches/${matchId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ submission, timedOut }),
+        body: JSON.stringify({ submission: submissionRef.current, timedOut }),
       });
       await reload();
     } catch (caught) {
@@ -251,6 +259,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             timeMs: me.completion_time_ms ?? 0,
             ratingBefore: me.rating_before,
             ratingAfter: me.rating_after ?? me.rating_before,
+            details: me.result.details,
           }}
           opponent={{
             name: opponent.display_name,
@@ -261,6 +270,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             timeMs: opponent.completion_time_ms ?? 0,
             ratingBefore: opponent.rating_before,
             ratingAfter: opponent.rating_after ?? opponent.rating_before,
+            details: opponent.result.details,
           }}
           unranked={!snapshot.ranked}
           rematchWaiting={rematchWaiting}
@@ -314,7 +324,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
-    <main className="has-match-chat min-h-screen">
+    <main className={`has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader
         player={me?.display_name ?? "Loading…"}
         playerRating={me?.rating_before ?? 1000}
@@ -358,13 +368,14 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                   challenge={snapshot?.challenge ?? {}}
                   disabled={phase !== "answer"}
                   onChange={(next, valid) => {
-                    setSubmission(next);
+                    submissionRef.current = next;
+                    canSubmitRef.current = valid;
                     setCanSubmit(valid);
                   }}
                 />
               )}
             </div>
-            {phase === "answer" && !game?.autoSubmitOnValid && (
+            {phase === "answer" && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
               <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
                 Lock answer
               </Button>

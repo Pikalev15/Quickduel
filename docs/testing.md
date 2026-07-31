@@ -10,8 +10,10 @@ npm run build
 npm run test:e2e
 ```
 
-Unit tests cover all twelve deterministic generators, bot payload validation,
-scoring, accuracy-before-speed fairness, the 8-second Memory Grid window, seed
+Unit tests cover all thirteen active deterministic generators, both immutable
+legacy recall versions, bot payload validation,
+scoring, accuracy-before-speed fairness, Typing Sprint's fixed-duration net-WPM
+exception, the 8-second Memory Grid window, seed
 variance, tie handling, Elo symmetry, payload validation, and division
 boundaries.
 
@@ -29,7 +31,7 @@ the live Supabase project:
 
 1. Start `npm run dev`.
 2. Open `http://localhost:3000`.
-3. Confirm three suggested games are visible and the other nine expand from
+3. Confirm three suggested games are visible and the other ten expand from
    **All games**.
 4. Use Interface settings to persist the full library, leaderboard preview, and
    how-it-works sections.
@@ -54,7 +56,8 @@ Follow `docs/setup-supabase.md`, then use two isolated browser contexts:
 
 Verify concurrency and authorization with the checklist in
 `supabase/tests/verification.sql` and
-`supabase/tests/retention_verification.sql`. A disposable Supabase project is
+`supabase/tests/retention_verification.sql`, then run
+`supabase/tests/game_version_and_typing_verification.sql`. A disposable Supabase project is
 strongly recommended for destructive database testing.
 
 After migrations:
@@ -83,4 +86,4 @@ Manual verification requires two desktop contexts and a mobile viewport. Cover
 normal ranked completion, one missing submission, double timeout, pre-start
 departure, reconnect inside grace, ranked/unranked private series, history
 reason, provisional permanent/season boards, match chat send/Realtime fallback/
-mute/report/block, admin review, and at least one round in all twelve games.
+mute/report/block, admin review, and at least one round in all thirteen games.

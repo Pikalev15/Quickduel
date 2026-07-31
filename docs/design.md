@@ -26,8 +26,8 @@ reference; implementation screenshots are in `docs/screenshots/`.
 ## Hierarchy and disclosure
 
 - The first viewport leads with **Quick play**, then **Choose a game**.
-- Suggested games are compact rows. **All games** expands the other nine
-  challenges, so all twelve remain one interaction away.
+- Suggested games are compact rows. **All games** expands the other ten
+  challenges, so all thirteen remain one interaction away.
 - Interface settings persist locally and can keep the full library, leaderboard
   preview, or three-step explanation visible.
 - Profile customization and Google account linking remain in the profile drawer.
@@ -60,7 +60,7 @@ reference; implementation screenshots are in `docs/screenshots/`.
 ## Functional preservation checklist
 
 - Quick matchmaking and playlist/specific-game matchmaking
-- Twelve game Practice and Duel paths
+- Thirteen game Practice and Duel paths
 - Profile name and accent editing
 - Google sign-in/linking capability gate
 - Leaderboard route and optional preview

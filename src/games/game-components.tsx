@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameComponentProps, Submission } from "./types";
 import { AudioManager } from "../lib/audio/audio-manager";
+import {
+  normalizeTypingInput,
+  TYPING_SPRINT_DURATION_MS,
+  TYPING_SPRINT_SUBMISSION_ALLOWANCE,
+  typingSprintStatistics,
+} from "./typing-sprint";
 
 function Range({
   label,
@@ -107,6 +113,86 @@ export function FrequencyRecallGame({
   );
 }
 
+export function FrequencyRecallV2Game({
+  challenge,
+  disabled,
+  onChange,
+}: GameComponentProps) {
+  const frequencies = useMemo(
+    () => (challenge.frequencies as number[] | undefined) ?? [],
+    [challenge.frequencies],
+  );
+  const [round, setRound] = useState(0);
+  const [phase, setPhase] = useState<"reveal" | "answer" | "complete">("reveal");
+  const [guess, setGuess] = useState(660);
+  const [guesses, setGuesses] = useState<number[]>([]);
+  const audio = useMemo(() => AudioManager.shared(), []);
+
+  useEffect(() => {
+    if (disabled || phase !== "reveal" || !frequencies[round]) return;
+    void audio.playToneSequence([frequencies[round]]);
+    const timer = window.setTimeout(() => setPhase("answer"), 1_050);
+    return () => window.clearTimeout(timer);
+  }, [audio, disabled, frequencies, phase, round]);
+
+  function confirmRound() {
+    if (disabled || phase !== "answer") return;
+    const next = [...guesses, guess];
+    setGuesses(next);
+    onChange({ guessesHz: next }, next.length === frequencies.length);
+    if (next.length >= frequencies.length) {
+      setPhase("complete");
+      return;
+    }
+    setRound((value) => value + 1);
+    setGuess(660);
+    setPhase("reveal");
+  }
+
+  return (
+    <div className="sequential-recall" aria-live="polite">
+      <div className="sequential-progress">
+        <span>Round {Math.min(round + 1, frequencies.length || 5)} of {frequencies.length || 5}</span>
+        <strong>{guesses.length * 10}/50 available</strong>
+      </div>
+      {phase === "reveal" ? (
+        <div className="frequency-reveal">
+          <span className="frequency-wave" aria-hidden="true">∿</span>
+          <strong>Listen</strong>
+          <button
+            type="button"
+            className="recall-replay"
+            disabled={disabled}
+            onClick={() => void audio.playToneSequence([frequencies[round]])}
+          >
+            Play tone again
+          </button>
+        </div>
+      ) : phase === "answer" ? (
+        <div className="sequential-answer">
+          <p>Tune the pitch you just heard.</p>
+          <Range
+            label={`Round ${round + 1} frequency`}
+            value={guess}
+            min={120}
+            max={2000}
+            disabled={disabled}
+            onChange={setGuess}
+          />
+          <button type="button" className="recall-confirm" onClick={confirmRound}>
+            Confirm round
+          </button>
+        </div>
+      ) : (
+        <div className="sequential-complete">
+          <strong>Five rounds locked</strong>
+          <span>Your combined score will be shown out of 50.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ColourRecallGame({
   challenge,
   disabled,
@@ -148,6 +234,85 @@ export function ColourRecallGame({
           <Range label="Hue" value={color.h} min={0} max={359} disabled={disabled} onChange={(value) => update(index, "h", value)} />
         </section>
       ))}
+    </div>
+  );
+}
+
+type RecallColour = { l: number; c: number; h: number };
+
+export function ColourRecallV2Game({
+  challenge,
+  disabled,
+  onChange,
+}: GameComponentProps) {
+  const colors = useMemo(
+    () => (challenge.colors as RecallColour[] | undefined) ?? [],
+    [challenge.colors],
+  );
+  const [round, setRound] = useState(0);
+  const [phase, setPhase] = useState<"reveal" | "answer" | "complete">("reveal");
+  const [guess, setGuess] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
+  const [guesses, setGuesses] = useState<RecallColour[]>([]);
+
+  useEffect(() => {
+    if (disabled || phase !== "reveal" || !colors[round]) return;
+    const timer = window.setTimeout(() => setPhase("answer"), 1_150);
+    return () => window.clearTimeout(timer);
+  }, [colors, disabled, phase, round]);
+
+  function update(key: keyof RecallColour, value: number) {
+    setGuess((current) => ({ ...current, [key]: value }));
+  }
+
+  function confirmRound() {
+    if (disabled || phase !== "answer") return;
+    const next = [...guesses, guess];
+    setGuesses(next);
+    onChange({ colors: next }, next.length === colors.length);
+    if (next.length >= colors.length) {
+      setPhase("complete");
+      return;
+    }
+    setRound((value) => value + 1);
+    setGuess({ l: 65, c: 18, h: 180 });
+    setPhase("reveal");
+  }
+
+  const target = colors[round];
+  return (
+    <div className="sequential-recall" aria-live="polite">
+      <div className="sequential-progress">
+        <span>Round {Math.min(round + 1, colors.length || 5)} of {colors.length || 5}</span>
+        <strong>{guesses.length * 10}/50 available</strong>
+      </div>
+      {phase === "reveal" && target ? (
+        <div className="colour-round-reveal">
+          <span
+            aria-label={`Colour ${round + 1}`}
+            style={{ background: `oklch(${target.l}% ${target.c / 100} ${target.h})` }}
+          />
+          <strong>Remember this colour</strong>
+        </div>
+      ) : phase === "answer" ? (
+        <div className="sequential-answer colour-round-answer">
+          <div
+            className="colour-preview"
+            aria-label="Your reconstructed colour"
+            style={{ background: `oklch(${guess.l}% ${guess.c / 100} ${guess.h})` }}
+          />
+          <Range label="Lightness" value={guess.l} min={35} max={90} disabled={disabled} onChange={(value) => update("l", value)} />
+          <Range label="Chroma" value={guess.c} min={4} max={32} disabled={disabled} onChange={(value) => update("c", value)} />
+          <Range label="Hue" value={guess.h} min={0} max={359} disabled={disabled} onChange={(value) => update("h", value)} />
+          <button type="button" className="recall-confirm" onClick={confirmRound}>
+            Confirm round
+          </button>
+        </div>
+      ) : (
+        <div className="sequential-complete">
+          <strong>Five rounds locked</strong>
+          <span>Your combined score will be shown out of 50.</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,6 +552,147 @@ export function PatternCompleteGame({ challenge, disabled, onChange }: GameCompo
   );
 }
 
+export function TypingSprintGame({
+  challenge,
+  disabled,
+  onChange,
+}: GameComponentProps) {
+  const text = String(challenge.text ?? "");
+  const words = (challenge.words as string[] | undefined) ?? text.split(" ");
+  const input = useRef<HTMLInputElement>(null);
+  const composing = useRef(false);
+  const initialized = useRef(false);
+  const startedAt = useRef<number | null>(null);
+  const [typed, setTyped] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    onChange({ typed: "" }, true);
+  }, [onChange]);
+
+  useEffect(() => {
+    if (disabled) return;
+    startedAt.current ??= performance.now();
+    input.current?.focus({ preventScroll: true });
+    const timer = window.setInterval(() => {
+      setElapsedMs(
+        Math.min(
+          TYPING_SPRINT_DURATION_MS,
+          performance.now() - (startedAt.current ?? performance.now()),
+        ),
+      );
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [disabled]);
+
+  function updateTyped(rawValue: string) {
+    const sanitized = normalizeTypingInput(
+      rawValue.toLowerCase().replace(/[^a-z ]/g, ""),
+    ).slice(0, text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE);
+    setTyped(sanitized);
+    onChange({ typed: sanitized }, true);
+  }
+
+  const normalized = normalizeTypingInput(typed);
+  const attempts = normalized.trim() ? normalized.trim().split(" ") : [];
+  const currentWord = Math.min(
+    words.length - 1,
+    Math.max(0, normalized.endsWith(" ") ? attempts.length : attempts.length - 1),
+  );
+  const windowStart = Math.max(0, currentWord - 10);
+  const visibleWords = words.slice(windowStart, windowStart + 42);
+  const statistics = typingSprintStatistics(text, typed, elapsedMs);
+  const remainingSeconds = Math.max(0, TYPING_SPRINT_DURATION_MS - elapsedMs) / 1000;
+
+  return (
+    <section
+      className="typing-sprint"
+      aria-label="Typing Sprint input"
+      onClick={() => input.current?.focus({ preventScroll: true })}
+      onDrop={(event) => event.preventDefault()}
+    >
+      <div className="typing-stats" aria-live="polite">
+        <span><small>WPM</small><strong>{Math.round(statistics.netWpm)}</strong></span>
+        <span><small>Accuracy</small><strong>{Math.round(statistics.accuracy * 100)}%</strong></span>
+        <span><small>Errors</small><strong>{statistics.incorrectChars}</strong></span>
+        <span><small>Time</small><strong>{remainingSeconds.toFixed(1)}</strong></span>
+      </div>
+
+      <div className="typing-words" aria-hidden="true">
+        {visibleWords.map((word, visibleIndex) => {
+          const wordIndex = windowStart + visibleIndex;
+          const attempt = attempts[wordIndex] ?? "";
+          const active = wordIndex === currentWord;
+          const completed = wordIndex < currentWord;
+          return (
+            <span
+              className={`typing-word${active ? " is-current" : ""}${completed ? " is-complete" : ""}`}
+              key={`${wordIndex}:${word}`}
+            >
+              {Array.from(word).map((character, characterIndex) => {
+                const entered = attempt[characterIndex];
+                const className = entered === undefined
+                  ? active && characterIndex === attempt.length
+                    ? "is-caret"
+                    : "is-untyped"
+                  : entered === character
+                    ? "is-correct"
+                    : "is-incorrect";
+                return <i className={className} key={characterIndex}>{character}</i>;
+              })}
+              {attempt.length > word.length &&
+                Array.from(attempt.slice(word.length)).map((character, index) => (
+                  <i className="is-extra" key={`extra:${index}`}>{character}</i>
+                ))}
+            </span>
+          );
+        })}
+      </div>
+
+      <p className="typing-focus-copy">
+        {disabled ? "Time is up." : "Focus and keep typing…"}
+      </p>
+      <input
+        ref={input}
+        className="typing-capture-input"
+        aria-label="Type the displayed words"
+        aria-describedby="typing-sprint-instructions"
+        autoCapitalize="none"
+        autoComplete="off"
+        autoCorrect="off"
+        disabled={disabled}
+        inputMode="text"
+        maxLength={text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE}
+        spellCheck={false}
+        value={typed}
+        onChange={(event) => {
+          if (!composing.current) updateTyped(event.currentTarget.value);
+        }}
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
+        onCompositionEnd={(event) => {
+          composing.current = false;
+          updateTyped(event.currentTarget.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+          if (event.key === " " && (typed.length === 0 || typed.endsWith(" "))) {
+            event.preventDefault();
+          }
+        }}
+        onPaste={(event) => event.preventDefault()}
+        onDrop={(event) => event.preventDefault()}
+      />
+      <span className="sr-only" id="typing-sprint-instructions">
+        Type lowercase words separated by one space. Paste and drag-and-drop are disabled.
+      </span>
+    </section>
+  );
+}
+
 export function ReactionTestGame({ challenge, disabled, onChange }: GameComponentProps) {
   const waits = useMemo(
     () => (challenge.waits as number[] | undefined) ?? [900, 1200, 1600, 1100, 1400],
@@ -429,6 +735,7 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
   const [index, setIndex] = useState(0);
   const [misses, setMisses] = useState(0);
   const startedAt = useRef(0);
+  const status = useRef<HTMLSpanElement>(null);
   const target = targets[index];
   const finish = (nextIndex: number, nextMisses: number) => {
     onChange(
@@ -441,8 +748,18 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
     );
   };
   return (
-    <div className="target-field" onClick={() => {
+    <div className="target-field" onClick={(event) => {
       if (disabled || !target) return;
+      const statusBounds = status.current?.getBoundingClientRect();
+      if (
+        statusBounds &&
+        event.clientX >= statusBounds.left &&
+        event.clientX <= statusBounds.right &&
+        event.clientY >= statusBounds.top &&
+        event.clientY <= statusBounds.bottom
+      ) {
+        return;
+      }
       if (!startedAt.current) startedAt.current = performance.now();
       const nextMisses = misses + 1;
       setMisses(nextMisses);
@@ -463,7 +780,7 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
           }}
         />
       )}
-      <span>{index}/{targets.length} targets · {misses} misses</span>
+      <span ref={status}>{index}/{targets.length} targets · {misses} misses</span>
     </div>
   );
 }

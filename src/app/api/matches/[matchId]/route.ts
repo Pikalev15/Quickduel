@@ -27,11 +27,20 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,starts_at,reveal_duration_ms,status,source,private_duel_id,series_round")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,status,source,private_duel_id,series_round")
       .eq("id", parsed.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing.");
     const game = getGame(privateMatch.game_type);
+    if (game.version !== privateMatch.game_version) {
+      return apiError(
+        409,
+        "CONFLICT",
+        "Match game version is not supported.",
+        undefined,
+        correlationId,
+      );
+    }
     const now = Date.now();
     const startsAt = privateMatch.starts_at ? Date.parse(privateMatch.starts_at) : null;
     let phase: GamePhase = "waiting";

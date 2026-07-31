@@ -62,3 +62,13 @@ The migration installs a minute Supabase `pg_cron` job named
 Cleanup also prunes Supabase Cron run history after seven days.
 The authenticated HTTP cron route remains available only as an emergency
 manual trigger.
+
+## Game versions and Typing Sprint
+
+`20260731043411_add_game_versions_and_typing_sprint.sql` adds the
+`frequency_recall_v2`, `colour_recall_v2`, and `typing_sprint` game types. It
+replaces the version-1-only check with an explicit game/version-pair constraint:
+the two v2 recall IDs require version 2 and all other supported IDs require
+version 1. The migration updates public and private matchmaking pools, persisted
+durations, and match inserts while preserving explicit function revokes and
+narrow authenticated grants.

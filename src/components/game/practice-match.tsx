@@ -100,7 +100,7 @@ export function PracticeMatch({
 
   async function nextOnboardingStep() {
     if (!onboardingStep) return;
-    const sequence: GameId[] = ["memory_grid", "frequency_recall", "number_order"];
+    const sequence: GameId[] = ["memory_grid", "frequency_recall_v2", "number_order"];
     if (onboardingStep < 3) {
       const nextStep = (onboardingStep + 1) as 2 | 3;
       router.push(
@@ -144,6 +144,7 @@ export function PracticeMatch({
             timeMs: playerTime,
             ratingBefore: 1000,
             ratingAfter: 1000,
+            details: playerResult.details,
           }}
           opponent={{
             name: "Practice Bot",
@@ -154,6 +155,7 @@ export function PracticeMatch({
             timeMs: bot.completionTimeMs,
             ratingBefore: 1000,
             ratingAfter: 1000,
+            details: botResult.details,
           }}
           onRematch={() =>
             router.replace(`/match/practice?game=${game.id}&seed=${Date.now()}`)
@@ -173,7 +175,7 @@ export function PracticeMatch({
   const publicChallenge = game.publicChallenge(challenge, phase === "reveal" ? "reveal" : "answer");
 
   return (
-    <main className="min-h-screen">
+    <main className={`min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader player="You" playerRating={1000} opponent="Practice Bot" connected practice />
       <section className="page-shell screen-enter match-center">
         {phase === "countdown" ? (
@@ -211,7 +213,7 @@ export function PracticeMatch({
                 }}
               />
             </div>
-            {phase === "answer" && !game.autoSubmitOnValid && (
+            {phase === "answer" && !game.autoSubmitOnValid && !game.submitAtDeadline && (
               <Button className="game-submit" disabled={!canSubmit} onClick={submit}>
                 Lock answer
               </Button>
