@@ -3,9 +3,9 @@
 Accuracy first. Speed breaks ties.
 
 QuickDuel is a production-minded multiplayer collection of twelve short browser
-games. It has anonymous entry, optional Google account linking, editable player
-profiles, playlist-aware human matchmaking, server-authoritative scoring/Elo,
-an all-time leaderboard, and clearly labelled game-specific Practice Bots.
+games. It has anonymous entry, optional Google account linking, public and
+private duels, server-authoritative scoring/Elo, personal progression, weekly
+competition, lightweight friends, and clearly labelled Practice Bots.
 
 ## Screenshots
 
@@ -14,7 +14,7 @@ an all-time leaderboard, and clearly labelled game-specific Practice Bots.
 Mobile, gameplay, and live-duel captures are in [`docs/screenshots`](docs/screenshots/).
 Generated composition references live in `docs/design-references/`.
 
-## MVP features
+## Product features
 
 - Anonymous Supabase Auth with upgrade-in-place Google linking
 - Editable display name and profile accent
@@ -28,6 +28,14 @@ Generated composition references live in `docs/design-references/`.
 - Server-regenerated results, server-measured time, atomic idempotent Elo
 - Private per-match realtime subscription with authoritative reload on reconnect
 - Two-party rematch, next opponent, Web Share/clipboard fallback
+- Shareable private single/best-of-3/best-of-5 duels
+- Cursor-paginated match history and participant-only match detail
+- Per-game statistics, Elo-backed divisions, and weekly UTC seasons
+- Public-code friends, blocks, expiring invitations, and presence recency
+- Opt-in result cards with generated Open Graph images
+- Playable onboarding and explicit queue-broadening consent
+- First-party analytics, rate limits, enforcement, audit, and admin tooling
+- Gameplay-neutral owned/equipped cosmetics without payments or a shop
 - Top-100 all-time leaderboard with current-player highlighting
 - Responsive calm-light UI with progressive disclosure and reduced-motion support
 - Structured loading, offline, expiry, configuration, and validation errors
@@ -44,8 +52,8 @@ required.
 The browser is a renderer and input source, not the ranked match authority.
 Authenticated route handlers use a server-only modern Supabase secret to
 regenerate deterministic challenges and calculate results. PostgreSQL owns queue
-locking, trusted timing, completion, per-game stats, and Elo transactions. The
-secret never enters a browser bundle. See
+locking, private series, social transactions, trusted timing, statistics,
+seasons, and Elo transactions. The secret never enters a browser bundle. See
 [`docs/architecture.md`](docs/architecture.md).
 
 ## Local development
@@ -66,6 +74,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SUPABASE_SECRET_KEY=
+# Optional server-side error ingestion
+OBSERVABILITY_DSN=
 ```
 
 Follow [`docs/setup-supabase.md`](docs/setup-supabase.md) to enable anonymous
@@ -82,6 +92,7 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
+npm run test:e2e
 ```
 
 Connected database verification is documented in
@@ -111,15 +122,19 @@ Auth URLs. Exact steps: [`docs/deploy-vercel.md`](docs/deploy-vercel.md).
 - Incomplete matches expire without a rating forfeit.
 - Google OAuth needs a user-owned Google Client ID and Client Secret configured
   in Supabase before its button becomes operational.
-- Match history UI, seasons, moderation tooling, and stronger abuse controls
-  remain outside this MVP.
-
-## Roadmap
-
-CAPTCHA at abuse thresholds, stronger rate limits, abuse monitoring, audit logs,
-replay validation, advanced cheat detection, and seasonal leaderboards.
+- Analytics retention needs an owner-installed Supabase scheduled cleanup.
+- Match invalidation does not automatically reverse historical Elo.
+- Rate limits are account based; edge/IP throttling is a deployment concern.
 
 Game, audio, scoring, and fairness references:
 [`docs/games.md`](docs/games.md), [`docs/audio.md`](docs/audio.md),
 [`docs/scoring.md`](docs/scoring.md), and
 [`docs/fairness-limitations.md`](docs/fairness-limitations.md).
+
+New product and operations references:
+[`private duels`](docs/private-duels.md),
+[`history/stats`](docs/match-history.md),
+[`divisions/seasons`](docs/divisions-and-seasons.md),
+[`friends`](docs/friends.md), [`analytics`](docs/analytics.md),
+[`security`](docs/security.md), [`privacy`](docs/privacy.md), and
+[`admin`](docs/admin.md).

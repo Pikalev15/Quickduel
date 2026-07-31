@@ -1,5 +1,6 @@
 import { SignalIcon } from "@/components/ui/icons";
 import { Wordmark } from "@/components/ui/wordmark";
+import { getDivision } from "@/lib/divisions";
 
 export function GameHeader({
   player,
@@ -33,6 +34,7 @@ export function GameHeader({
         <div className="truncate px-3 py-3 text-center sm:text-left">
           <span className="text-[var(--muted)]">YOU · </span>
           {player} · <strong className="text-[var(--accent)]">{playerRating}</strong>
+          <span className="hidden text-[var(--muted)] sm:inline"> · {getDivision(playerRating).name}</span>
         </div>
         <div className="display border-x border-[var(--accent)] px-3 py-2 text-xl text-[var(--accent)]">
           VS
@@ -45,6 +47,7 @@ export function GameHeader({
             <>
               {" · "}
               <strong className="text-[var(--accent)]">{opponentRating}</strong>
+              {opponentRating !== undefined && <span className="hidden text-[var(--muted)] sm:inline"> · {getDivision(opponentRating).name}</span>}
               {opponentConnected === false && (
                 <span className="text-[var(--danger)]"> · OFFLINE</span>
               )}

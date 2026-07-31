@@ -1,5 +1,10 @@
 # Game registry
 
+The retention release keeps the existing twelve-game registry. It adds no Daily
+Challenge and no minigame. Fixed private duels use the same versioned engine;
+playlist rounds choose compatible existing games with fresh seeds. Experimental
+`reaction_test` and `target_tap` remain unranked.
+
 `src/games/registry.ts` is the authoritative version-1 game engine. Every
 definition supplies metadata, deterministic generation, a strict Zod submission
 schema, result calculation, comparison-compatible `rankScore`, and a

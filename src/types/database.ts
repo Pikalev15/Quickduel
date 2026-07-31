@@ -9,6 +9,7 @@ export type MatchStatus =
 export type PublicProfile = {
   id: string;
   display_name: string;
+  public_code?: string;
   rating: number;
   wins: number;
   losses: number;
@@ -16,6 +17,20 @@ export type PublicProfile = {
   matches_played: number;
   rank: number;
   accent_colour: "volt" | "cyan" | "coral" | "violet" | "white";
+  account_state?:
+    | "normal"
+    | "warning"
+    | "ranked_restricted"
+    | "temporarily_suspended"
+    | "manually_banned"
+    | "deleted";
+  highest_rating?: number;
+  current_win_streak?: number;
+  best_win_streak?: number;
+  onboarding_completed?: boolean;
+  onboarding_skipped?: boolean;
+  recommended_playlist?: "quick" | "sensory" | "mind" | null;
+  equipped_cosmetics?: Record<string, string>;
   game_stats: Record<
     string,
     {
@@ -25,6 +40,14 @@ export type PublicProfile = {
       draws: number;
       best_rank_score: number | null;
       best_time_ms: number | null;
+      total_rank_score?: number;
+      total_time_ms?: number;
+      recent_results?: Array<{
+        at: string;
+        score: number;
+        time_ms: number;
+        outcome: "win" | "loss" | "draw";
+      }>;
     }
   >;
 };
@@ -77,6 +100,53 @@ export type MatchSnapshot = {
   winner_id: string | null;
   completed_at: string | null;
   rematch_match_id: string | null;
+  source?: "public_queue" | "private_duel";
+  private_duel_code?: string | null;
+  series_round?: number | null;
   current_user_id: string;
   players: MatchPlayer[];
+};
+
+export type PrivateDuelSnapshot = {
+  code: string;
+  state: "waiting" | "ready" | "active" | "completed" | "expired" | "cancelled";
+  host_name: string;
+  guest_name: string | null;
+  selection_kind: "game" | "playlist";
+  game_type: MatchSnapshot["game_type"] | null;
+  playlist: "quick" | "sensory" | "mind" | "experimental";
+  best_of: 1 | 3 | 5;
+  ranked: boolean;
+  host_score: number;
+  guest_score: number;
+  current_round: number;
+  current_match_id: string | null;
+  viewer_role: "host" | "guest" | "visitor";
+  expires_at: string;
+  completed_at: string | null;
+  rounds: Array<{
+    round: number;
+    match_id: string | null;
+    game_type: MatchSnapshot["game_type"];
+    status: MatchStatus;
+    winner: "host" | "guest" | "draw";
+  }>;
+};
+
+export type MatchHistoryItem = {
+  id: string;
+  outcome: "win" | "loss" | "draw";
+  opponent_name: string;
+  opponent_code: string;
+  game_type: MatchSnapshot["game_type"];
+  ranked: boolean;
+  rating_delta: number | null;
+  player_summary: string;
+  opponent_summary: string;
+  player_time_ms: number;
+  opponent_time_ms: number;
+  completed_at: string;
+  source: "public_queue" | "private_duel";
+  private_duel_id: string | null;
+  series_round: number | null;
 };

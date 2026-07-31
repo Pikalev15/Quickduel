@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Header } from "@/components/ui/header";
 import { Button } from "@/components/ui/button";
 import { TrophyIcon } from "@/components/ui/icons";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getDivision } from "@/lib/divisions";
+import { ProductHeader } from "@/components/ui/product-header";
 
 type Leader = {
   rank: number;
@@ -15,6 +16,7 @@ type Leader = {
   losses: number;
   draws: number;
   matches_played: number;
+  public_code?: string;
 };
 
 export function LeaderboardScreen() {
@@ -36,7 +38,11 @@ export function LeaderboardScreen() {
       if (!response.ok) throw new Error(body.error?.message ?? "Leaderboard failed.");
       setLeaders(body.data ?? []);
       if (userResult) {
-        setCurrentId(userResult.data.user?.id ?? null);
+        const profileResponse = await fetch("/api/profile", { cache: "no-store" });
+        if (profileResponse.ok) {
+          const profileBody = await profileResponse.json();
+          setCurrentId(profileBody.data?.public_code ?? null);
+        }
       }
     } catch (caught) {
       setError(
@@ -54,7 +60,7 @@ export function LeaderboardScreen() {
 
   return (
     <main className="min-h-screen">
-      <Header simple />
+      <ProductHeader current="leaderboard" />
       <section className="page-shell screen-enter py-12 sm:py-16">
         <div className="flex items-end justify-between gap-4 border-b border-[var(--border)] pb-7">
           <div>
@@ -63,7 +69,7 @@ export function LeaderboardScreen() {
               Leaderboard
             </h1>
             <p className="mt-4 text-sm text-[var(--muted)]">
-              All-time ranked Memory Grid duelists.
+              Permanent Elo across all ten ranked games.
             </p>
           </div>
           <span className="display hidden text-sm tracking-[0.12em] text-[var(--muted)] sm:block">
@@ -103,6 +109,7 @@ export function LeaderboardScreen() {
                   <th className="px-5 py-4">RANK</th>
                   <th className="px-5 py-4">DUELIST</th>
                   <th className="px-5 py-4 text-right">RATING</th>
+                  <th className="px-5 py-4">DIVISION</th>
                   <th className="px-5 py-4 text-right">WINS</th>
                   <th className="px-5 py-4 text-right">LOSSES</th>
                   <th className="px-5 py-4 text-right">MATCHES</th>
@@ -114,7 +121,7 @@ export function LeaderboardScreen() {
                     key={leader.id}
                     className={`border-t border-[var(--border)] transition hover:bg-[var(--surface)] ${
                       leader.id === currentId
-                        ? "bg-[rgb(215_255_0/8%)] text-white"
+                        ? "bg-[var(--surface)]"
                         : ""
                     }`}
                   >
@@ -132,6 +139,7 @@ export function LeaderboardScreen() {
                     <td className="display px-5 py-4 text-right text-xl">
                       {leader.rating}
                     </td>
+                    <td className="px-5 py-4">{getDivision(leader.rating).name}</td>
                     <td className="px-5 py-4 text-right">{leader.wins}</td>
                     <td className="px-5 py-4 text-right">{leader.losses}</td>
                     <td className="px-5 py-4 text-right">

@@ -7,11 +7,20 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
+npm run test:e2e
 ```
 
 Unit tests cover all twelve deterministic generators, bot payload validation,
 scoring, accuracy-before-speed fairness, the 8-second Memory Grid window, seed
-variance, tie handling, Elo symmetry, and payload validation.
+variance, tie handling, Elo symmetry, payload validation, and division
+boundaries.
+
+Playwright runs fixture-backed product flows at desktop and Pixel 7 viewports.
+The real two-context Supabase suite is deliberately opt-in:
+
+```bash
+E2E_LIVE_SUPABASE=1 npm run test:e2e:live
+```
 
 ## Browser checks
 
@@ -31,6 +40,10 @@ the live Supabase project:
    match ID and receive the ranked game state.
 8. Enable reduced motion in the operating system and confirm pulses/transitions
    collapse.
+9. Create a private best-of-3, join from the other context, and finish the series.
+10. Check participant and unrelated-account history/detail authorization.
+11. Exercise friend request, acceptance, block, and invitation expiry.
+12. Check light/dark/system, deletion confirmation, and admin/non-admin states.
 
 ## Connected verification
 
@@ -40,8 +53,9 @@ Follow `docs/setup-supabase.md`, then use two isolated browser contexts:
 - two different browser profiles/devices.
 
 Verify concurrency and authorization with the checklist in
-`supabase/tests/verification.sql`. A disposable Supabase project is strongly
-recommended for destructive database testing.
+`supabase/tests/verification.sql` and
+`supabase/tests/retention_verification.sql`. A disposable Supabase project is
+strongly recommended for destructive database testing.
 
 After migrations:
 

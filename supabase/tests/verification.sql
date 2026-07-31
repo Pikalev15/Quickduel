@@ -14,3 +14,8 @@
 --    deleted and never selected.
 -- 6. Reload an active match from a participant session. get_match_snapshot must
 --    return its current authoritative phase and both participant rows.
+--
+-- Automated catalogue, RLS, grant, and function-shape assertions for the
+-- retention/social/progression layer live in retention_verification.sql.
+-- Complete concurrency and private-series flows still require a disposable
+-- linked project because pgTAP cannot create Auth sessions safely.

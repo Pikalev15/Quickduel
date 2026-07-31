@@ -10,6 +10,7 @@ import { GameRenderer } from "@/games/client-registry";
 import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
+import { track } from "@/lib/analytics";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -30,6 +31,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [rematchWaiting, setRematchWaiting] = useState(false);
   const readySent = useRef(false);
   const submissionSent = useRef(false);
+  const trackedStatuses = useRef(new Set<string>());
 
   const reload = useCallback(async () => {
     try {
@@ -84,6 +86,19 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           if (status === "SUBSCRIBED") {
             await channel?.track({ page: "match", ready: true });
             void reload();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            void fetch("/api/errors", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                event: "realtime_disconnected",
+                message: `Private match channel ${status.toLowerCase()}`,
+                route: `/match/${matchId}`,
+                digest: null,
+                stack: null,
+              }),
+              keepalive: true,
+            }).catch(() => undefined);
           }
         });
     })();
@@ -107,6 +122,27 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         : me?.submitted_at
           ? "submitted"
           : snapshot?.phase ?? "waiting";
+
+  useEffect(() => {
+    if (!snapshot || trackedStatuses.current.has(snapshot.status)) return;
+    trackedStatuses.current.add(snapshot.status);
+    if (snapshot.status === "active" || snapshot.status === "countdown") {
+      track("match_started", {
+        matchId,
+        gameType: snapshot.game_type,
+      });
+    } else if (snapshot.status === "completed") {
+      track("match_completed", {
+        matchId,
+        gameType: snapshot.game_type,
+      });
+    } else if (snapshot.status === "abandoned") {
+      track("match_abandoned", {
+        matchId,
+        gameType: snapshot.game_type,
+      });
+    }
+  }, [matchId, snapshot]);
 
   useEffect(() => {
     if (phase !== "answer" || !answerEnd || me?.submitted_at) return;
@@ -140,6 +176,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
 
   async function rematch() {
     setRematchWaiting(true);
+    track("rematch_requested", {
+      matchId,
+      gameType: snapshot?.game_type ?? null,
+    });
     try {
       const response = await request<{ match_id: string | null }>(
         `/api/matches/${matchId}/rematch`,
@@ -154,6 +194,18 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       setRematchWaiting(false);
       setError(caught instanceof Error ? caught.message : "Rematch failed.");
     }
+  }
+
+  async function createShareUrl() {
+    const response = await request<{ code: string }>(
+      `/api/matches/${matchId}/share`,
+      { method: "POST" },
+    );
+    track("share_clicked", {
+      matchId,
+      gameType: snapshot?.game_type ?? null,
+    });
+    return `${location.origin}/share/${response.code}`;
   }
 
   if (phase === "result" && snapshot && me?.result && opponent?.result) {
@@ -198,9 +250,20 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           }}
           unranked={!snapshot.ranked}
           rematchWaiting={rematchWaiting}
-          onRematch={() => void rematch()}
-          onNext={() => router.push("/play")}
+          onRematch={() =>
+            snapshot.private_duel_code
+              ? router.push(`/duel/${snapshot.private_duel_code}`)
+              : void rematch()
+          }
+          onNext={() =>
+            snapshot.private_duel_code
+              ? router.push(`/duel/${snapshot.private_duel_code}`)
+              : router.push("/play")
+          }
           onHome={() => router.push("/")}
+          rematchLabel={snapshot.private_duel_code ? "Return to series" : "Rematch"}
+          nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
+          onCreateShare={createShareUrl}
         />
       </main>
     );

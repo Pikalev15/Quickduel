@@ -16,6 +16,7 @@ import {
   type AuthIntent,
   type HomePreferences,
 } from "./settings-popover";
+import { track } from "@/lib/analytics";
 
 type Leader = {
   rank: number;
@@ -86,6 +87,7 @@ export function HomeScreen() {
       }
     }
     void load();
+    track("landing_viewed");
     return () => {
       active = false;
       window.clearTimeout(loadPreferences);
@@ -126,6 +128,7 @@ export function HomeScreen() {
         provider: "google",
         options,
       });
+      if (!signUpError) track("google_account_linked");
       return signUpError ? "Could not open Google sign-up. Please try again." : null;
     }
 
@@ -133,6 +136,7 @@ export function HomeScreen() {
       provider: "google",
       options,
     });
+    if (!signInError) track("google_account_linked");
     return signInError ? "Could not open Google sign-in. Please try again." : null;
   }, []);
 
@@ -168,6 +172,7 @@ export function HomeScreen() {
   }, [preferences.showGameLibrary]);
 
   async function play() {
+    track("play_clicked");
     setStarting(true);
     setError(null);
     const supabase = getSupabaseBrowserClient();
@@ -186,12 +191,21 @@ export function HomeScreen() {
         setError("Anonymous sign-in failed. Check Supabase Auth settings.");
         return;
       }
+      track("anonymous_auth_created");
     }
     const { error: profileError } = await supabase.rpc("ensure_profile");
     if (profileError) {
       setStarting(false);
       setError("Your player profile could not be created. Please try again.");
       return;
+    }
+    const profileResponse = await fetch("/api/profile", { cache: "no-store" });
+    if (profileResponse.ok) {
+      const body = await profileResponse.json();
+      if (body.data?.onboarding_completed === false) {
+        router.push("/onboarding");
+        return;
+      }
     }
     router.push("/play");
   }
@@ -234,13 +248,11 @@ export function HomeScreen() {
             <PlayIcon className="h-5 w-5" />
             {starting ? "Joining…" : "Quick play"}
           </button>
-          <button
-            type="button"
-            className="calm-secondary"
-            aria-controls="game-library"
-            onClick={chooseGame}
-          >
-            Choose a game <ArrowIcon className="h-4 w-4" />
+          <Link className="calm-secondary" href="/duel/new">
+            Private duel <ArrowIcon className="h-4 w-4" />
+          </Link>
+          <button type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
+            Choose a game
           </button>
         </div>
         <div className="calm-player-line">
@@ -313,6 +325,8 @@ export function HomeScreen() {
         <span>QuickDuel</span>
         <nav>
           <Link href="/play?playlist=quick">Play</Link>
+          <Link href="/friends">Friends</Link>
+          <Link href="/history">History</Link>
           <Link href="/leaderboard">Leaderboard</Link>
           <button type="button" onClick={openProfile}>Profile</button>
         </nav>

@@ -29,6 +29,24 @@ per-game stats, and Elo when both answers exist.
 The initial rating window is 150 and widens with wait time. PostgreSQL's row
 lock prevents two callers from claiming the same waiting opponent.
 
+The queue UI does not widen a selected playlist/game automatically. It shows
+approximate health and offers an explicit broadening action. A local browser
+lease prevents accidental duplicate queue tabs; PostgreSQL remains the
+cross-device authority.
+
+## Retention and social layer
+
+Private-duel and friend/block/invitation changes are narrow transactional
+database functions. Existing `matches` and `match_players` remain authoritative;
+matches gain source, playlist, series, invalidation, and explicit-share metadata
+instead of introducing a parallel scoring system.
+
+The completion trigger updates progression, per-game rollups, weekly season
+points, pair-farming counters, private-series score/next round, and an audit row
+in the same database transaction. Elo remains owned by the existing idempotent
+finalizer. History/statistics use participant-scoped RPC projections, while
+public cards use a separate opt-in projection.
+
 ## Match lifecycle
 
 `waiting → countdown → active → completed`
@@ -78,9 +96,14 @@ queue and is always labelled `Practice Bot · UNRANKED`.
 - Incomplete matches are abandoned without rating. A future ruleset may add
   carefully defined started-match forfeits.
 
-## Future hardening
+## Operations and future hardening
 
-Add CAPTCHA at abuse thresholds, stronger per-user/IP rate limits, abuse
-monitoring, audit logs, match replay validation, better bot
-detection, and more advanced cheat detection. Do not add invasive
-fingerprinting or unnecessary personal data.
+Routes attach correlation IDs and emit structured logs. An optional server-only
+webhook receives sanitized errors. Database roles protect admin aggregates and
+enforcement; audit rows record sensitive changes. Analytics is best effort and
+isolated from match completion.
+
+Future hardening includes edge/IP throttling, CAPTCHA only at demonstrated abuse
+thresholds, scheduled analytics deletion, compensating Elo corrections, replay
+validation, and better bot detection. Do not add invasive fingerprinting or
+unnecessary personal data.

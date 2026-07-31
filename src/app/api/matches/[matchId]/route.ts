@@ -1,4 +1,5 @@
-import { apiError, apiSuccess, safeMessage } from "@/lib/api";
+import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
+import { rpcErrorResponse } from "@/lib/server/http";
 import { matchIdSchema } from "@/lib/validation";
 import { requireUser } from "@/lib/server/route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -8,12 +9,13 @@ import type { GamePhase } from "@/games/types";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ matchId: string }> },
 ) {
+  const correlationId = requestCorrelationId(request);
   const parsed = matchIdSchema.safeParse((await context.params).matchId);
   if (!parsed.success) {
-    return apiError(400, "INVALID_REQUEST", "That match link is invalid.");
+    return apiError(400, "INVALID_REQUEST", "That match link is invalid.", undefined, correlationId);
   }
   try {
     const { supabase } = await requireUser();
@@ -21,11 +23,11 @@ export async function GET(
       requested_match_id: parsed.data,
     });
     if (error) throw error;
-    if (!data) return apiError(404, "NOT_FOUND", "Match not found.");
+    if (!data) return apiError(404, "NOT_FOUND", "Match not found.", undefined, correlationId);
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,starts_at,reveal_duration_ms,status")
+      .select("challenge_seed,game_type,starts_at,reveal_duration_ms,status,source,private_duel_id,series_round")
       .eq("id", parsed.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing.");
@@ -38,16 +40,24 @@ export async function GET(
     else if (now < startsAt + privateMatch.reveal_duration_ms) phase = "reveal";
     else phase = "answer";
     const completeChallenge = game.generate(String(privateMatch.challenge_seed));
+    let privateDuelCode: string | null = null;
+    if (privateMatch.private_duel_id) {
+      const { data: privateDuel } = await admin
+        .from("private_duels")
+        .select("code")
+        .eq("id", privateMatch.private_duel_id)
+        .single();
+      privateDuelCode = privateDuel?.code ?? null;
+    }
     return apiSuccess({
       ...data,
       phase,
       challenge: game.publicChallenge(completeChallenge, phase),
-    });
+      source: privateMatch.source,
+      private_duel_code: privateDuelCode,
+      series_round: privateMatch.series_round,
+    }, 200, correlationId);
   } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
-      return apiError(401, "UNAUTHENTICATED", "Your session expired.");
-    }
-    console.error("[matches:get] Failed to build match snapshot", error);
-    return apiError(500, "SERVER_ERROR", safeMessage(error));
+    return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]");
   }
 }

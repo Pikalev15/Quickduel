@@ -1,4 +1,5 @@
-import { apiError, apiSuccess, safeMessage } from "@/lib/api";
+import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
+import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 import { matchIdSchema, submitAnswerSchema } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -8,12 +9,13 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ matchId: string }> },
 ) {
+  const correlationId = requestCorrelationId(request);
   const matchId = matchIdSchema.safeParse((await context.params).matchId);
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return apiError(400, "INVALID_REQUEST", "Request body must be JSON.");
+    return apiError(400, "INVALID_REQUEST", "Request body must be JSON.", undefined, correlationId);
   }
   const parsed = submitAnswerSchema.safeParse(body);
   if (!matchId.success || !parsed.success) {
@@ -22,15 +24,22 @@ export async function POST(
       "INVALID_REQUEST",
       "Game submission is invalid.",
       parsed.success ? undefined : parsed.error.issues,
+      correlationId,
     );
   }
   try {
     const { supabase, user } = await requireUser();
+    const rateLimit = await supabase.rpc("check_rate_limit", {
+      requested_action: "match_submission",
+      requested_limit: 30,
+      requested_window_seconds: 60,
+    });
+    if (rateLimit.error) return apiError(429, "RATE_LIMITED", rateLimit.error.message, undefined, correlationId);
     const participant = await supabase.rpc("get_match_snapshot", {
       requested_match_id: matchId.data,
     });
     if (participant.error || !participant.data) {
-      return apiError(404, "NOT_FOUND", "Match not found.");
+      return apiError(404, "NOT_FOUND", "Match not found.", undefined, correlationId);
     }
     const admin = createSupabaseAdminClient();
     const { data: match, error: matchError } = await admin
@@ -39,20 +48,20 @@ export async function POST(
       .eq("id", matchId.data)
       .single();
     if (matchError || !match || !match.starts_at) {
-      return apiError(409, "CONFLICT", "Match is not ready for answers.");
+      return apiError(409, "CONFLICT", "Match is not ready for answers.", undefined, correlationId);
     }
     const game = getGame(match.game_type);
     const answerStartedAt = Date.parse(match.starts_at) + match.reveal_duration_ms;
     const answerDeadline = answerStartedAt + match.answer_duration_ms;
     if (parsed.data.timedOut && Date.now() < answerDeadline - 250) {
-      return apiError(409, "CONFLICT", "The answer window is still open.");
+      return apiError(409, "CONFLICT", "The answer window is still open.", undefined, correlationId);
     }
     const challenge = game.generate(String(match.challenge_seed));
     const submission = parsed.data.timedOut
       ? { success: true as const, data: { timedOut: true } }
       : game.submissionSchema.safeParse(parsed.data.submission);
     if (!submission.success) {
-      return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues);
+      return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues, correlationId);
     }
     const completionTimeMs = parsed.data.timedOut
       ? match.answer_duration_ms
@@ -84,16 +93,41 @@ export async function POST(
       calculated_correct: Math.max(0, Math.min(32767, Math.round(correct))),
       calculated_incorrect: Math.max(0, Math.min(32767, Math.round(incorrect))),
     });
-    if (error) return apiError(409, "CONFLICT", error.message);
+    if (error) {
+      if (/already submitted/i.test(error.message)) {
+        void admin.from("abuse_flags").insert({
+          user_id: user.id,
+          match_id: matchId.data,
+          signal: "duplicate_submission",
+          severity: 2,
+          evidence: {},
+        });
+      }
+      return apiError(409, "CONFLICT", error.message, undefined, correlationId);
+    }
+    if (
+      !parsed.data.timedOut &&
+      completionTimeMs < 150 &&
+      calculated.accuracy >= 0.99
+    ) {
+      void admin.from("abuse_flags").insert({
+        user_id: user.id,
+        match_id: matchId.data,
+        signal: "impossible_completion_time",
+        severity: 3,
+        evidence: {
+          completion_time_ms: completionTimeMs,
+          accuracy: calculated.accuracy,
+          game_type: match.game_type,
+        },
+      });
+    }
     const { data, error: snapshotError } = await supabase.rpc("get_match_snapshot", {
       requested_match_id: matchId.data,
     });
     if (snapshotError) throw snapshotError;
-    return apiSuccess(data);
+    return apiSuccess(data, 200, correlationId);
   } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
-      return apiError(401, "UNAUTHENTICATED", "Your session expired.");
-    }
-    return apiError(500, "SERVER_ERROR", safeMessage(error));
+    return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]/submit");
   }
 }

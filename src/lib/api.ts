@@ -7,6 +7,8 @@ export type ApiErrorCode =
   | "INVALID_REQUEST"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "FORBIDDEN"
+  | "RATE_LIMITED"
   | "SERVER_ERROR";
 
 export function apiError(
@@ -14,15 +16,21 @@ export function apiError(
   code: ApiErrorCode,
   message: string,
   details?: ZodError["issues"],
+  correlationId?: string,
 ) {
+  const id = correlationId ?? crypto.randomUUID();
   return NextResponse.json(
-    { ok: false, error: { code, message, details } },
-    { status },
+    { ok: false, error: { code, message, details, correlationId: id } },
+    { status, headers: { "x-correlation-id": id } },
   );
 }
 
-export function apiSuccess<T>(data: T, status = 200) {
-  return NextResponse.json({ ok: true, data }, { status });
+export function apiSuccess<T>(data: T, status = 200, correlationId?: string) {
+  const id = correlationId ?? crypto.randomUUID();
+  return NextResponse.json(
+    { ok: true, data, correlationId: id },
+    { status, headers: { "x-correlation-id": id } },
+  );
 }
 
 export function safeMessage(error: unknown) {
@@ -30,4 +38,11 @@ export function safeMessage(error: unknown) {
     return "QuickDuel backend is not configured yet.";
   }
   return "Something went wrong. Please try again.";
+}
+
+export function requestCorrelationId(request?: Request) {
+  const supplied = request?.headers.get("x-correlation-id");
+  return supplied && /^[A-Za-z0-9_-]{8,100}$/.test(supplied)
+    ? supplied
+    : crypto.randomUUID();
 }
