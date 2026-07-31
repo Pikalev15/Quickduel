@@ -8,6 +8,7 @@ import type { GameId, PlaylistId } from "@/games/types";
 import { track } from "@/lib/analytics";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ProductHeader } from "@/components/ui/product-header";
+import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
 export function CreateDuelScreen() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export function CreateDuelScreen() {
   const [ranked, setRanked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challengeSiteKey, setChallengeSiteKey] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -34,7 +36,7 @@ export function CreateDuelScreen() {
     playlist !== "experimental" &&
     selectedGame?.ranked !== false;
 
-  async function create() {
+  async function create(challengeToken?: string) {
     setSubmitting(true);
     setError(null);
     try {
@@ -50,7 +52,10 @@ export function CreateDuelScreen() {
       if (profileError) throw profileError;
       const response = await fetch("/api/duels", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(challengeToken ? { "x-quickduel-challenge": challengeToken } : {}),
+        },
         body: JSON.stringify({
           selectionKind,
           game: selectionKind === "game" ? game : null,
@@ -65,7 +70,17 @@ export function CreateDuelScreen() {
         }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error?.message ?? "Could not create duel.");
+      if (!response.ok) {
+        if (body.error?.details?.challengeRequired) {
+          const siteKey = body.error.details.siteKey ?? null;
+          setChallengeSiteKey(siteKey);
+          setError(siteKey ? null : "Verification is temporarily unavailable.");
+          setSubmitting(false);
+          return;
+        }
+        throw new Error(body.error?.message ?? "Could not create duel.");
+      }
+      setChallengeSiteKey(null);
       track("private_duel_created", {
         gameType: selectionKind === "game" ? game : null,
         playlist,
@@ -156,6 +171,14 @@ export function CreateDuelScreen() {
           </label>
 
           {error && <p className="inline-error" role="alert">{error}</p>}
+          {challengeSiteKey && (
+            <AdaptiveChallenge
+              siteKey={challengeSiteKey}
+              onToken={(token) => {
+                if (token) void create(token);
+              }}
+            />
+          )}
           <div className="feature-actions">
             <button className="calm-primary" type="button" disabled={submitting} onClick={() => void create()}>
               {submitting ? "Creating…" : "Create private duel"}

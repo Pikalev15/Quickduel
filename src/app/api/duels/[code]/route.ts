@@ -3,6 +3,7 @@ import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { duelCodeSchema } from "@/lib/validation";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 async function codeFrom(context: { params: Promise<{ code: string }> }) {
   return duelCodeSchema.safeParse((await context.params).code);
@@ -40,7 +41,14 @@ export async function POST(
     return apiError(400, "INVALID_REQUEST", "That duel code is invalid.", code.error.issues, correlationId);
   }
   try {
-    const { supabase } = await requireUser();
+    const { supabase, user } = await requireUser();
+    await enforceNetworkAbuseBoundary(
+      request,
+      "private_duel_join",
+      30,
+      3600,
+      { adaptiveChallenge: user.is_anonymous === true },
+    );
     const { data, error } = await supabase.rpc("join_private_duel", {
       requested_code: code.data,
     });

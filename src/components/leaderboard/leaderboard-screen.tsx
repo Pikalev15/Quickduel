@@ -24,6 +24,11 @@ export function LeaderboardScreen() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [eligibility, setEligibility] = useState<{
+    eligible: boolean;
+    linked_identity: boolean;
+    remaining_ranked_matches: number;
+  } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -42,6 +47,13 @@ export function LeaderboardScreen() {
         if (profileResponse.ok) {
           const profileBody = await profileResponse.json();
           setCurrentId(profileBody.data?.public_code ?? null);
+        }
+        const eligibilityResponse = await fetch("/api/profile/rank-eligibility", {
+          cache: "no-store",
+        });
+        if (eligibilityResponse.ok) {
+          const eligibilityBody = await eligibilityResponse.json();
+          setEligibility(eligibilityBody.data);
         }
       }
     } catch (caught) {
@@ -76,6 +88,16 @@ export function LeaderboardScreen() {
             Top 100
           </span>
         </div>
+        {eligibility && !eligibility.eligible && (
+          <div className="provisional-rank-notice" role="status">
+            <strong>Your rating is provisional.</strong>
+            <span>
+              {!eligibility.linked_identity
+                ? "Link your account and complete five ranked human matches to appear publicly."
+                : `Complete ${eligibility.remaining_ranked_matches} more ranked human ${eligibility.remaining_ranked_matches === 1 ? "match" : "matches"} to appear publicly.`}
+            </span>
+          </div>
+        )}
 
         {loading ? (
           <div className="grid gap-1 py-8" aria-label="Loading leaderboard">

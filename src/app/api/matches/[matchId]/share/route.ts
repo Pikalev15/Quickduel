@@ -2,6 +2,7 @@ import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 import { matchIdSchema } from "@/lib/validation";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export async function POST(
   request: Request,
@@ -13,7 +14,14 @@ export async function POST(
     return apiError(400, "INVALID_REQUEST", "Match ID is invalid.", matchId.error.issues, correlationId);
   }
   try {
-    const { supabase } = await requireUser();
+    const { supabase, user } = await requireUser();
+    await enforceNetworkAbuseBoundary(
+      request,
+      "match_share",
+      60,
+      3600,
+      { adaptiveChallenge: user.is_anonymous === true },
+    );
     const { data, error } = await supabase.rpc("enable_match_share", {
       requested_match_id: matchId.data,
     });

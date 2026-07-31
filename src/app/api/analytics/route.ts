@@ -3,6 +3,7 @@ import { readJson, rpcErrorResponse } from "@/lib/server/http";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { analyticsEventSchema } from "@/lib/validation";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export async function POST(request: Request) {
   const correlationId = requestCorrelationId(request);
@@ -16,6 +17,13 @@ export async function POST(request: Request) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    await enforceNetworkAbuseBoundary(
+      request,
+      "analytics_ingest",
+      300,
+      60,
+      { adaptiveChallenge: false },
+    );
     const admin = createSupabaseAdminClient();
     const { error } = await admin.from("analytics_events").insert({
       event_type: parsed.data.eventType,

@@ -2,6 +2,7 @@ import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { readJson, rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 import { privateDuelCreateSchema } from "@/lib/validation";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export async function POST(request: Request) {
   const correlationId = requestCorrelationId(request);
@@ -11,7 +12,14 @@ export async function POST(request: Request) {
     return apiError(400, "INVALID_REQUEST", "Private duel settings are invalid.", parsed?.error.issues, correlationId);
   }
   try {
-    const { supabase } = await requireUser();
+    const { supabase, user } = await requireUser();
+    await enforceNetworkAbuseBoundary(
+      request,
+      "private_duel_create",
+      12,
+      3600,
+      { adaptiveChallenge: user.is_anonymous === true },
+    );
     const { data, error } = await supabase.rpc("create_private_duel", {
       requested_selection_kind: parsed.data.selectionKind,
       requested_game: parsed.data.game,
