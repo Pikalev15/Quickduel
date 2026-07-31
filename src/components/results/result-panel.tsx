@@ -31,6 +31,8 @@ export function ResultPanel({
   nextLabel = "Next opponent",
   homeLabel = "Home",
   onCreateShare,
+  completionNotice,
+  resultTitle,
 }: {
   outcome: DuelOutcome;
   gameName?: string;
@@ -45,10 +47,13 @@ export function ResultPanel({
   nextLabel?: string;
   homeLabel?: string;
   onCreateShare?: () => Promise<string>;
+  completionNotice?: string;
+  resultTitle?: string;
 }) {
   const [shared, setShared] = useState(false);
-  const title =
-    outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw";
+  const title = resultTitle ?? (
+    outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw"
+  );
   const division = getDivision(player.ratingAfter);
   const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
 
@@ -78,6 +83,9 @@ export function ResultPanel({
         {title}
       </h1>
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
+      {completionNotice && (
+        <p className="result-completion-notice" role="status">{completionNotice}</p>
+      )}
 
       <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
         <ResultColumn label="YOU" side={player} accent />

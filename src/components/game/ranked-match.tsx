@@ -11,6 +11,7 @@ import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
 import { track } from "@/lib/analytics";
+import { MatchChat } from "@/components/match-chat/match-chat";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -209,14 +210,27 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }
 
   if (phase === "result" && snapshot && me?.result && opponent?.result) {
-    const outcome = compareGameResults(
-      me.result,
-      me.completion_time_ms ?? 0,
-      opponent.result,
-      opponent.completion_time_ms ?? 0,
-    );
+    const outcome = snapshot.completion_reason === "timeout_forfeit"
+      ? snapshot.winner_id === currentUserId ? "win" : "loss"
+      : snapshot.completion_reason === "double_timeout"
+        ? "draw"
+        : compareGameResults(
+            me.result,
+            me.completion_time_ms ?? 0,
+            opponent.result,
+            opponent.completion_time_ms ?? 0,
+          );
+    const completionNotice = snapshot.completion_reason === "timeout_forfeit"
+      ? outcome === "win"
+        ? "Opponent failed to submit. Win by forfeit."
+        : "You did not submit before the deadline. Ranked loss applied."
+      : snapshot.completion_reason === "double_timeout"
+        ? "Neither player submitted. No rating change."
+        : snapshot.completion_reason === "admin_invalidated"
+          ? "This match was invalidated. No rating change."
+          : undefined;
     return (
-      <main className="min-h-screen">
+      <main className="has-match-chat min-h-screen">
         <GameHeader
           player={me.display_name}
           playerRating={me.rating_after ?? me.rating_before}
@@ -264,7 +278,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           rematchLabel={snapshot.private_duel_code ? "Return to series" : "Rematch"}
           nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
           onCreateShare={createShareUrl}
+          completionNotice={completionNotice}
+          resultTitle={snapshot.completion_reason === "double_timeout" ? "No result" : undefined}
         />
+        <MatchChat matchId={matchId} currentUserId={snapshot.current_user_id} />
       </main>
     );
   }
@@ -282,7 +299,11 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         />
         <section className="page-shell match-center text-center">
           <h1 className="display text-6xl">Match ended</h1>
-          <p className="mt-4 text-[var(--muted)]">The duel expired. No rating was awarded.</p>
+          <p className="mt-4 text-[var(--muted)]">
+            {snapshot?.completion_reason === "cancelled_before_start"
+              ? "Match cancelled before start. No rating change."
+              : "The duel ended. No rating was awarded."}
+          </p>
           <Button className="mt-7" onClick={() => router.push("/play")}>Find new opponent</Button>
         </section>
       </main>
@@ -293,7 +314,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
-    <main className="min-h-screen">
+    <main className="has-match-chat min-h-screen">
       <GameHeader
         player={me?.display_name ?? "Loading…"}
         playerRating={me?.rating_before ?? 1000}
@@ -352,6 +373,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           </>
         )}
       </section>
+      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} />}
       {error && <ErrorToast message={error} />}
     </main>
   );

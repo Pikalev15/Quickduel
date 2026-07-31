@@ -124,6 +124,15 @@ export const historyCursorSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+export const matchChatMessageSchema = z.object({
+  body: z.string().trim().min(1).max(280),
+});
+
+export const matchChatReportSchema = z.object({
+  messageId: z.string().uuid(),
+  reason: z.enum(["harassment", "spam", "personal_info", "other"]),
+});
+
 export const friendSearchSchema = z.object({
   query: z.string().trim().min(3).max(32),
 });

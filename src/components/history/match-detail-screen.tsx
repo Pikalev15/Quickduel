@@ -12,6 +12,7 @@ type MatchDetail = {
   game_version: number;
   ranked: boolean;
   is_draw: boolean;
+  completion_reason: "normal" | "timeout_forfeit" | "double_timeout" | "admin_invalidated" | null;
   starts_at: string;
   completed_at: string;
   source: "public_queue" | "private_duel";
@@ -85,6 +86,15 @@ export function MatchDetailScreen({ matchId }: { matchId: string }) {
                   {" · "}
                   {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(detail.completed_at))}
                 </p>
+                {detail.completion_reason === "timeout_forfeit" && (
+                  <p className="history-reason">Completed by timeout forfeit.</p>
+                )}
+                {detail.completion_reason === "double_timeout" && (
+                  <p className="history-reason">Neither player submitted. No rating change.</p>
+                )}
+                {detail.completion_reason === "admin_invalidated" && (
+                  <p className="history-reason">This match was invalidated by an administrator.</p>
+                )}
               </div>
               <button className="calm-secondary" type="button" disabled={sharing} onClick={() => void share()}>
                 {sharing ? "Preparing…" : "Share result"}

@@ -22,6 +22,13 @@ function relativeTime(timestamp: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(timestamp));
 }
 
+function completionLabel(reason: MatchHistoryItem["completion_reason"]) {
+  if (reason === "timeout_forfeit") return "Timeout forfeit";
+  if (reason === "double_timeout") return "Double timeout · no Elo";
+  if (reason === "admin_invalidated") return "Invalidated";
+  return null;
+}
+
 export function HistoryScreen() {
   const [items, setItems] = useState<MatchHistoryItem[]>([]);
   const [cursor, setCursor] = useState<HistoryPage["next_cursor"]>(null);
@@ -94,6 +101,9 @@ export function HistoryScreen() {
                   <h2>{getGame(item.game_type).name}</h2>
                   <p>{item.player_summary} <span>vs</span> {item.opponent_summary}</p>
                   <small>against {item.opponent_name}#{item.opponent_code}</small>
+                  {completionLabel(item.completion_reason) && (
+                    <small className="history-reason">{completionLabel(item.completion_reason)}</small>
+                  )}
                 </div>
                 <div className="history-meta">
                   <b>{item.rating_delta === null || !item.ranked ? "—" : `${item.rating_delta >= 0 ? "+" : ""}${item.rating_delta} Elo`}</b>
