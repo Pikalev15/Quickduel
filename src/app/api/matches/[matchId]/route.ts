@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/server/route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getGame } from "@/games/registry";
 import type { GamePhase } from "@/games/types";
+import { isSecureRecallGame } from "@/games/recall-rounds";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,9 @@ export async function GET(
     return apiSuccess({
       ...data,
       phase,
-      challenge: game.publicChallenge(completeChallenge, phase),
+      challenge: isSecureRecallGame(privateMatch.game_type)
+        ? {}
+        : game.publicChallenge(completeChallenge, phase),
       source: privateMatch.source,
       private_duel_code: privateDuelCode,
       series_round: privateMatch.series_round,

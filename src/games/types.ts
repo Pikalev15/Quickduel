@@ -52,6 +52,7 @@ export type GameComponentProps = {
   challenge: Challenge;
   disabled?: boolean;
   phaseElapsedMs?: number;
+  practiceOpponentSubmission?: Submission;
   onChange: (submission: Submission, canSubmit: boolean) => void;
 };
 

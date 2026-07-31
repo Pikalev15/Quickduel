@@ -16,6 +16,7 @@ type ShareData = {
   players: Array<{
     display_name: string;
     summary: string;
+    details: Record<string, number | string | boolean> | null;
     rating_delta: number | null;
     winner: boolean;
   }>;
@@ -57,7 +58,26 @@ export function ShareResultScreen({ code }: { code: string }) {
             <p>{getGame(data.game_type).name}{data.series_round ? ` · Series round ${data.series_round}` : ""}</p>
             <div className="share-player-grid">
               {data.players.map((player) => (
-                <article className={player.winner ? "winner" : ""} key={player.display_name}><span>{player.winner ? "Winner" : "Duelist"}</span><h2>{player.display_name}</h2><strong>{player.summary}</strong>{data.ranked && player.rating_delta !== null && <p>{player.rating_delta >= 0 ? "+" : ""}{player.rating_delta} Elo</p>}</article>
+                <article className={player.winner ? "winner" : ""} key={player.display_name}>
+                  <span>{player.winner ? "Winner" : "Duelist"}</span>
+                  <h2>{player.display_name}</h2>
+                  <strong>{player.summary}</strong>
+                  {data.game_type === "frequency_recall_v2" && player.details && (
+                    <p>
+                      Closest round {Number(player.details.closestRound)} · Average error{" "}
+                      {Number(player.details.averageError).toFixed(1)} cents
+                    </p>
+                  )}
+                  {data.game_type === "colour_recall_v2" && player.details && (
+                    <p>
+                      Best round {Number(player.details.bestRound)} · Average distance{" "}
+                      {Number(player.details.averageDistance).toFixed(4)}
+                    </p>
+                  )}
+                  {data.ranked && player.rating_delta !== null && (
+                    <p>{player.rating_delta >= 0 ? "+" : ""}{player.rating_delta} Elo</p>
+                  )}
+                </article>
               ))}
             </div>
             <Image
