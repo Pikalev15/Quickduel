@@ -55,5 +55,10 @@ contract is `supabase/tests/retention_verification.sql`.
 - an open-abuse-flag deduplication index and new farming review signals.
 
 Existing rows receive ruleset 1. Only newly created matches default to ruleset 2.
-The cron calls `finalize_expired_matches(200)` and
-`cleanup_integrity_data()`.
+The migration installs a minute Supabase `pg_cron` job named
+`quickduel-ranked-integrity-sweep`. It calls
+`run_ranked_integrity_maintenance()`, which runs
+`finalize_expired_matches(200)` and `cleanup_integrity_data()` in the database.
+Cleanup also prunes Supabase Cron run history after seven days.
+The authenticated HTTP cron route remains available only as an emergency
+manual trigger.

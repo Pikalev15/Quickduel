@@ -1,5 +1,9 @@
 begin;
 
+-- Supabase Cron is the durable scheduler for timeout finalization. Keeping this
+-- in the database avoids tying ranked integrity to a paid Vercel cron cadence.
+create extension if not exists pg_cron;
+
 -- New matches use ruleset 2. Existing rows remain ruleset 1 so timeout losses
 -- are never applied retroactively across the deployment boundary.
 alter table public.matches
@@ -1231,6 +1235,7 @@ as $$
 declare
   network_deleted integer;
   chat_deleted integer;
+  cron_runs_deleted integer;
 begin
   delete from public.network_rate_limit_buckets
   where expires_at <= clock_timestamp();
@@ -1238,9 +1243,32 @@ begin
   delete from public.match_chat_messages
   where expires_at <= clock_timestamp();
   get diagnostics chat_deleted = row_count;
+  delete from cron.job_run_details
+  where end_time < clock_timestamp() - interval '7 days';
+  get diagnostics cron_runs_deleted = row_count;
   return jsonb_build_object(
     'network_buckets_deleted', network_deleted,
-    'chat_messages_deleted', chat_deleted
+    'chat_messages_deleted', chat_deleted,
+    'cron_runs_deleted', cron_runs_deleted
+  );
+end;
+$$;
+
+create or replace function public.run_ranked_integrity_maintenance()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  finalization jsonb;
+  cleanup jsonb;
+begin
+  finalization := public.finalize_expired_matches(200);
+  cleanup := public.cleanup_integrity_data();
+  return jsonb_build_object(
+    'finalization', finalization,
+    'cleanup', cleanup
   );
 end;
 $$;
@@ -1285,6 +1313,7 @@ revoke all on function public.send_match_chat_message(uuid, text) from public, a
 revoke all on function public.get_match_chat(uuid, timestamptz) from public, anon, authenticated;
 revoke all on function public.report_match_chat_message(uuid, text) from public, anon, authenticated;
 revoke all on function public.cleanup_integrity_data() from public, anon, authenticated;
+revoke all on function public.run_ranked_integrity_maintenance() from public, anon, authenticated;
 revoke all on function public.flag_ranked_farming_patterns() from public, anon, authenticated;
 revoke all on function public.get_public_leaderboard(integer) from public, anon, authenticated;
 
@@ -1299,5 +1328,26 @@ grant execute on function public.send_match_chat_message(uuid, text) to authenti
 grant execute on function public.get_match_chat(uuid, timestamptz) to authenticated;
 grant execute on function public.report_match_chat_message(uuid, text) to authenticated;
 grant execute on function public.cleanup_integrity_data() to service_role;
+grant execute on function public.run_ranked_integrity_maintenance() to service_role;
+
+do $$
+declare
+  existing_job_id bigint;
+begin
+  for existing_job_id in
+    select jobid
+    from cron.job
+    where jobname = 'quickduel-ranked-integrity-sweep'
+  loop
+    perform cron.unschedule(existing_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'quickduel-ranked-integrity-sweep',
+    '* * * * *',
+    'select public.run_ranked_integrity_maintenance();'
+  );
+end;
+$$;
 
 commit;

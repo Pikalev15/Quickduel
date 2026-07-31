@@ -1,7 +1,11 @@
 begin;
 
-select plan(32);
+select plan(35);
 
+select ok(
+  exists (select 1 from pg_extension where extname = 'pg_cron'),
+  'Supabase Cron is installed'
+);
 select has_column('public', 'matches', 'ruleset_version', 'matches have a ruleset boundary');
 select has_column('public', 'matches', 'committed_at', 'matches record server commitment');
 select has_column('public', 'matches', 'completion_reason', 'matches record completion reason');
@@ -19,6 +23,20 @@ select function_returns(
 select function_returns(
   'public', 'finalize_expired_matches', array['integer'], 'jsonb',
   'batch expiry finalizer is available to the scheduler'
+);
+select function_returns(
+  'public', 'run_ranked_integrity_maintenance', array[]::text[], 'jsonb',
+  'scheduled maintenance has a single database entry point'
+);
+select is(
+  (
+    select count(*)
+    from cron.job
+    where jobname = 'quickduel-ranked-integrity-sweep'
+      and schedule = '* * * * *'
+  ),
+  1::bigint,
+  'ranked integrity sweep is scheduled exactly once per minute'
 );
 select function_returns(
   'public', 'check_network_rate_limit',
