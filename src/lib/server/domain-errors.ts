@@ -71,6 +71,43 @@ const DOMAIN_ERRORS: Record<string, DomainErrorDefinition> = {
     message: "Game submission is invalid.",
     logLevel: "info",
   },
+  QD_ROUND_CLOSED: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "This round is already closed.",
+    logLevel: "info",
+  },
+  QD_ROUND_ANSWER_NOT_OPEN: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "This round is still revealing its stimulus.",
+    logLevel: "info",
+  },
+  QD_DUPLICATE_ROUND_SUBMISSION: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "Your round answer is already locked.",
+    abuseSignal: "duplicate_submission",
+    logLevel: "warn",
+  },
+  QD_INVALID_ROUND_SUBMISSION: {
+    status: 400,
+    apiCode: "INVALID_REQUEST",
+    message: "Round submission is invalid.",
+    logLevel: "info",
+  },
+  QD_ROUND_TARGET_MISMATCH: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "The next round is synchronizing. Try again.",
+    logLevel: "info",
+  },
+  QD_ROUND_TARGET_INVALID: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "The next round target is invalid.",
+    logLevel: "warn",
+  },
   QD_CHAT_INVALID: {
     status: 400,
     apiCode: "INVALID_REQUEST",

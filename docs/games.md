@@ -16,9 +16,9 @@ generator, schema, and scoring behavior.
 | --- | ---: | --- | --- | --- | --- |
 | `memory_grid` | 1 | Active | Mind | Yes | 1.2s flash + 1.75s hold / 8s answer |
 | `frequency_recall` | 1 | Legacy | Sensory | Yes | Three-tone batch; 2.4s / 12s |
-| `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five sequential rounds / 30s total |
+| `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 3.2s answer + 2s feedback |
 | `colour_recall` | 1 | Legacy | Sensory | Yes | Three-colour batch; 2.6s / 16s |
-| `colour_recall_v2` | 2 | Active | Sensory | Yes | Five sequential rounds / 40s total |
+| `colour_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 5.2s answer + 2s feedback |
 | `time_recall` | 1 | Active | Sensory | Yes | 6.5s / 14s |
 | `shape_recall` | 1 | Active | Sensory | Yes | 2.6s / 14s |
 | `rhythm_recall` | 1 | Active | Sensory | Yes | 6.5s / 20s |
@@ -44,26 +44,42 @@ schedule; already-created matches retain their stored timing.
 
 ## Frequency Recall v2
 
-Five seeded pitches are reconstructed sequentially. Each round automatically
-presents one tone, hides it after a short local reveal, and accepts one
-continuous 120–2000Hz slider answer before advancing. The server calculates all
-five guesses together.
+Five seeded pitches are reconstructed sequentially. Ranked play creates and
+releases one database-owned round at a time: a 0.8-second tone reveal, a
+3.2-second answer window, resolution after both locked answers or the
+authoritative deadline, and exactly two seconds of feedback. Future targets are
+never returned by the normal match snapshot or round endpoint.
 
 The existing log-octave error metric is converted to a bounded 0–10 score per
-round. Five round scores sum to a primary 0–50 result. The v1 three-tone
-generator, length-three schema, and proportional-error scoring are unchanged.
+round. Resolved feedback shows target and guess Hz, signed Hz and percentage
+error, signed cents with high/low direction, score, label, and both running
+totals. An opponent's exact guess stays private until the completed match.
+Five round scores sum to a primary 0–50 result; the final screen includes all
+targets, guesses, signed percentage errors, round scores, closest round, and
+average absolute cents error. The v1
+three-tone generator, length-three schema, and proportional-error scoring are
+unchanged.
 
 ## Colour Recall v2
 
-Five seeded OKLCH colours are reconstructed sequentially. Each local round
-briefly shows one swatch, then accepts lightness, chroma, and hue before
-advancing. The existing normalized OKLCH distance remains the basis for a
-bounded 0–10 round score; five rounds sum to a primary 0–50 result.
+Five seeded OKLCH colours are reconstructed sequentially. Ranked play uses a
+0.8-second swatch reveal, a 5.2-second reconstruction window, server resolution,
+and two seconds of feedback. Feedback shows target and guess swatches,
+normalized distance, signed lightness/chroma differences, and shortest wrapped
+hue difference. The final result includes all five target/guess swatch pairs,
+round distances and scores, best round, and average distance.
 
-The complete seeded target arrays are delivered to the game controller so it
-can run round-local reveal phases inside the single authoritative match answer
-window. This preserves deterministic server scoring, but a determined browser
-user can inspect client-delivered stimuli; the modes are not cheat-proof.
+`match_rounds` owns the active index, timestamps, target, and resolution.
+`match_round_submissions` enforces one immutable answer per participant and
+round. Neither table is client-readable; service-only hardened RPCs transition
+the protocol transactionally and return a participant-specific projection.
+A missing answer scores zero and the match continues. A player with at least
+one valid round receives the partial 0–50 result; a player missing all five
+rounds remains unsubmitted and the existing whole-match forfeit rules apply.
+Practice mode uses the same scoring helpers but gives immediate local feedback,
+and its seeded bot remains independent. Practice feedback includes the bot's
+round score and both cumulative totals without using the player's guess to
+generate the bot answer.
 
 ## Typing Sprint
 

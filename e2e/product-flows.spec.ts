@@ -90,6 +90,144 @@ test("Memory Grid flashes briefly, holds the blank board, then unlocks", async (
   await expect(cells.first()).toHaveAttribute("aria-pressed", "true");
 });
 
+test("Frequency Recall v2 gives per-round feedback before advancing", async ({ page }) => {
+  await page.goto("/match/practice?game=frequency_recall_v2&seed=frequency-feedback");
+  const confirm = page.getByRole("button", { name: "Confirm round" });
+  await expect(confirm).toBeVisible({ timeout: 8_000 });
+  await confirm.click();
+  await expect(page.getByText("Round score", { exact: true })).toBeVisible();
+  await expect(page.getByText("Target", { exact: true })).toBeVisible();
+  await expect(page.getByText("Your guess", { exact: true })).toBeVisible();
+  await expect(page.getByText("Difference", { exact: true })).toBeVisible();
+  await expect(page.getByText("Percent", { exact: true })).toBeVisible();
+  await expect(page.getByText("Cents", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bot round", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bot total", { exact: true })).toBeVisible();
+  await expect(page.getByText("Next round in 2 seconds")).toBeVisible();
+  await expect(page.getByText("Round 2 of 5")).toBeVisible({ timeout: 3_000 });
+});
+
+test("Colour Recall v2 compares both swatches and wrapped colour metrics", async ({ page }) => {
+  await page.goto("/match/practice?game=colour_recall_v2&seed=colour-feedback");
+  const confirm = page.getByRole("button", { name: "Confirm round" });
+  await expect(confirm).toBeVisible({ timeout: 8_000 });
+  await confirm.click();
+  await expect(page.getByText("Round score", { exact: true })).toBeVisible();
+  await expect(page.getByText("Distance", { exact: true })).toBeVisible();
+  await expect(page.getByText("Lightness", { exact: true })).toBeVisible();
+  await expect(page.getByText("Chroma", { exact: true })).toBeVisible();
+  await expect(page.getByText("Hue · wrapped", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bot round", { exact: true })).toBeVisible();
+  await expect(page.locator(".colour-feedback-swatches i")).toHaveCount(2);
+  await expect(page.getByText("Round 2 of 5")).toBeVisible({ timeout: 3_000 });
+});
+
+test("ranked recall restores authoritative feedback after a reload", async ({ page }) => {
+  const matchId = "00000000-0000-4000-8000-000000000099";
+  const startsAt = new Date(Date.now() - 2_000).toISOString();
+  await page.route(`**/api/matches/${matchId}`, (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          id: matchId,
+          status: "active",
+          game_type: "frequency_recall_v2",
+          game_version: 2,
+          ranked: true,
+          phase: "answer",
+          challenge: {},
+          reveal_duration_ms: 0,
+          answer_duration_ms: 30_000,
+          starts_at: startsAt,
+          expires_at: new Date(Date.now() + 30_000).toISOString(),
+          winner_id: null,
+          completed_at: null,
+          rematch_match_id: null,
+          current_user_id: profile.id,
+          players: [
+            {
+              user_id: profile.id,
+              display_name: "Levi",
+              ready_at: startsAt,
+              submitted_at: null,
+              calculated_score: null,
+              correct_count: null,
+              incorrect_count: null,
+              completion_time_ms: null,
+              rating_before: 1184,
+              rating_after: null,
+              rating_delta: null,
+              rematch_requested_at: null,
+              result: null,
+            },
+            {
+              user_id: "00000000-0000-4000-8000-000000000002",
+              display_name: "Opponent",
+              ready_at: startsAt,
+              submitted_at: null,
+              calculated_score: null,
+              correct_count: null,
+              incorrect_count: null,
+              completion_time_ms: null,
+              rating_before: 1172,
+              rating_after: null,
+              rating_delta: null,
+              rematch_requested_at: null,
+              result: null,
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.route(`**/api/matches/${matchId}/round`, (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: {
+          gameId: "frequency_recall_v2",
+          roundIndex: 2,
+          roundCount: 5,
+          phase: "feedback",
+          phaseEndsAt: new Date(Date.now() + 30_000).toISOString(),
+          target: 440,
+          ownAnswer: 466,
+          feedback: {
+            kind: "frequency",
+            targetHz: 440,
+            guessHz: 466,
+            differenceHz: 26,
+            percentError: 5.909,
+            centsError: 99.367,
+            direction: "high",
+            score: 9.449,
+            label: "Very close",
+          },
+          ownSubmitted: true,
+          opponentSubmitted: true,
+          ownScore: 27.4,
+          opponentScore: 24.8,
+        },
+      },
+    }),
+  );
+  await page.route(`**/api/matches/${matchId}/chat**`, (route) =>
+    route.fulfill({ json: { ok: true, data: [] } }),
+  );
+
+  await page.goto(`/match/${matchId}`);
+  await expect(page.getByText("440 Hz", { exact: true })).toBeVisible();
+  await expect(page.getByText("466 Hz", { exact: true })).toBeVisible();
+  await expect(page.getByText(/You 27.4 · Opponent 24.8/)).toBeVisible();
+  await expect(page.getByText("Opponent guess", { exact: true })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByText("440 Hz", { exact: true })).toBeVisible();
+  await expect(page.getByText("Round 3 of 5")).toBeVisible();
+  await expect(page.getByText(/You 27.4 · Opponent 24.8/)).toBeVisible();
+});
+
 test("Target Tap ignores status text but counts genuine background misses", async ({ page }) => {
   await page.goto("/match/practice?game=target_tap&seed=target-tap-regression");
   const field = page.locator(".target-field");

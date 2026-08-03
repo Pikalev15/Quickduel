@@ -217,6 +217,7 @@ export function PracticeMatch({
                 challenge={publicChallenge}
                 disabled={phase !== "answer"}
                 phaseElapsedMs={phaseElapsedMs}
+                practiceOpponentSubmission={bot.submission}
                 onChange={(next, valid) => {
                   setSubmission(next);
                   setCanSubmit(valid);

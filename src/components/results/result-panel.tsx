@@ -101,6 +101,15 @@ export function ResultPanel({
         <ResultColumn label={opponent.name} side={opponent} />
       </div>
 
+      {(gameName === "Frequency Recall" || gameName === "Colour Recall") &&
+        typeof player.details?.round1Score === "number" && (
+          <RecallResultBreakdown
+            gameName={gameName}
+            player={player}
+            opponent={opponent}
+          />
+        )}
+
       <div className="mt-6 grid w-full max-w-3xl gap-5 border-b border-[var(--border)] pb-7 text-center sm:grid-cols-2">
         <div>
           <div className="text-xs tracking-[0.12em] text-[var(--muted)]">
@@ -158,6 +167,109 @@ export function ResultPanel({
         </Button>
       </div>
     </section>
+  );
+}
+
+function RecallResultBreakdown({
+  gameName,
+  player,
+  opponent,
+}: {
+  gameName: string;
+  player: ResultSide;
+  opponent: ResultSide;
+}) {
+  const isFrequency = gameName === "Frequency Recall";
+  const bestKey = isFrequency ? "closestRound" : "bestRound";
+  const averageKey = isFrequency ? "averageError" : "averageDistance";
+  return (
+    <section className="recall-result-breakdown" aria-label="Five round breakdown">
+      <div className="recall-result-heading">
+        <div>
+          <span>Your total</span>
+          <strong>{player.score.toFixed(1)}/50</strong>
+        </div>
+        <p>
+          {isFrequency ? "Closest" : "Best"} round {Number(player.details?.[bestKey] ?? 0)}
+          {" · "}
+          Average {isFrequency ? `${Number(player.details?.[averageKey] ?? 0).toFixed(1)} cents` : Number(player.details?.[averageKey] ?? 0).toFixed(4)}
+        </p>
+      </div>
+      <div className="recall-round-table">
+        <div className="recall-round-table-head">
+          <span>Round</span><span>You</span><span>{opponent.name}</span>
+        </div>
+        {Array.from({ length: 5 }, (_, index) => (
+          <div className="recall-breakdown-round" key={index}>
+            <strong>Round {index + 1}</strong>
+            <RecallRoundSide
+              details={player.details}
+              index={index + 1}
+              frequency={isFrequency}
+              label="You"
+            />
+            <RecallRoundSide
+              details={opponent.details}
+              index={index + 1}
+              frequency={isFrequency}
+              label={opponent.name}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecallRoundSide({
+  details,
+  index,
+  frequency,
+  label,
+}: {
+  details?: Record<string, number | string | boolean>;
+  index: number;
+  frequency: boolean;
+  label: string;
+}) {
+  const answered = details?.[`round${index}Answered`] !== false;
+  const score = Number(details?.[`round${index}Score`] ?? 0);
+  if (frequency) {
+    const target = Number(details?.[`round${index}Target`] ?? 0);
+    const guess = Number(details?.[`round${index}Guess`] ?? 0);
+    const percent = Number(details?.[`round${index}PercentError`] ?? 0);
+    return (
+      <div className="recall-round-side">
+        <span className="recall-mobile-label">{label}</span>
+        <strong>{target} Hz → {answered ? `${guess} Hz` : "No answer"}</strong>
+        <span>{answered ? `${Math.abs(percent).toFixed(1)}% ${percent > 0 ? "high" : percent < 0 ? "low" : "exact"}` : "Timed out"}</span>
+        <b>{score.toFixed(1)}/10</b>
+      </div>
+    );
+  }
+  const target = {
+    l: Number(details?.[`round${index}TargetL`] ?? 0),
+    c: Number(details?.[`round${index}TargetC`] ?? 0),
+    h: Number(details?.[`round${index}TargetH`] ?? 0),
+  };
+  const guess = {
+    l: Number(details?.[`round${index}GuessL`] ?? 0),
+    c: Number(details?.[`round${index}GuessC`] ?? 0),
+    h: Number(details?.[`round${index}GuessH`] ?? 0),
+  };
+  return (
+    <div className="recall-round-side">
+      <span className="recall-mobile-label">{label}</span>
+      <div className="recall-result-swatches">
+        <i title="Target" style={{ background: `oklch(${target.l}% ${target.c / 100} ${target.h})` }} />
+        <i
+          title={answered ? "Guess" : "No answer"}
+          style={{ background: answered ? `oklch(${guess.l}% ${guess.c / 100} ${guess.h})` : "transparent" }}
+        />
+      </div>
+      <span>{answered ? `Distance ${Number(details?.[`round${index}Distance`] ?? 0).toFixed(4)}` : "Timed out"}</span>
+      <b>{score.toFixed(1)}/10</b>
+    </div>
   );
 }
 

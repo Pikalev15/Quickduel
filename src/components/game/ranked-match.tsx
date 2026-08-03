@@ -13,6 +13,8 @@ import { ResultPanel } from "@/components/results/result-panel";
 import { track } from "@/lib/analytics";
 import { MatchChat } from "@/components/match-chat/match-chat";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
+import { isSecureRecallGame } from "@/games/recall-rounds";
+import { RankedRecallRounds } from "./ranked-recall-rounds";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -113,6 +115,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const me = snapshot?.players.find((player) => player.user_id === currentUserId);
   const opponent = snapshot?.players.find((player) => player.user_id !== currentUserId);
   const game = snapshot ? getGame(snapshot.game_type) : null;
+  const secureRecall = Boolean(game && isSecureRecallGame(game.id));
   const start = snapshot?.starts_at ? Date.parse(snapshot.starts_at) : null;
   const answerStart = start !== null && snapshot ? start + snapshot.reveal_duration_ms : null;
   const answerEnd = answerStart !== null && snapshot ? answerStart + snapshot.answer_duration_ms : null;
@@ -160,7 +163,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }, [matchId, snapshot]);
 
   useEffect(() => {
-    if (phase !== "answer" || !answerEnd || me?.submitted_at) return;
+    if (secureRecall || phase !== "answer" || !answerEnd || me?.submitted_at) return;
     if (game?.autoSubmitOnValid && canSubmit) {
       void submit(false);
       return;
@@ -176,9 +179,17 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     canSubmit,
     game?.autoSubmitOnValid,
     game?.submitAtDeadline,
+    secureRecall,
     phase,
     me?.submitted_at,
   ]);
+
+  const handleRecallComplete = useCallback(() => {
+    void reload();
+  }, [reload]);
+  const handleRecallError = useCallback((message: string) => {
+    setError(message);
+  }, []);
 
   async function submit(timedOut = false) {
     if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
@@ -367,6 +378,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               <div className="game-timer">
                 {memoryHolding
                   ? "HOLD"
+                  : secureRecall
+                    ? "ROUND"
                   : phase === "reveal"
                     ? "OBSERVE"
                     : phase === "submitted"
@@ -380,7 +393,14 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 : game?.instructions}
             </p>
             <div className="game-stage">
-              {snapshot && (
+              {snapshot && secureRecall ? (
+                <RankedRecallRounds
+                  matchId={matchId}
+                  gameId={snapshot.game_type as "frequency_recall_v2" | "colour_recall_v2"}
+                  onComplete={handleRecallComplete}
+                  onError={handleRecallError}
+                />
+              ) : snapshot ? (
                 <GameRenderer
                   key={`${snapshot.id}:${phase}`}
                   gameId={snapshot.game_type}
@@ -396,9 +416,9 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                     setCanSubmit(valid);
                   }}
                 />
-              )}
+              ) : null}
             </div>
-            {phase === "answer" && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
+            {phase === "answer" && !secureRecall && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
               <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
                 Lock answer
               </Button>

@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type SharedPlayer = {
   display_name: string;
   summary: string;
+  details: Record<string, number | string | boolean> | null;
   rating_delta: number | null;
   winner: boolean;
 };
@@ -27,6 +28,8 @@ export async function GET(
   const players = data.players as SharedPlayer[];
   const game = getGame(data.game_type);
   const typingSprint = data.game_type === "typing_sprint";
+  const frequencyRecall = data.game_type === "frequency_recall_v2";
+  const colourRecall = data.game_type === "colour_recall_v2";
   const winner = players.find((player) => player.winner);
   return new ImageResponse(
     (
@@ -73,6 +76,16 @@ export async function GET(
             >
               <div style={{ display: "flex", fontSize: 28, fontWeight: 750 }}>{player.display_name}</div>
               <div style={{ display: "flex", fontSize: 38, fontWeight: 700, marginTop: 14 }}>{player.summary}</div>
+              {frequencyRecall && player.details && (
+                <div style={{ display: "flex", marginTop: 12, fontSize: 20, color: "#6d6c67" }}>
+                  Closest round {Number(player.details.closestRound)} · Average error {Number(player.details.averageError).toFixed(1)} cents
+                </div>
+              )}
+              {colourRecall && player.details && (
+                <div style={{ display: "flex", marginTop: 12, fontSize: 20, color: "#6d6c67" }}>
+                  Best round {Number(player.details.bestRound)} · Average distance {Number(player.details.averageDistance).toFixed(4)}
+                </div>
+              )}
               {data.ranked && player.rating_delta !== null && (
                 <div style={{ display: "flex", marginTop: 16, fontSize: 26, color: player.rating_delta >= 0 ? "#3157d5" : "#6d6c67" }}>
                   {player.rating_delta >= 0 ? "+" : ""}{player.rating_delta} Elo
@@ -84,6 +97,8 @@ export async function GET(
         <div style={{ display: "flex", fontSize: 22, color: "#6d6c67" }}>
           {typingSprint
             ? "Typing Sprint ranks net WPM. Errors reduce your score."
+            : frequencyRecall || colourRecall
+              ? "Five rounds. Each reconstruction scores up to 10."
             : "Accuracy first. Speed breaks ties."}
         </div>
       </div>

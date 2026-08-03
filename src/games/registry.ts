@@ -18,6 +18,10 @@ import type {
 import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
 import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
+import {
+  colourRoundFeedback,
+  frequencyRoundFeedback,
+} from "./recall-rounds";
 
 const numberArray = (length: number, min: number, max: number) =>
   z.array(z.number().finite().min(min).max(max)).length(length);
@@ -203,14 +207,29 @@ const frequencyRecallV2: GameDefinition = {
   calculate(challenge, submission) {
     const expected = challenge.frequencies as number[];
     const guesses = submission.guessesHz as number[];
-    const roundScores = expected.map((frequency, index) => {
-      const error = Math.abs(Math.log2(guesses[index] / frequency));
-      return round(10 * clamp01(1 - error / 1.5), 3);
-    });
+    const roundFeedback = expected.map((frequency, index) =>
+      frequencyRoundFeedback(frequency, guesses[index]),
+    );
+    const roundScores = roundFeedback.map((feedback) => feedback.score);
     const totalScore = round(roundScores.reduce((total, score) => total + score, 0), 3);
     return result(totalScore, totalScore / 50, `${round(totalScore, 1)}/50`, {
       totalScore,
-      ...Object.fromEntries(roundScores.map((score, index) => [`round${index + 1}`, score])),
+      closestRound: roundScores.indexOf(Math.max(...roundScores)) + 1,
+      averageError: round(
+        roundFeedback.reduce(
+          (total, feedback) => total + Math.abs(feedback.centsError ?? 0),
+          0,
+        ) / 5,
+        2,
+      ),
+      ...Object.fromEntries(roundScores.flatMap((score, index) => [
+        [`round${index + 1}Score`, score],
+        [`round${index + 1}Answered`, true],
+        [`round${index + 1}Target`, expected[index]],
+        [`round${index + 1}Guess`, guesses[index]],
+        [`round${index + 1}PercentError`, roundFeedback[index].percentError ?? 0],
+        [`round${index + 1}Error`, roundFeedback[index].centsError ?? 0],
+      ])),
     });
   },
   bot(seed, challenge) {
@@ -255,23 +274,32 @@ const colourRecallV2: GameDefinition = {
   calculate(challenge, submission) {
     const expected = challenge.colors as Array<{ l: number; c: number; h: number }>;
     const guesses = submission.colors as typeof expected;
-    const roundScores = expected.map((color, index) => {
-      const guess = guesses[index];
-      const hue = Math.min(
-        Math.abs(color.h - guess.h),
-        360 - Math.abs(color.h - guess.h),
-      ) / 180;
-      const distance = Math.sqrt(
-        ((color.l - guess.l) / 55) ** 2 +
-        ((color.c - guess.c) / 28) ** 2 +
-        hue ** 2,
-      );
-      return round(10 * clamp01(1 - distance / 1.2), 3);
-    });
+    const roundFeedback = expected.map((color, index) =>
+      colourRoundFeedback(color, guesses[index]),
+    );
+    const roundScores = roundFeedback.map((feedback) => feedback.score);
     const totalScore = round(roundScores.reduce((total, score) => total + score, 0), 3);
     return result(totalScore, totalScore / 50, `${round(totalScore, 1)}/50`, {
       totalScore,
-      ...Object.fromEntries(roundScores.map((score, index) => [`round${index + 1}`, score])),
+      bestRound: roundScores.indexOf(Math.max(...roundScores)) + 1,
+      averageDistance: round(
+        roundFeedback.reduce(
+          (total, feedback) => total + (feedback.distance ?? 0),
+          0,
+        ) / 5,
+        4,
+      ),
+      ...Object.fromEntries(roundScores.flatMap((score, index) => [
+        [`round${index + 1}Score`, score],
+        [`round${index + 1}Answered`, true],
+        [`round${index + 1}TargetL`, expected[index].l],
+        [`round${index + 1}TargetC`, expected[index].c],
+        [`round${index + 1}TargetH`, expected[index].h],
+        [`round${index + 1}GuessL`, guesses[index].l],
+        [`round${index + 1}GuessC`, guesses[index].c],
+        [`round${index + 1}GuessH`, guesses[index].h],
+        [`round${index + 1}Distance`, roundFeedback[index].distance ?? 0],
+      ])),
     });
   },
   bot(seed, challenge) {

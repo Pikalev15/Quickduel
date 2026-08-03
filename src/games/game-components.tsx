@@ -13,6 +13,12 @@ import {
   MEMORY_GRID_FLASH_MS,
   MEMORY_GRID_REVEAL_DURATION_MS,
 } from "./memory-grid-timing";
+import {
+  colourRoundFeedback,
+  frequencyRoundFeedback,
+  type RecallColour,
+  type RecallRoundFeedback,
+} from "./recall-rounds";
 
 function Range({
   label,
@@ -141,6 +147,7 @@ export function FrequencyRecallGame({
 export function FrequencyRecallV2Game({
   challenge,
   disabled,
+  practiceOpponentSubmission,
   onChange,
 }: GameComponentProps) {
   const frequencies = useMemo(
@@ -148,10 +155,16 @@ export function FrequencyRecallV2Game({
     [challenge.frequencies],
   );
   const [round, setRound] = useState(0);
-  const [phase, setPhase] = useState<"reveal" | "answer" | "complete">("reveal");
+  const [phase, setPhase] = useState<"reveal" | "answer" | "feedback" | "complete">("reveal");
   const [guess, setGuess] = useState(660);
   const [guesses, setGuesses] = useState<number[]>([]);
+  const [feedback, setFeedback] = useState<RecallRoundFeedback | null>(null);
+  const onChangeRef = useRef(onChange);
   const audio = useMemo(() => AudioManager.shared(), []);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (disabled || phase !== "reveal" || !frequencies[round]) return;
@@ -164,21 +177,38 @@ export function FrequencyRecallV2Game({
     if (disabled || phase !== "answer") return;
     const next = [...guesses, guess];
     setGuesses(next);
-    onChange({ guessesHz: next }, next.length === frequencies.length);
-    if (next.length >= frequencies.length) {
-      setPhase("complete");
-      return;
-    }
-    setRound((value) => value + 1);
-    setGuess(660);
-    setPhase("reveal");
+    setFeedback(frequencyRoundFeedback(frequencies[round], guess));
+    onChange({ guessesHz: next }, false);
+    setPhase("feedback");
   }
+
+  useEffect(() => {
+    if (phase !== "feedback") return;
+    const timer = window.setTimeout(() => {
+      if (guesses.length >= frequencies.length) {
+        onChangeRef.current({ guessesHz: guesses }, true);
+        setPhase("complete");
+      } else {
+        setRound((value) => value + 1);
+        setGuess(660);
+        setFeedback(null);
+        setPhase("reveal");
+      }
+    }, 2_000);
+    return () => window.clearTimeout(timer);
+  }, [frequencies.length, guesses, phase]);
 
   return (
     <div className="sequential-recall" aria-live="polite">
       <div className="sequential-progress">
         <span>Round {Math.min(round + 1, frequencies.length || 5)} of {frequencies.length || 5}</span>
-        <strong>{guesses.length * 10}/50 available</strong>
+        <strong>
+          {guesses.reduce(
+            (sum, value, index) =>
+              sum + frequencyRoundFeedback(frequencies[index], value).score,
+            0,
+          ).toFixed(1)}/50 scored
+        </strong>
       </div>
       {phase === "reveal" ? (
         <div className="frequency-reveal">
@@ -208,6 +238,29 @@ export function FrequencyRecallV2Game({
             Confirm round
           </button>
         </div>
+      ) : phase === "feedback" && feedback ? (
+        <PracticeRecallFeedback
+          feedback={feedback}
+          total={guesses.reduce(
+            (sum, value, index) =>
+              sum + frequencyRoundFeedback(frequencies[index], value).score,
+            0,
+          )}
+          opponentRoundScore={
+            frequencyRoundFeedback(
+              frequencies[round],
+              ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[round] ?? null,
+            ).score
+          }
+          opponentTotal={guesses.reduce(
+            (sum, _, index) =>
+              sum + frequencyRoundFeedback(
+                frequencies[index],
+                ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[index] ?? null,
+              ).score,
+            0,
+          )}
+        />
       ) : (
         <div className="sequential-complete">
           <strong>Five rounds locked</strong>
@@ -263,11 +316,10 @@ export function ColourRecallGame({
   );
 }
 
-type RecallColour = { l: number; c: number; h: number };
-
 export function ColourRecallV2Game({
   challenge,
   disabled,
+  practiceOpponentSubmission,
   onChange,
 }: GameComponentProps) {
   const colors = useMemo(
@@ -275,9 +327,15 @@ export function ColourRecallV2Game({
     [challenge.colors],
   );
   const [round, setRound] = useState(0);
-  const [phase, setPhase] = useState<"reveal" | "answer" | "complete">("reveal");
+  const [phase, setPhase] = useState<"reveal" | "answer" | "feedback" | "complete">("reveal");
   const [guess, setGuess] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [guesses, setGuesses] = useState<RecallColour[]>([]);
+  const [feedback, setFeedback] = useState<RecallRoundFeedback | null>(null);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (disabled || phase !== "reveal" || !colors[round]) return;
@@ -293,22 +351,39 @@ export function ColourRecallV2Game({
     if (disabled || phase !== "answer") return;
     const next = [...guesses, guess];
     setGuesses(next);
-    onChange({ colors: next }, next.length === colors.length);
-    if (next.length >= colors.length) {
-      setPhase("complete");
-      return;
-    }
-    setRound((value) => value + 1);
-    setGuess({ l: 65, c: 18, h: 180 });
-    setPhase("reveal");
+    setFeedback(colourRoundFeedback(colors[round], guess));
+    onChange({ colors: next }, false);
+    setPhase("feedback");
   }
+
+  useEffect(() => {
+    if (phase !== "feedback") return;
+    const timer = window.setTimeout(() => {
+      if (guesses.length >= colors.length) {
+        onChangeRef.current({ colors: guesses }, true);
+        setPhase("complete");
+      } else {
+        setRound((value) => value + 1);
+        setGuess({ l: 65, c: 18, h: 180 });
+        setFeedback(null);
+        setPhase("reveal");
+      }
+    }, 2_000);
+    return () => window.clearTimeout(timer);
+  }, [colors.length, guesses, phase]);
 
   const target = colors[round];
   return (
     <div className="sequential-recall" aria-live="polite">
       <div className="sequential-progress">
         <span>Round {Math.min(round + 1, colors.length || 5)} of {colors.length || 5}</span>
-        <strong>{guesses.length * 10}/50 available</strong>
+        <strong>
+          {guesses.reduce(
+            (sum, value, index) =>
+              sum + colourRoundFeedback(colors[index], value).score,
+            0,
+          ).toFixed(1)}/50 scored
+        </strong>
       </div>
       {phase === "reveal" && target ? (
         <div className="colour-round-reveal">
@@ -332,6 +407,29 @@ export function ColourRecallV2Game({
             Confirm round
           </button>
         </div>
+      ) : phase === "feedback" && feedback ? (
+        <PracticeRecallFeedback
+          feedback={feedback}
+          total={guesses.reduce(
+            (sum, value, index) =>
+              sum + colourRoundFeedback(colors[index], value).score,
+            0,
+          )}
+          opponentRoundScore={
+            colourRoundFeedback(
+              colors[round],
+              ((practiceOpponentSubmission?.colors as RecallColour[] | undefined) ?? [])[round] ?? null,
+            ).score
+          }
+          opponentTotal={guesses.reduce(
+            (sum, _, index) =>
+              sum + colourRoundFeedback(
+                colors[index],
+                ((practiceOpponentSubmission?.colors as RecallColour[] | undefined) ?? [])[index] ?? null,
+              ).score,
+            0,
+          )}
+        />
       ) : (
         <div className="sequential-complete">
           <strong>Five rounds locked</strong>
@@ -340,6 +438,65 @@ export function ColourRecallV2Game({
       )}
     </div>
   );
+}
+
+function PracticeRecallFeedback({
+  feedback,
+  total,
+  opponentRoundScore,
+  opponentTotal,
+}: {
+  feedback: RecallRoundFeedback;
+  total: number;
+  opponentRoundScore: number;
+  opponentTotal: number;
+}) {
+  return (
+    <div className="recall-feedback" aria-live="polite">
+      {feedback.kind === "frequency" ? (
+        <>
+          <div className="recall-comparison">
+            <div><span>Target</span><strong>{feedback.targetHz} Hz</strong></div>
+            <div><span>Your guess</span><strong>{feedback.guessHz} Hz</strong></div>
+          </div>
+          <div className="recall-metrics">
+            <div><span>Difference</span><strong>{signed(feedback.differenceHz, " Hz")}</strong></div>
+            <div><span>Percent</span><strong>{signed(feedback.percentError, "%")}</strong></div>
+            <div><span>Cents</span><strong>{signed(feedback.centsError)}</strong></div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="colour-feedback-swatches">
+            <div><span>Target</span><i style={{ background: colourStyle(feedback.target) }} /></div>
+            <div><span>Your guess</span><i style={{ background: feedback.guess ? colourStyle(feedback.guess) : "transparent" }} /></div>
+          </div>
+          <div className="recall-metrics recall-metrics-four">
+            <div><span>Distance</span><strong>{feedback.distance}</strong></div>
+            <div><span>Lightness</span><strong>{signed(feedback.lightnessDifference)}</strong></div>
+            <div><span>Chroma</span><strong>{signed(feedback.chromaDifference)}</strong></div>
+            <div><span>Hue · wrapped</span><strong>{signed(feedback.hueDifference, "°")}</strong></div>
+          </div>
+        </>
+      )}
+      <div className="recall-score-row">
+        <div><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong></div>
+        <div><span>Running total</span><strong>{total.toFixed(1)}<small>/50</small></strong></div>
+        <div><span>Bot round</span><strong>{opponentRoundScore.toFixed(1)}<small>/10</small></strong></div>
+        <div><span>Bot total</span><strong>{opponentTotal.toFixed(1)}<small>/50</small></strong></div>
+        <div><span>Result</span><strong>{feedback.label}</strong></div>
+      </div>
+      <div className="recall-next"><span>Next round in 2 seconds</span><i /></div>
+    </div>
+  );
+}
+
+function signed(value: number | null, suffix = "") {
+  return value === null ? "—" : `${value > 0 ? "+" : ""}${value}${suffix}`;
+}
+
+function colourStyle(colour: RecallColour) {
+  return `oklch(${colour.l}% ${colour.c / 100} ${colour.h})`;
 }
 
 export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
