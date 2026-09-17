@@ -9,14 +9,45 @@ confirms input.
 
 ## Current status - September 2026
 
-- Phase 1 is substantially complete: the shared visual system, responsive home,
+- Phase 1 is nearly complete: the shared visual system, responsive home,
   matchmaking states, theme support, press feedback, and route transitions are
-  shipped.
+  shipped. The remaining work is the full 320 and 1024 pixel screenshot matrix.
 - Phase 5 launch essentials are partially complete: metadata, social image,
   manifest, 404, loading state, privacy, terms, robots, sitemap, and analytics
   choice are in place.
 - Phase 2 is next. The highest-value work is standardizing the thirteen game
   experiences before adding more visual effects or expanding the game catalog.
+
+## Active delivery sequence
+
+### Shipped in the current performance pass
+
+- Coordinate internal-link navigation with a 200ms old/new screen transition
+  instead of animating only the incoming page.
+- Keep immediate reduced-motion navigation and a CSS fallback for browsers that
+  do not support same-document view transitions.
+- Remove the Supabase browser client from Leaderboard and the game rules engine
+  from Match History. Their raw client-reference totals fell from 622,686 to
+  88,495 bytes and from 392,393 to 87,515 bytes respectively.
+- Set a 150 KB raw referenced-JavaScript budget for read-only product routes.
+
+### Next: Phase 2 match shell
+
+1. Extract one shared match header, timer, phase label, instruction block, and
+   answer-status component used by every game.
+2. Migrate one representative game from each family: Memory Grid, Frequency
+   Recall, and Target Tap.
+3. Add keyboard, touch, reduced-motion, timeout, error, and narrow-screen tests
+   for those representatives before migrating the remaining ten games.
+4. Measure each game route and keep optional audio and game-specific controls
+   outside the initial shared bundle.
+
+### Then: result and progression loop
+
+1. Standardize outcome, score evidence, rating delta, rematch, and exit order.
+2. Align History, Leaderboard, Statistics, Seasons, and Profile row patterns.
+3. Add restrained first-win, personal-best, and promotion moments only after
+   the repeat-match path meets the interaction and bundle budgets.
 
 ## Phase 1: Arena foundation
 

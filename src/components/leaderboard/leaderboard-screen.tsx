@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TrophyIcon } from "@/components/ui/icons";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getDivision } from "@/lib/divisions";
 import { ProductHeader } from "@/components/ui/product-header";
 
@@ -34,20 +33,16 @@ export function LeaderboardScreen() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = getSupabaseBrowserClient();
-      const [response, userResult] = await Promise.all([
+      const [response, profileResponse] = await Promise.all([
         fetch("/api/leaderboard", { cache: "no-store" }),
-        supabase ? supabase.auth.getUser() : Promise.resolve(null),
+        fetch("/api/profile", { cache: "no-store" }),
       ]);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.message ?? "Leaderboard failed.");
       setLeaders(body.data ?? []);
-      if (userResult) {
-        const profileResponse = await fetch("/api/profile", { cache: "no-store" });
-        if (profileResponse.ok) {
-          const profileBody = await profileResponse.json();
-          setCurrentId(profileBody.data?.public_code ?? null);
-        }
+      if (profileResponse.ok) {
+        const profileBody = await profileResponse.json();
+        setCurrentId(profileBody.data?.id ?? null);
         const eligibilityResponse = await fetch("/api/profile/rank-eligibility", {
           cache: "no-store",
         });

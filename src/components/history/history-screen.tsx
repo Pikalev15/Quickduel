@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { getGame } from "@/games/registry";
+import { gameCatalog } from "@/games/catalog";
 import { track } from "@/lib/analytics";
 import type { MatchHistoryItem } from "@/types/database";
 import { ProductHeader } from "@/components/ui/product-header";
@@ -11,6 +11,12 @@ type HistoryPage = {
   items: MatchHistoryItem[];
   next_cursor: { completed_at: string; id: string } | null;
 };
+
+const gameNames = new Map<string, string>([
+  ...gameCatalog.map((game) => [game.id, game.name] as const),
+  ["frequency_recall", "Frequency Recall"],
+  ["colour_recall", "Colour Recall"],
+]);
 
 function relativeTime(timestamp: string) {
   const seconds = Math.max(0, Math.round((Date.now() - Date.parse(timestamp)) / 1_000));
@@ -98,7 +104,7 @@ export function HistoryScreen() {
                   <small>{item.ranked ? "Ranked" : "Unranked"}</small>
                 </div>
                 <div className="history-summary">
-                  <h2>{getGame(item.game_type).name}</h2>
+                  <h2>{gameNames.get(item.game_type) ?? "QuickDuel match"}</h2>
                   <p>{item.player_summary} <span>vs</span> {item.opponent_summary}</p>
                   <small>against {item.opponent_name}#{item.opponent_code}</small>
                   {completionLabel(item.completion_reason) && (

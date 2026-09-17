@@ -187,6 +187,25 @@ a {
   animation-duration: 170ms;
 }
 
+::view-transition-group(.route-view) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(.route-view) {
+  animation: route-view-old 160ms var(--ease-out) both;
+}
+
+::view-transition-new(.route-view) {
+  animation: route-view-new 200ms var(--ease-out) both;
+}
+
+@supports (view-transition-name: none) {
+  .route-transition {
+    animation: none;
+  }
+}
+
 .search-pulse {
   animation: search-pulse 1.6s var(--ease-in-out) infinite;
 }
@@ -229,6 +248,16 @@ a {
   to { opacity: 1; }
 }
 
+@keyframes route-view-old {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-3px); }
+}
+
+@keyframes route-view-new {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes search-pulse {
   0%,
   100% {
@@ -254,6 +283,11 @@ a {
   }
 
   .route-transition {
+    animation: none !important;
+  }
+
+  ::view-transition-old(.route-view),
+  ::view-transition-new(.route-view) {
     animation: none !important;
   }
 }

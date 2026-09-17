@@ -69,7 +69,18 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("route changes use brief motion and respect reduced motion", async ({ page }) => {
+test("route changes use coordinated motion and respect reduced motion", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = document.startViewTransition.bind(document);
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: (update: ViewTransitionUpdateCallback) => {
+        const trackedWindow = window as typeof window & { __viewTransitionCount?: number };
+        trackedWindow.__viewTransitionCount = (trackedWindow.__viewTransitionCount ?? 0) + 1;
+        return original(update);
+      },
+    });
+  });
   await page.route("**/api/public/overview", (route) =>
     route.fulfill({
       json: {
@@ -85,8 +96,15 @@ test("route changes use brief motion and respect reduced motion", async ({ page 
 
   const transition = page.locator('[data-route-transition="/privacy"]');
   await expect(transition).toBeVisible();
-  await expect(transition).toHaveCSS("animation-name", "route-enter");
-  await expect(transition).toHaveCSS("animation-duration", "0.21s");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { __viewTransitionCount?: number })
+            .__viewTransitionCount ?? 0,
+      ),
+    )
+    .toBe(1);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
@@ -94,6 +112,59 @@ test("route changes use brief motion and respect reduced motion", async ({ page 
     "animation-name",
     "none",
   );
+});
+
+test("primary navigation coordinates leaderboard and history transitions", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = document.startViewTransition.bind(document);
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: (update: ViewTransitionUpdateCallback) => {
+        const trackedWindow = window as typeof window & { __viewTransitionCount?: number };
+        trackedWindow.__viewTransitionCount = (trackedWindow.__viewTransitionCount ?? 0) + 1;
+        return original(update);
+      },
+    });
+  });
+  await page.route("**/api/leaderboard", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: [{ ...profile, rank: 1 }],
+      },
+    }),
+  );
+  await page.route("**/api/profile", (route) =>
+    route.fulfill({ json: { ok: true, data: profile } }),
+  );
+  await page.route("**/api/profile/rank-eligibility", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: { eligible: true, linked_identity: true, remaining_ranked_matches: 0 },
+      },
+    }),
+  );
+  await page.route("**/api/history?*", (route) =>
+    route.fulfill({
+      json: { ok: true, data: { items: [], next_cursor: null } },
+    }),
+  );
+
+  await page.goto("/leaderboard");
+  await expect(page.getByText("YOU", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "History", exact: true }).click();
+  await expect(page).toHaveURL(/\/history$/);
+  await expect(page.getByRole("heading", { name: "Match history" })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { __viewTransitionCount?: number })
+            .__viewTransitionCount ?? 0,
+      ),
+    )
+    .toBe(1);
 });
 
 test("Memory Grid flashes briefly, holds the blank board, then unlocks", async ({

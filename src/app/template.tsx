@@ -1,5 +1,6 @@
 "use client";
 
+import { ViewTransition } from "react";
 import { usePathname } from "next/navigation";
 
 export default function RouteTemplate({
@@ -11,11 +12,20 @@ export default function RouteTemplate({
   const motion = isFastRoute ? "fast" : isHome ? "quiet" : "standard";
 
   return (
-    <div
-      className={`route-transition route-transition--${motion}`}
-      data-route-transition={pathname}
+    <ViewTransition
+      name="quickduel-route"
+      default="none"
+      enter="route-view"
+      exit="route-view"
+      share="route-view"
+      update="none"
     >
-      {children}
-    </div>
+      <div
+        className={`route-transition route-transition--${motion}`}
+        data-route-transition={pathname}
+      >
+        {children}
+      </div>
+    </ViewTransition>
   );
 }
