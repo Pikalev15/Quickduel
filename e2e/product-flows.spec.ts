@@ -69,6 +69,33 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("route changes use brief motion and respect reduced motion", async ({ page }) => {
+  await page.route("**/api/public/overview", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: { leaderboard: [], activity: { online_count: 3 } },
+      },
+    }),
+  );
+
+  await page.goto("/");
+  await page.getByRole("link", { name: "Privacy" }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+
+  const transition = page.locator('[data-route-transition="/privacy"]');
+  await expect(transition).toBeVisible();
+  await expect(transition).toHaveCSS("animation-name", "route-enter");
+  await expect(transition).toHaveCSS("animation-duration", "0.21s");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(page.locator('[data-route-transition="/privacy"]')).toHaveCSS(
+    "animation-name",
+    "none",
+  );
+});
+
 test("Memory Grid flashes briefly, holds the blank board, then unlocks", async ({
   page,
 }) => {

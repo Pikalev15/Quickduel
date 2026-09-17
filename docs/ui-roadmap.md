@@ -7,6 +7,17 @@ calm under pressure. The interface should use one cobalt accent, cold neutral
 surfaces, condensed score typography, and motion only when it explains state or
 confirms input.
 
+## Current status - September 2026
+
+- Phase 1 is substantially complete: the shared visual system, responsive home,
+  matchmaking states, theme support, press feedback, and route transitions are
+  shipped.
+- Phase 5 launch essentials are partially complete: metadata, social image,
+  manifest, 404, loading state, privacy, terms, robots, sitemap, and analytics
+  choice are in place.
+- Phase 2 is next. The highest-value work is standardizing the thirteen game
+  experiences before adding more visual effects or expanding the game catalog.
+
 ## Phase 1: Arena foundation
 
 - Ship the shared color, type, spacing, focus, press, and reduced-motion tokens.
@@ -14,6 +25,8 @@ confirms input.
   scannable game library without changing the existing routes or game catalog.
 - Bring matchmaking into the same visual system and make connection, queue,
   retry, broaden, notification, and bot-practice states visibly distinct.
+- Add brief route-level transitions with a faster competitive-flow variant and
+  a no-motion path for reduced-motion users.
 - Verify desktop and mobile at 1440, 1024, 390, and 320 pixel widths.
 
 ## Phase 2: The match loop

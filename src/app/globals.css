@@ -172,6 +172,21 @@ a {
   animation: screen-enter 200ms var(--ease-out) both;
 }
 
+.route-transition {
+  min-height: 100%;
+  animation: route-enter 210ms var(--ease-out) both;
+}
+
+.route-transition--fast {
+  animation-name: route-enter-fast;
+  animation-duration: 150ms;
+}
+
+.route-transition--quiet {
+  animation-name: route-enter-quiet;
+  animation-duration: 170ms;
+}
+
 .search-pulse {
   animation: search-pulse 1.6s var(--ease-in-out) infinite;
 }
@@ -185,6 +200,33 @@ a {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes route-enter-fast {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes route-enter-quiet {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes search-pulse {
@@ -209,6 +251,10 @@ a {
     animation-iteration-count: 1 !important;
     transition-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .route-transition {
+    animation: none !important;
   }
 }
 
@@ -4470,19 +4516,6 @@ dd,
 
 .arena-live i {
   animation: live-status-pulse 1.8s var(--ease-in-out) infinite;
-}
-
-.feature-shell > .feature-heading,
-.legal-shell > .calm-eyebrow,
-.legal-shell > h1,
-.status-page > .calm-eyebrow,
-.status-page > h1 {
-  animation: screen-enter 200ms var(--ease-out) both;
-}
-
-.legal-shell > h1,
-.status-page > h1 {
-  animation-delay: 35ms;
 }
 
 .calm-game-row .game-mark,
