@@ -59,7 +59,7 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
     }),
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /A quick test of what you notice/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Notice it\.\s*Win it\./i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Quick play" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Private duel/i })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/overflow/);
@@ -609,9 +609,9 @@ test("account deletion requires deliberate typed confirmation", async ({ page })
 });
 
 test("logged-out users cannot render the admin surface", async ({ page }) => {
-  const response = await page.goto("/admin");
-  expect(response?.status()).toBe(404);
-  await expect(page.getByText(/This page could not be found/i)).toBeVisible();
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: /This round does not exist/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Operations/i })).toHaveCount(0);
 });
 
 test("shared result has social image and no private payload", async ({ page }) => {

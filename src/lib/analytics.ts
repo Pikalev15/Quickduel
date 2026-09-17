@@ -13,6 +13,12 @@ type EventContext = {
   properties?: Record<string, string | number | boolean | null>;
 };
 
+export const ANALYTICS_PREFERENCE_KEY = "quickduel:analytics-enabled";
+
+export function analyticsEnabled() {
+  return localStorage.getItem(ANALYTICS_PREFERENCE_KEY) !== "false";
+}
+
 function sessionId() {
   const key = "quickduel:analytics-session";
   let value = sessionStorage.getItem(key);
@@ -42,6 +48,7 @@ function referrerCategory() {
 }
 
 export function track(eventType: EventName, context: EventContext = {}) {
+  if (!analyticsEnabled()) return;
   const payload = JSON.stringify({
     eventType,
     sessionId: sessionId(),

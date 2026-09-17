@@ -3,7 +3,11 @@ import { PracticeMatch } from "@/components/game/practice-match";
 import { RankedMatch } from "@/components/game/ranked-match";
 import { GAME_IDS, type GameId } from "@/games/types";
 
-export const metadata: Metadata = { title: "Live duel" };
+export const metadata: Metadata = {
+  title: "Live duel",
+  description: "Play the current QuickDuel round and compare validated results.",
+  robots: { index: false, follow: false },
+};
 export const dynamic = "force-dynamic";
 
 export default async function MatchPage({

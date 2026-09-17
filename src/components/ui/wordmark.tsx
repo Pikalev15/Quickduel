@@ -9,8 +9,7 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
       aria-label="QuickDuel home"
     >
       <LogoMark className={compact ? "h-7 w-7" : "h-8 w-8"} />
-      <span>Quick</span>
-      <span>Duel</span>
+      <span>QuickDuel</span>
     </Link>
   );
 }

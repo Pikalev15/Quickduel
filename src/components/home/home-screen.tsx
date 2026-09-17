@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ArrowIcon, PlayIcon, SignalIcon, TrophyIcon } from "@/components/ui/icons";
 import { Header } from "@/components/ui/header";
+import { LogoMark } from "@/components/ui/logo-mark";
 import { Button } from "@/components/ui/button";
 import type { PublicProfile } from "@/types/database";
 import { ProfileDrawer } from "@/components/profile/profile-drawer";
@@ -238,36 +239,59 @@ export function HomeScreen() {
       />
 
       <section className="page-shell calm-hero">
-        <p className="calm-eyebrow">Fast multiplayer perception games</p>
-        <h1>A quick test of<br />what you notice.</h1>
-        <p className="calm-subtitle">
-          Thirteen short challenges. Better performance wins; trusted timing settles ties.
-        </p>
-        <div className="calm-hero-actions">
-          <button type="button" className="calm-primary" onClick={play} disabled={starting}>
-            <PlayIcon className="h-5 w-5" />
-            {starting ? "Joining…" : "Quick play"}
-          </button>
-          <Link className="calm-secondary" href="/duel/new">
-            Private duel <ArrowIcon className="h-4 w-4" />
-          </Link>
-          <button type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
-            Choose a game
-          </button>
-        </div>
-        <div className="calm-player-line">
-          <span><b>{profile?.rating ?? "—"}</b> rating</span>
-          <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
-          <span>Accuracy first · 8s Memory Grid</span>
-        </div>
-        {error && (
-          <div role="alert" className="calm-error">
-            <span>{error}</span>
-            <Button onClick={() => router.push("/match/practice?game=memory_grid&seed=fallback")}>
-              Practice instead
-            </Button>
+        <div className="calm-hero-copy">
+          <p className="calm-eyebrow"><span>01</span> Fast multiplayer perception games</p>
+          <h1>Notice it.<br /><span>Win it.</span></h1>
+          <p className="calm-subtitle">
+            Thirteen short challenges. Accuracy wins; trusted timing settles the closest calls.
+          </p>
+          <div className="calm-hero-actions">
+            <button type="button" className="calm-primary" onClick={play} disabled={starting}>
+              <PlayIcon className="h-5 w-5" />
+              {starting ? "Joining…" : "Quick play"}
+            </button>
+            <Link className="calm-secondary" href="/duel/new">
+              Private duel <ArrowIcon className="h-4 w-4" />
+            </Link>
+            <button type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
+              Choose a game
+            </button>
           </div>
-        )}
+          <div className="calm-player-line">
+            <span><b>{profile?.rating ?? "—"}</b> rating</span>
+            <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
+            <span>Accuracy first · 8s Memory Grid</span>
+          </div>
+          {error && (
+            <div role="alert" className="calm-error">
+              <span>{error}</span>
+              <Button onClick={() => router.push("/match/practice?game=memory_grid&seed=fallback")}>
+                Practice instead
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <aside className="arena-preview" aria-label="QuickDuel ranked match preview">
+          <div className="arena-preview-head">
+            <span>Ranked round</span>
+            <span className="arena-live"><i /> Live arena</span>
+          </div>
+          <div className="arena-scoreline">
+            <div><span>You</span><strong>{profile?.rating ?? 1450}</strong></div>
+            <LogoMark className="arena-mark" />
+            <div><span>Opponent</span><strong>?</strong></div>
+          </div>
+          <div className="arena-grid-preview" aria-hidden="true">
+            {Array.from({ length: 16 }, (_, index) => (
+              <i className={[1, 4, 6, 10, 13, 15].includes(index) ? "is-active" : ""} key={index} />
+            ))}
+          </div>
+          <div className="arena-preview-foot">
+            <div><span>Current game</span><strong>Memory Grid</strong></div>
+            <div><span>Recall in</span><strong>00:08</strong></div>
+          </div>
+        </aside>
       </section>
 
       <div className="page-shell calm-content">
@@ -329,6 +353,8 @@ export function HomeScreen() {
           <Link href="/history">History</Link>
           <Link href="/leaderboard">Leaderboard</Link>
           <button type="button" onClick={openProfile}>Profile</button>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
         </nav>
       </footer>
 

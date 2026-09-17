@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { AdminScreen } from "@/components/admin/admin-screen";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Admin" };
+export const metadata: Metadata = {
+  title: "Admin",
+  description: "Restricted QuickDuel operations and integrity controls.",
+  robots: { index: false, follow: false, noarchive: true },
+};
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
