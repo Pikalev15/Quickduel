@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { MatchmakingScreen } from "@/components/matchmaking/matchmaking-screen";
 import { ACTIVE_GAME_IDS, type GameId, type PlaylistId } from "@/games/types";
 
-export const metadata: Metadata = { title: "Finding an opponent" };
+export const metadata: Metadata = {
+  title: "Finding an opponent",
+  description: "Join QuickDuel matchmaking for a fair, server-authoritative perception game.",
+  robots: { index: false, follow: false },
+};
 export const dynamic = "force-dynamic";
 
 export default async function PlayPage({

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductHeader } from "@/components/ui/product-header";
+import { ANALYTICS_PREFERENCE_KEY, analyticsEnabled } from "@/lib/analytics";
 
 type Cosmetic = {
   id: string;
@@ -19,6 +20,7 @@ export function ProfileSettingsScreen() {
   const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [analytics, setAnalytics] = useState(true);
 
   async function loadCosmetics() {
     const response = await fetch("/api/cosmetics", { cache: "no-store" });
@@ -27,6 +29,7 @@ export function ProfileSettingsScreen() {
   }
 
   useEffect(() => {
+    setAnalytics(analyticsEnabled());
     const timer = window.setTimeout(() => void loadCosmetics(), 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -76,6 +79,13 @@ export function ProfileSettingsScreen() {
 
   const grouped = Object.groupBy(cosmetics, (cosmetic) => cosmetic.type);
 
+  function toggleAnalytics() {
+    const next = !analytics;
+    window.localStorage.setItem(ANALYTICS_PREFERENCE_KEY, String(next));
+    setAnalytics(next);
+    setMessage(next ? "Privacy-friendly analytics enabled." : "Analytics disabled on this device.");
+  }
+
   return (
     <main className="min-h-screen">
       <ProductHeader current="profile" />
@@ -106,6 +116,14 @@ export function ProfileSettingsScreen() {
         <section className="settings-section">
           <div className="feature-section-heading"><div><h2>Starter sequence</h2><p>Replay the unranked three-game introduction and replace your playlist suggestion.</p></div></div>
           <button className="calm-secondary" type="button" onClick={() => void resetOnboarding()}>Reset onboarding</button>
+        </section>
+
+        <section className="settings-section">
+          <div className="feature-section-heading"><div><h2>Product analytics</h2><p>Allow coarse first-party usage events. QuickDuel never records keystrokes, pointer traces, challenge answers, or advertising identifiers.</p></div></div>
+          <button className="calm-secondary" type="button" aria-pressed={analytics} onClick={toggleAnalytics}>
+            {analytics ? "Analytics on" : "Analytics off"}
+          </button>
+          <p className="settings-legal-links"><a href="/privacy">Privacy policy</a><a href="/terms">Terms</a></p>
         </section>
 
         <section className="settings-section danger-zone">

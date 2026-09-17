@@ -285,26 +285,22 @@ export function MatchmakingScreen({
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="queue-page">
       <Header simple />
-      <section className="page-shell screen-enter flex min-h-[calc(100vh-73px)] flex-col items-center justify-center py-12 text-center">
-        <div className="relative mb-10 h-32 w-32" aria-hidden="true">
-          <div className="absolute inset-0 border border-[var(--border)]" />
-          <div className="search-pulse absolute left-3 top-3 h-11 w-11 bg-[var(--accent)]" />
-          <div
-            className="search-pulse absolute bottom-3 right-3 h-11 w-11 border border-[var(--accent)]"
-            style={{ animationDelay: "400ms" }}
-          />
+      <section className="page-shell screen-enter queue-screen">
+        <div className="queue-radar" aria-hidden="true">
+          <span /><span /><span />
+          <i className="search-pulse" />
         </div>
-        <p className="display text-sm tracking-[0.16em] text-[var(--accent)]">
+        <p className="queue-kicker">
           {status === "searching"
             ? `${activePlaylist} · ${activeGame ? getGame(activeGame).name : "mixed games"}`
             : status}
         </p>
-        <h1 className="display mt-3 text-[clamp(2.8rem,8vw,5.5rem)] leading-none">
+        <h1>
           {message}
         </h1>
-        <time className="display mt-7 text-5xl tabular-nums" aria-live="polite">
+        <time className="queue-time" aria-live="polite">
           00:{String(seconds).padStart(2, "0")}
         </time>
         {challengeSiteKey && (
@@ -315,28 +311,28 @@ export function MatchmakingScreen({
             }}
           />
         )}
-        <div className="mt-7 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-[var(--muted)]">
+        <div className="queue-stats">
           <span>
             Player{" "}
-            <strong className="text-white">
+            <strong>
               {profile?.display_name ?? "Loading…"}
             </strong>
           </span>
           <span>
-            Rating <strong className="text-white">{profile?.rating ?? "—"}</strong>
+            Rating <strong>{profile?.rating ?? "—"}</strong>
           </span>
           <span>
-            Division <strong className="text-white">{profile ? getDivision(profile.rating).name : "—"}</strong>
+            Division <strong>{profile ? getDivision(profile.rating).name : "—"}</strong>
           </span>
           <span>
             Rank{" "}
-            <strong className="text-white">
+            <strong>
               {profile?.rank ? `#${profile.rank}` : "—"}
             </strong>
           </span>
-          <span className="flex items-center gap-2">
+          <span className="queue-connection">
             <span
-              className={`h-2 w-2 ${status === "searching" ? "bg-[var(--accent)]" : "bg-[var(--danger)]"}`}
+              className={status === "searching" ? "is-connected" : "is-disconnected"}
             />
             {status === "searching" ? "Connected" : "Reconnecting"}
           </span>
@@ -344,7 +340,7 @@ export function MatchmakingScreen({
         </div>
 
         {duplicateTab && (
-          <div className="mt-8 max-w-xl border-y border-[var(--border)] py-6">
+          <div className="queue-notice">
             <p className="text-[var(--muted)]">Close the other queue tab or wait a few seconds, then retry here. This prevents duplicate queue slots.</p>
           </div>
         )}
@@ -364,11 +360,11 @@ export function MatchmakingScreen({
         )}
 
         {offerBot && (
-          <div className="mt-10 w-full max-w-2xl border-y border-[var(--border)] py-7">
-            <p className="mb-5 text-sm text-[var(--muted)]">
+          <div className="queue-bot-offer">
+            <p>
               No human match yet. Practice is clearly labelled and never ranked.
             </p>
-            <div className="flex flex-col justify-center gap-3 sm:flex-row">
+            <div>
               <Button variant="secondary" onClick={() => setOfferBot(false)}>
                 Keep waiting
               </Button>
@@ -383,7 +379,7 @@ export function MatchmakingScreen({
           </div>
         )}
 
-        <div className="mt-10 flex gap-3">
+        <div className="queue-actions">
           {typeof Notification !== "undefined" && Notification.permission === "default" && status === "searching" && (
             <Button variant="secondary" onClick={() => void enableNotifications()}>
               Notify me when matched
