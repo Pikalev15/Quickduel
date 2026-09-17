@@ -10,8 +10,9 @@ confirms input.
 ## Current status - September 2026
 
 - Phase 1 is nearly complete: the shared visual system, responsive home,
-  matchmaking states, theme support, press feedback, and route transitions are
-  shipped. The remaining work is the full 320 and 1024 pixel screenshot matrix.
+  matchmaking states, theme support, press feedback, shared-element route
+  transitions, and route-level JavaScript budgets are shipped. The remaining
+  work is the full 320 and 1024 pixel screenshot matrix.
 - Phase 5 launch essentials are partially complete: metadata, social image,
   manifest, 404, loading state, privacy, terms, robots, sitemap, and analytics
   choice are in place.
@@ -22,24 +23,33 @@ confirms input.
 
 ### Shipped in the current performance pass
 
-- Coordinate internal-link navigation with a 200ms old/new screen transition
-  instead of animating only the incoming page.
+- Coordinate internal-link navigation with a 200ms old/new screen transition,
+  a persistent product header, a sliding active-nav indicator, and a morphing
+  page title instead of animating only the incoming page.
 - Keep immediate reduced-motion navigation and a CSS fallback for browsers that
   do not support same-document view transitions.
-- Remove the Supabase browser client from Leaderboard and the game rules engine
-  from Match History. Their raw client-reference totals fell from 622,686 to
-  88,495 bytes and from 392,393 to 87,515 bytes respectively.
-- Set a 150 KB raw referenced-JavaScript budget for read-only product routes.
+- Keep the game rules engine out of display-only History, Share, Lobby, and
+  Matchmaking screens by using a lightweight game-label catalog.
+- Defer Supabase until authentication or realtime is actually requested, and
+  split Practice and Ranked match entry points so neither mode loads the other.
+- Keep every route under a 150 KB raw referenced-JavaScript budget. The current
+  production build ranges from 83 KB to 122 KB; Home is 122 KB, Share is 114 KB,
+  Play is 110 KB, Duel pages are about 103 KB, and Match is 99 KB.
+- Treat the deferred 250 KB Supabase client and 283 KB game engine as the next
+  optimization targets. They no longer block initial navigation, but gameplay
+  still downloads the complete rules and renderer registry.
 
 ### Next: Phase 2 match shell
 
-1. Extract one shared match header, timer, phase label, instruction block, and
+1. Split the rules and renderer registry by game so a match downloads only the
+   selected challenge instead of the complete catalog.
+2. Extract one shared match header, timer, phase label, instruction block, and
    answer-status component used by every game.
-2. Migrate one representative game from each family: Memory Grid, Frequency
+3. Migrate one representative game from each family: Memory Grid, Frequency
    Recall, and Target Tap.
-3. Add keyboard, touch, reduced-motion, timeout, error, and narrow-screen tests
+4. Add keyboard, touch, reduced-motion, timeout, error, and narrow-screen tests
    for those representatives before migrating the remaining ten games.
-4. Measure each game route and keep optional audio and game-specific controls
+5. Measure each game route and keep optional audio and game-specific controls
    outside the initial shared bundle.
 
 ### Then: result and progression loop

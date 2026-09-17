@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getGame } from "@/games/registry";
+import { getGameDisplay } from "@/games/display";
+import type { GameId } from "@/games/types";
 import { track } from "@/lib/analytics";
 import { ProductHeader } from "@/components/ui/product-header";
 
 type MatchDetail = {
   id: string;
-  game_type: Parameters<typeof getGame>[0];
+  game_type: GameId;
   game_version: number;
   ranked: boolean;
   is_draw: boolean;
@@ -80,7 +81,7 @@ export function MatchDetailScreen({ matchId }: { matchId: string }) {
             <div className="feature-heading feature-heading-row">
               <div>
                 <p className="calm-eyebrow">{detail.ranked ? "Ranked duel" : "Unranked duel"}</p>
-                <h1>{getGame(detail.game_type).name}</h1>
+                <h1>{getGameDisplay(detail.game_type).name}</h1>
                 <p>
                   {detail.source === "private_duel" ? `Private series${detail.series_round ? ` · Round ${detail.series_round}` : ""}` : "Public queue"}
                   {" · "}

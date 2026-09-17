@@ -23,6 +23,7 @@ export function ProductHeader({
           {links.map(([id, href, label]) => (
             <Link key={id} href={href} aria-current={current === id ? "page" : undefined}>
               {label}
+              {current === id && <span className="product-nav-indicator" aria-hidden="true" />}
             </Link>
           ))}
         </nav>

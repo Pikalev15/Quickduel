@@ -6,7 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import { gameCatalog } from "@/games/catalog";
 import type { GameId, PlaylistId } from "@/games/types";
 import { track } from "@/lib/analytics";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { ProductHeader } from "@/components/ui/product-header";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
@@ -23,8 +23,15 @@ export function CreateDuelScreen() {
   const [challengeSiteKey, setChallengeSiteKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    void supabase?.auth.getUser().then(({ data }) => setUser(data.user));
+    let active = true;
+    void loadSupabaseBrowserClient().then(async (supabase) => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
+      if (active) setUser(data.user);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const selectedGame = useMemo(
@@ -40,7 +47,7 @@ export function CreateDuelScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabaseBrowserClient();
       if (!supabase) throw new Error("Private duels need Supabase configuration.");
       let currentUser = (await supabase.auth.getUser()).data.user;
       if (!currentUser) {

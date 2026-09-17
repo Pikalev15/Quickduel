@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { ArrowIcon, PlayIcon, SignalIcon, TrophyIcon } from "@/components/ui/icons";
 import { Header } from "@/components/ui/header";
 import { LogoMark } from "@/components/ui/logo-mark";
@@ -48,12 +48,7 @@ export function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-    const supabase = getSupabaseBrowserClient();
-    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      setUser(session?.user ?? null);
-      if (!session) setProfile(null);
-    });
+    let unsubscribe: (() => void) | undefined;
     const loadPreferences = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem("quickduel:home-preferences");
@@ -66,7 +61,14 @@ export function HomeScreen() {
     }, 0);
 
     async function load() {
-      if (!supabase) return;
+      const supabase = await loadSupabaseBrowserClient();
+      if (!active || !supabase) return;
+      const authListener = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+        if (!session) setProfile(null);
+      });
+      unsubscribe = () => authListener.data.subscription.unsubscribe();
       const [overview, sessionResult] = await Promise.all([
         fetch("/api/public/overview", { cache: "no-store" }),
         supabase.auth.getSession(),
@@ -92,7 +94,7 @@ export function HomeScreen() {
     return () => {
       active = false;
       window.clearTimeout(loadPreferences);
-      authListener?.data.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
@@ -111,7 +113,7 @@ export function HomeScreen() {
   }, [updatePreferences]);
 
   const authenticate = useCallback(async (intent: AuthIntent) => {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabaseBrowserClient();
     if (!supabase) return "Google authentication is unavailable without Supabase configuration.";
     const options = {
       redirectTo: `${location.origin}/auth/callback?next=/`,
@@ -142,7 +144,7 @@ export function HomeScreen() {
   }, []);
 
   const signOut = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabaseBrowserClient();
     if (!supabase) return "Sign out is unavailable without Supabase configuration.";
     const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
     if (signOutError) return "Could not sign out. Please try again.";
@@ -176,7 +178,7 @@ export function HomeScreen() {
     track("play_clicked");
     setStarting(true);
     setError(null);
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabaseBrowserClient();
     if (!supabase) {
       setStarting(false);
       setError("Ranked play needs Supabase configuration. Practice remains available.");

@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getGame } from "@/games/registry";
+import { getGameDisplay } from "@/games/display";
 import { track } from "@/lib/analytics";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import type { PrivateDuelSnapshot } from "@/types/database";
 import { ProductHeader } from "@/components/ui/product-header";
 
@@ -59,7 +59,7 @@ export function DuelLobbyScreen({ code }: { code: string }) {
     setActing(true);
     setError(null);
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabaseBrowserClient();
       if (!supabase) throw new Error("Joining needs Supabase configuration.");
       if (!(await supabase.auth.getUser()).data.user) {
         const { error: authError } = await supabase.auth.signInAnonymously();
@@ -111,7 +111,7 @@ export function DuelLobbyScreen({ code }: { code: string }) {
     return <main className="min-h-screen"><ProductHeader current="play" /><section className="page-shell feature-shell"><h1>Duel unavailable</h1><p className="inline-error">{error}</p></section></main>;
   }
 
-  const gameName = duel.game_type ? getGame(duel.game_type).name : `${duel.playlist[0].toUpperCase()}${duel.playlist.slice(1)} playlist`;
+  const gameName = duel.game_type ? getGameDisplay(duel.game_type).name : `${duel.playlist[0].toUpperCase()}${duel.playlist.slice(1)} playlist`;
   return (
     <main className="min-h-screen">
       <ProductHeader current="play" />
@@ -167,7 +167,7 @@ export function DuelLobbyScreen({ code }: { code: string }) {
               return (
                 <li key={index}>
                   <span>Round {index + 1}</span>
-                  <b>{round ? `${getGame(round.game_type).shortName} · ${round.winner}` : "—"}</b>
+                  <b>{round ? `${getGameDisplay(round.game_type).shortName} · ${round.winner}` : "—"}</b>
                 </li>
               );
             })}

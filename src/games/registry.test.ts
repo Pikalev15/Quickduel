@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ACTIVE_GAME_IDS, GAME_IDS } from "./types";
 import { gameRegistry, getGame } from "./registry";
 import { gameCatalog } from "./catalog";
+import { getGameDisplay } from "./display";
 import {
   MEMORY_GRID_FLASH_MS,
   MEMORY_GRID_RETENTION_MS,
@@ -12,6 +13,18 @@ describe("game registry", () => {
   it("registers every game exactly once", () => {
     expect([...gameRegistry.keys()]).toEqual(GAME_IDS);
     expect(gameCatalog.map((game) => game.id)).toEqual(ACTIVE_GAME_IDS);
+  });
+
+  it("keeps lightweight display metadata aligned with the game catalog", () => {
+    for (const game of gameCatalog) {
+      expect(getGameDisplay(game.id)).toMatchObject({
+        name: game.name,
+        shortName: game.shortName,
+        category: game.category,
+      });
+    }
+    expect(getGameDisplay("frequency_recall").shortName).toBe("Frequency");
+    expect(getGameDisplay("colour_recall").shortName).toBe("Colour");
   });
 
   it.each(GAME_IDS)("%s is deterministic and its bot submission is valid", (gameId) => {

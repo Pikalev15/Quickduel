@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { compareGameResults, type Submission } from "@/games/types";
 import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
@@ -73,10 +74,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
 
   const currentUserId = snapshot?.current_user_id;
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase || !currentUserId) return;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    if (!currentUserId) return;
+    let active = true;
+    let supabase: SupabaseClient | null = null;
+    let channel: RealtimeChannel | null = null;
     void (async () => {
+      supabase = await loadSupabaseBrowserClient();
+      if (!active || !supabase) return;
       await supabase.realtime.setAuth();
       channel = supabase
         .channel(`match:${matchId}`, {
@@ -108,7 +112,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         });
     })();
     return () => {
-      if (channel) void supabase.removeChannel(channel);
+      active = false;
+      if (channel && supabase) void supabase.removeChannel(channel);
     };
   }, [currentUserId, matchId, reload]);
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { ProductHeader } from "@/components/ui/product-header";
 
 export function OnboardingScreen() {
@@ -12,7 +12,7 @@ export function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function ensureSession() {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabaseBrowserClient();
     if (!supabase) throw new Error("Starter games need Supabase configuration.");
     if (!(await supabase.auth.getUser()).data.user) {
       const { error: authError } = await supabase.auth.signInAnonymously();

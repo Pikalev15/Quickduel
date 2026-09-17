@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 
 type ChatMessage = {
   id: string;
@@ -36,6 +37,9 @@ export function MatchChat({
 
   useEffect(() => {
     if (muted) return;
+    let active = true;
+    let supabase: SupabaseClient | null = null;
+    let channel: RealtimeChannel | null = null;
     const initial = window.setTimeout(() => {
       void reload().catch((caught) => {
         setError(caught instanceof Error ? caught.message : "Chat unavailable.");
@@ -44,21 +48,25 @@ export function MatchChat({
     const poll = window.setInterval(() => {
       void reload().catch(() => undefined);
     }, 3_000);
-    const supabase = getSupabaseBrowserClient();
-    const channel = supabase
-      ?.channel(`match-chat:${matchId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "match_chat_messages",
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => void reload(),
-      )
-      .subscribe();
+    void (async () => {
+      supabase = await loadSupabaseBrowserClient();
+      if (!active || !supabase) return;
+      channel = supabase
+        .channel(`match-chat:${matchId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "match_chat_messages",
+            filter: `match_id=eq.${matchId}`,
+          },
+          () => void reload(),
+        )
+        .subscribe();
+    })();
     return () => {
+      active = false;
       window.clearTimeout(initial);
       window.clearInterval(poll);
       if (channel && supabase) void supabase.removeChannel(channel);

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/ui/header";
 import type { PublicProfile } from "@/types/database";
-import { getGame } from "@/games/registry";
+import { getGameDisplay } from "@/games/display";
 import type { GameId, PlaylistId } from "@/games/types";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
@@ -105,7 +105,7 @@ export function MatchmakingScreen({
   const join = useCallback(async (challengeToken?: string) => {
     try {
       setStatus(navigator.onLine ? "connecting" : "offline");
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabaseBrowserClient();
       if (!supabase) throw new Error("Matchmaking needs Supabase configuration.");
       const {
         data: { session },
@@ -294,7 +294,7 @@ export function MatchmakingScreen({
         </div>
         <p className="queue-kicker">
           {status === "searching"
-            ? `${activePlaylist} · ${activeGame ? getGame(activeGame).name : "mixed games"}`
+            ? `${activePlaylist} · ${activeGame ? getGameDisplay(activeGame).name : "mixed games"}`
             : status}
         </p>
         <h1>
@@ -347,8 +347,8 @@ export function MatchmakingScreen({
 
         {!duplicateTab && status === "searching" && activeGame && seconds >= 12 && (
           <div className="queue-broaden">
-            <p>No player found for {getGame(activeGame).name}. Search the full {activePlaylist === "quick" ? getGame(activeGame).category : activePlaylist} playlist?</p>
-            <button type="button" onClick={() => void broaden((activePlaylist === "quick" ? getGame(activeGame).category : activePlaylist) as PlaylistId, null)}>Broaden with consent</button>
+            <p>No player found for {getGameDisplay(activeGame).name}. Search the full {activePlaylist === "quick" ? getGameDisplay(activeGame).category : activePlaylist} playlist?</p>
+            <button type="button" onClick={() => void broaden((activePlaylist === "quick" ? getGameDisplay(activeGame).category : activePlaylist) as PlaylistId, null)}>Broaden with consent</button>
           </div>
         )}
 

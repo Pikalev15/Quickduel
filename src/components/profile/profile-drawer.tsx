@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { PublicProfile } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import Link from "next/link";
 import { getDivision } from "@/lib/divisions";
 import { track } from "@/lib/analytics";
@@ -68,7 +68,7 @@ export function ProfileDrawer({
     setSaving(true);
     setMessage(null);
     if (!profile) {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabaseBrowserClient();
       if (!supabase) {
         setSaving(false);
         setMessage("Profile creation needs Supabase configuration.");
@@ -108,7 +108,7 @@ export function ProfileDrawer({
   }
 
   async function connectGoogle() {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabaseBrowserClient();
     if (!supabase) return;
     const options = {
       redirectTo: `${location.origin}/auth/callback?next=/`,

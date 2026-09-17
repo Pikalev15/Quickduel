@@ -3,12 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getGame } from "@/games/registry";
+import { getGameDisplay } from "@/games/display";
+import type { GameId } from "@/games/types";
 import { ProductHeader } from "@/components/ui/product-header";
 
 type ShareData = {
   code: string;
-  game_type: Parameters<typeof getGame>[0];
+  game_type: GameId;
   ranked: boolean;
   completed_at: string;
   source: string;
@@ -55,7 +56,7 @@ export function ShareResultScreen({ code }: { code: string }) {
           <>
             <p className="calm-eyebrow">{data.ranked ? "Ranked duel" : "Unranked duel"}</p>
             <h1>{data.players.some((player) => player.winner) ? "Victory" : "Draw"}</h1>
-            <p>{getGame(data.game_type).name}{data.series_round ? ` · Series round ${data.series_round}` : ""}</p>
+            <p>{getGameDisplay(data.game_type).name}{data.series_round ? ` · Series round ${data.series_round}` : ""}</p>
             <div className="share-player-grid">
               {data.players.map((player) => (
                 <article className={player.winner ? "winner" : ""} key={player.display_name}>
@@ -82,7 +83,7 @@ export function ShareResultScreen({ code }: { code: string }) {
             </div>
             <Image
               src={`/api/shares/${code}/image`}
-              alt={`QuickDuel ${getGame(data.game_type).name} result card`}
+              alt={`QuickDuel ${getGameDisplay(data.game_type).name} result card`}
               width={1200}
               height={630}
               unoptimized

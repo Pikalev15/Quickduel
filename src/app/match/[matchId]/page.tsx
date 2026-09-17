@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { PracticeMatch } from "@/components/game/practice-match";
-import { RankedMatch } from "@/components/game/ranked-match";
+import { MatchEntry } from "@/components/game/match-entry";
 import { GAME_IDS, type GameId } from "@/games/types";
 
 export const metadata: Metadata = {
@@ -25,7 +24,14 @@ export default async function MatchPage({
     const onboardingStep = ["1", "2", "3"].includes(onboarding ?? "")
       ? (Number(onboarding) as 1 | 2 | 3)
       : undefined;
-    return <PracticeMatch key={`${gameId}:${practiceSeed}`} seed={practiceSeed} gameId={gameId} onboardingStep={onboardingStep} />;
+    return (
+      <MatchEntry
+        mode="practice"
+        seed={practiceSeed}
+        gameId={gameId}
+        onboardingStep={onboardingStep}
+      />
+    );
   }
-  return <RankedMatch matchId={matchId} />;
+  return <MatchEntry mode="ranked" matchId={matchId} />;
 }

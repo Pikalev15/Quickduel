@@ -72,7 +72,7 @@ export function LeaderboardScreen() {
         <div className="flex items-end justify-between gap-4 border-b border-[var(--border)] pb-7">
           <div>
             <TrophyIcon className="mb-4 h-9 w-9 text-[var(--accent)]" />
-            <h1 className="display text-[clamp(3.5rem,10vw,7rem)] leading-[0.85]">
+            <h1 className="route-title display text-[clamp(3.5rem,10vw,7rem)] leading-[0.85]">
               Leaderboard
             </h1>
             <p className="mt-4 text-sm text-[var(--muted)]">
