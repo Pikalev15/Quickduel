@@ -29,8 +29,10 @@ export function ProfileSettingsScreen() {
   }
 
   useEffect(() => {
-    setAnalytics(analyticsEnabled());
-    const timer = window.setTimeout(() => void loadCosmetics(), 0);
+    const timer = window.setTimeout(() => {
+      setAnalytics(analyticsEnabled());
+      void loadCosmetics();
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
