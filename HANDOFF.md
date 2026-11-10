@@ -71,3 +71,9 @@ requested. Adaptive Turnstile site/secret keys still require configuration.
 - Ran `supabase/tests/ranked_completion_regression.sql` on hosted Supabase in a
   rollback transaction: normal completion, both season upserts, daily pair cap,
   and retry idempotency passed without pgTap or persistent test fixtures.
+
+Live history correctly lists the normal result and timeout forfeit. Season play
+also exposed a misleading #1 rank for provisional players omitted from the public
+board. The screen now labels that status Provisional, explains that points are
+saved, and gives an accurate empty-board message. Desktop/mobile browser coverage
+checks that state; lint, typecheck and production build pass for this follow-up.

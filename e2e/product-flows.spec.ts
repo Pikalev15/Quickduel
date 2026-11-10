@@ -651,7 +651,7 @@ test("weekly season communicates UTC timing and anti-farming limit", async ({ pa
           starts_at: "2026-07-27T00:00:00Z",
           ends_at: "2026-08-03T00:00:00Z",
           status: "active",
-          player: { rank: 2, points: 12, wins: 4, losses: 1, draws: 0, matches_counted: 5 },
+          player: { rank: 2, points: 12, wins: 4, losses: 1, draws: 0, matches_counted: 5, publicly_eligible: false },
           leaderboard: [],
         },
       },
@@ -660,6 +660,10 @@ test("weekly season communicates UTC timing and anti-farming limit", async ({ pa
   await page.goto("/seasons");
   await expect(page.getByText(/Monday at 00:00 UTC/i)).toBeVisible();
   await expect(page.getByText(/At most three ranked matches/i)).toBeVisible();
+  await expect(page.getByText("Provisional", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Your points are saved/)).toBeVisible();
+  await expect(page.getByText(/No eligible players/)).toBeVisible();
+  await expect(page.getByText("#2", { exact: true })).toHaveCount(0);
   await captureProductScreenshot(page, testInfo, "retention-season");
 });
 

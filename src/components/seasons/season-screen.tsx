@@ -12,6 +12,7 @@ type Season = {
   status: "upcoming" | "active" | "archived";
   player: {
     rank: number;
+    publicly_eligible?: boolean;
     points: number;
     wins: number;
     losses: number;
@@ -72,13 +73,17 @@ export function SeasonScreen({ seasonId }: { seasonId?: string }) {
 
             {season.player ? (
               <dl className="season-player">
-                <div><dt>Your weekly rank</dt><dd>#{season.player.rank}</dd></div>
+                <div><dt>Your weekly rank</dt><dd>{season.player.publicly_eligible === false ? "Provisional" : `#${season.player.rank}`}</dd></div>
                 <div><dt>Points</dt><dd>{season.player.points}</dd></div>
                 <div><dt>Wins</dt><dd>{season.player.wins}</dd></div>
                 <div><dt>Matches counted</dt><dd>{season.player.matches_counted}</dd></div>
               </dl>
             ) : (
               <div className="empty-state season-empty"><h2>No weekly ranking yet.</h2><p>Complete a ranked game to join this week’s board.</p></div>
+            )}
+
+            {season.player?.publicly_eligible === false && (
+              <p className="muted">Your points are saved. Meet the public ranking requirements to appear on the board.</p>
             )}
 
             <section className="season-board">
@@ -97,7 +102,7 @@ export function SeasonScreen({ seasonId }: { seasonId?: string }) {
                   );
                 })}
               </ol>
-              {season.leaderboard.length === 0 && <p className="empty-state">No ranked matches have counted this week.</p>}
+              {season.leaderboard.length === 0 && <p className="empty-state">No eligible players on this week’s board yet.</p>}
             </section>
           </>
         )}
