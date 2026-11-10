@@ -21,7 +21,7 @@ generator, schema, and scoring behavior.
 | `colour_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 5.2s answer + 2s feedback |
 | `time_recall` | 1 | Active | Sensory | Yes | 6.5s / 14s |
 | `shape_recall` | 1 | Active | Sensory | Yes | 2.6s / 14s |
-| `rhythm_recall` | 1 | Active | Sensory | Yes | 6.5s / 20s |
+| `rhythm_recall` | 1 | Active | Sensory | Yes | 13s / 20s |
 | `dot_estimate` | 1 | Active | Mind | Yes | 2.2s / 7s |
 | `number_order` | 1 | Active | Mind | Yes | Immediate / 8s |
 | `odd_one_out` | 1 | Active | Mind | Yes | Immediate / 6s |
@@ -41,6 +41,28 @@ blank retention interval where the board remains locked. The full eight-second
 answer window begins only after that hold. Ranked matches persist the combined
 2.95-second reveal window so both players see the same server-authoritative
 schedule; already-created matches retain their stored timing.
+
+## Game input and timing feedback
+
+Practice and ranked matches show an accessible answer-window progress bar while
+the main timer remains visible. Shared game controls have consistent pressed
+and keyboard-focus feedback, with reduced-motion support. Time Recall shows all
+five duration-scaled pulses together; each animation ends within the existing
+reveal window, and generated 700–4,000 ms values remain unchanged. Time Recall
+reports its error with a percent unit. Dot Estimate, Time Recall, and Shape
+Recall submit their visible default values as valid initial answers, and Shape Recall
+labels each polygon vertex with its matching slider number.
+
+Rhythm Recall publishes only each round's tap count during answer input, keeping
+the target beat timings private. The reveal window covers the longest generated
+three-rhythm sequence. Input stops at each published beat count, so the client
+cannot create submissions beyond its strict 5–7 tap schema.
+
+Pattern Complete now mixes six distinct sequence rules in each deterministic
+challenge, instead of repeating the same four-symbol cycle rule. Result screens
+show game-specific counts where those counts explain performance; other games
+keep their score summary in place of generic correct/incorrect counters. Typing
+Sprint retains its correct and incorrect character counts.
 
 ## Frequency Recall v2
 

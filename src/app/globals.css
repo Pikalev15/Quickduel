@@ -2670,6 +2670,96 @@ header .page-shell {
   color: #174d2e;
 }
 
+.game-time-progress {
+  width: min(100%, 820px);
+  height: 4px;
+  margin-top: 0.8rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.game-time-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: var(--accent);
+  transition: transform 100ms linear;
+}
+
+.time-pulse-list {
+  display: grid;
+  width: min(100%, 520px);
+  gap: 0.85rem;
+}
+
+.time-pulse-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: center;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.time-pulse-row i {
+  display: block;
+  height: clamp(1.25rem, 4vw, 1.8rem);
+  transform: scaleX(0);
+  transform-origin: left center;
+  border-radius: 5px;
+  background: var(--accent);
+  animation: time-pulse-fill linear forwards;
+}
+
+@keyframes time-pulse-fill {
+  to { transform: scaleX(1); }
+}
+
+.memory-board button:active:not(:disabled),
+.number-field button:active:not(:disabled),
+.odd-grid button:active:not(:disabled),
+.pattern-options button:active:not(:disabled),
+.tap-pad:active:not(:disabled),
+.reaction-pad:active:not(:disabled),
+.recall-confirm:active:not(:disabled),
+.stimulus-button:active:not(:disabled),
+.round-tabs button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.target-field button:active:not(:disabled) {
+  transform: translate(-50%, -50%) scale(0.88);
+}
+
+.memory-board button:focus-visible,
+.number-field button:focus-visible,
+.odd-grid button:focus-visible,
+.pattern-options button:focus-visible,
+.target-field button:focus-visible,
+.tap-pad:focus-visible,
+.reaction-pad:focus-visible,
+.recall-confirm:focus-visible,
+.recall-replay:focus-visible,
+.stimulus-button:focus-visible,
+.round-tabs button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-time-progress span,
+  .time-pulse-row i,
+  .memory-board button,
+  .target-field button {
+    transition: none;
+  }
+}
+
 @media (max-width: 760px) {
   header nav > a {
     display: none;

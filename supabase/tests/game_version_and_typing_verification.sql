@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 select ok(
   exists (
@@ -31,6 +31,11 @@ select is(
   public.game_reveal_duration('memory_grid'),
   2950,
   'Memory Grid persists its flash and retention interval'
+);
+select is(
+  public.game_reveal_duration('rhythm_recall'),
+  13000,
+  'Rhythm Recall persists enough time for all three complete rhythms'
 );
 select is(
   public.game_reveal_duration('frequency_recall_v2'),

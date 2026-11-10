@@ -98,6 +98,7 @@ export function RankedRecallRounds({
   const [sending, setSending] = useState(false);
   const playedRound = useRef<number | null>(null);
   const inputRound = useRef<number | null>(null);
+  const reloadInFlight = useRef(false);
   const audio = useMemo(() => AudioManager.shared(), []);
 
   const applyState = useCallback((next: RecallRoundState) => {
@@ -110,12 +111,16 @@ export function RankedRecallRounds({
   }, []);
 
   const reload = useCallback(async () => {
+    if (reloadInFlight.current) return;
+    reloadInFlight.current = true;
     try {
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`);
       applyState(next);
       if (next.phase === "complete") onComplete();
     } catch (error) {
       onError(error instanceof Error ? error.message : "Could not load the round.");
+    } finally {
+      reloadInFlight.current = false;
     }
   }, [applyState, matchId, onComplete, onError]);
 
@@ -177,6 +182,14 @@ export function RankedRecallRounds({
             <span className="frequency-wave" aria-hidden="true">∿</span>
             <strong>Listen</strong>
             <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
+            <button
+              type="button"
+              className="recall-replay"
+              disabled={sending || typeof state.target !== "number"}
+              onClick={() => typeof state.target === "number" && void audio.playToneSequence([state.target])}
+            >
+              Play tone again
+            </button>
           </div>
         ) : (
           <div className="colour-round-reveal">

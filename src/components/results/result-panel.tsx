@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShareIcon } from "@/components/ui/icons";
 import type { DuelOutcome } from "@/games/types";
 import { getDivision, getDivisionChange } from "@/lib/divisions";
+import { getGameResultMetric } from "./result-metrics";
 
 export type ResultSide = {
   name: string;
@@ -94,11 +95,11 @@ export function ResultPanel({
       )}
 
       <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
-        <ResultColumn label="YOU" side={player} accent />
+        <ResultColumn label="YOU" side={player} gameName={gameName} accent />
         <div className="display self-center border border-[var(--accent)] px-3 py-2 text-xl text-[var(--accent)]">
           VS
         </div>
-        <ResultColumn label={opponent.name} side={opponent} />
+        <ResultColumn label={opponent.name} side={opponent} gameName={gameName} />
       </div>
 
       {(gameName === "Frequency Recall" || gameName === "Colour Recall") &&
@@ -276,12 +277,16 @@ function RecallRoundSide({
 function ResultColumn({
   label,
   side,
+  gameName,
   accent = false,
 }: {
   label: string;
   side: ResultSide;
+  gameName?: string;
   accent?: boolean;
 }) {
+  const gameMetric = getGameResultMetric(gameName, side);
+
   return (
     <div className="px-2 sm:px-8">
       <div
@@ -292,13 +297,19 @@ function ResultColumn({
       <div className="display mt-2 text-[clamp(1.8rem,5vw,3.2rem)] leading-none">
         {side.summary ?? side.score.toFixed(1)}
       </div>
-      <div className="mt-3 text-xs text-[var(--muted)] sm:text-sm">
-        <span className="text-[var(--accent)]">{side.correct} correct</span>
-        {" · "}
-        <span className={side.incorrect ? "text-[var(--danger)]" : ""}>
-          {side.incorrect} incorrect
-        </span>
-      </div>
+      {gameName === "Typing Sprint" ? (
+        <div className="mt-3 text-xs text-[var(--muted)] sm:text-sm">
+          <span className="text-[var(--accent)]">{side.correct} correct</span>
+          {" · "}
+          <span className={side.incorrect ? "text-[var(--danger)]" : ""}>
+            {side.incorrect} incorrect
+          </span>
+        </div>
+      ) : gameMetric ? (
+        <div className="mt-3 text-xs text-[var(--muted)] sm:text-sm">
+          {gameMetric}
+        </div>
+      ) : null}
       {typeof side.details?.grossWpm === "number" && (
         <div className="mt-2 text-xs text-[var(--muted)]">
           {Math.round(side.details.grossWpm)} gross WPM

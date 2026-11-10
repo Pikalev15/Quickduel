@@ -19,6 +19,8 @@ import {
   type RecallColour,
   type RecallRoundFeedback,
 } from "./recall-rounds";
+import { appendRhythmTap, haveAllRhythmTaps } from "./rhythm-input";
+import { RHYTHM_COUNT } from "./rhythm-input";
 
 function Range({
   label,
@@ -52,6 +54,19 @@ function Range({
       <strong>{Math.round(value)}</strong>
     </label>
   );
+}
+
+function useSubmitInitialValidAnswer(
+  disabled: boolean | undefined,
+  onChange: GameComponentProps["onChange"],
+  submission: Submission,
+) {
+  const submitted = useRef(false);
+  useEffect(() => {
+    if (disabled || submitted.current) return;
+    submitted.current = true;
+    onChange(submission, true);
+  }, [disabled, onChange, submission]);
 }
 
 export function MemoryGridGame({
@@ -502,6 +517,7 @@ function colourStyle(colour: RecallColour) {
 export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const durations = (challenge.durations as number[] | undefined) ?? [];
   const [guesses, setGuesses] = useState([1200, 1500, 1800, 2100, 2400]);
+  useSubmitInitialValidAnswer(disabled, onChange, { durationsMs: guesses });
   return (
     <div className="game-stack">
       {durations.length > 0 && <PulseSequence durations={durations} />}
@@ -526,38 +542,33 @@ export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentP
 }
 
 function PulseSequence({ durations }: { durations: number[] }) {
-  const [pulse, setPulse] = useState(0);
-  useEffect(() => {
-    let active = true;
-    let cursor = 0;
-    const run = () => {
-      if (!active || cursor >= durations.length) return;
-      setPulse(cursor + 1);
-      window.setTimeout(() => {
-        setPulse(0);
-        cursor += 1;
-        window.setTimeout(run, 250);
-      }, Math.min(durations[cursor], 1200));
-    };
-    run();
-    return () => {
-      active = false;
-    };
-  }, [durations]);
-  return <div className={pulse ? "time-orb is-pulsing" : "time-orb"}>{pulse || "•"}</div>;
+  return (
+    <div className="time-pulse-list" aria-label="Five pulse durations">
+      {durations.map((duration, index) => (
+        <div className="time-pulse-row" key={index}>
+          <span>Pulse {index + 1}</span>
+          <i style={{ animationDuration: `${duration}ms` }} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ShapeSvg({ radii }: { radii: number[] }) {
-  const points = radii
-    .map((radius, index) => {
+  const points = radii.map((radius, index) => {
       const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
       const scaled = 30 + radius * 0.65;
-      return `${100 + Math.cos(angle) * scaled},${100 + Math.sin(angle) * scaled}`;
-    })
-    .join(" ");
+      return { x: 100 + Math.cos(angle) * scaled, y: 100 + Math.sin(angle) * scaled };
+    });
   return (
-    <svg className="shape-canvas" viewBox="0 0 200 200" role="img" aria-label="Generated shape">
-      <polygon points={points} />
+    <svg className="shape-canvas" viewBox="0 0 200 200" role="img" aria-label="Generated shape with numbered vertices">
+      <polygon points={points.map(({ x, y }) => `${x},${y}`).join(" ")} />
+      {points.map(({ x, y }, index) => (
+        <g className="shape-point-label" key={index} aria-hidden="true">
+          <circle cx={x} cy={y} r="8" />
+          <text x={x} y={y}>{index + 1}</text>
+        </g>
+      ))}
     </svg>
   );
 }
@@ -565,6 +576,7 @@ function ShapeSvg({ radii }: { radii: number[] }) {
 export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const target = (challenge.radii as number[] | undefined) ?? [];
   const [radii, setRadii] = useState([50, 50, 50, 50, 50, 50]);
+  useSubmitInitialValidAnswer(disabled, onChange, { radii });
   return (
     <div className="shape-game">
       <ShapeSvg radii={target.length ? target : radii} />
@@ -589,18 +601,28 @@ export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponent
 
 export function RhythmRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const rhythms = (challenge.rhythms as number[][] | undefined) ?? [];
-  const [taps, setTaps] = useState<number[][]>([[], [], []]);
+  const tapCounts = (challenge.tapCounts as number[] | undefined) ?? rhythms.map((rhythm) => rhythm.length);
+  const [taps, setTaps] = useState<number[][]>(Array.from({ length: RHYTHM_COUNT }, () => []));
   const [round, setRound] = useState(0);
   const started = useRef<number | null>(null);
   const audio = AudioManager.shared();
+  const tapLimit = tapCounts[round] ?? 0;
+  const captured = tapLimit > 0 && (taps[round]?.length ?? 0) >= tapLimit;
+  const recording = taps[round].length > 0 && !captured;
   const tap = () => {
+    if (disabled || tapLimit === 0) return;
     const now = performance.now();
     if (started.current === null) started.current = now;
-    const next = taps.map((values, index) =>
-      index === round ? [...values, Math.round(now - (started.current ?? now))] : values,
+    const appended = appendRhythmTap(
+      taps,
+      round,
+      now - started.current,
+      tapLimit,
     );
+    if (!appended.accepted) return;
+    const next = appended.taps;
     setTaps(next);
-    onChange({ tapsMs: next }, next.every((values) => values.length >= 5));
+    onChange({ tapsMs: next }, haveAllRhythmTaps(next, tapCounts));
   };
   return (
     <div className="game-stack">
@@ -610,22 +632,46 @@ export function RhythmRecallGame({ challenge, disabled, onChange }: GameComponen
         </button>
       )}
       <div className="round-tabs">
-        {[0, 1, 2].map((value) => (
+        {Array.from({ length: RHYTHM_COUNT }, (_, value) => (
           <button
             type="button"
             key={value}
             className={round === value ? "is-active" : ""}
+            aria-pressed={round === value}
+            disabled={disabled || (recording && round !== value)}
             onClick={() => {
+              if (round === value) return;
               setRound(value);
               started.current = null;
             }}
           >
-            Rhythm {value + 1} · {taps[value].length} taps
+            Rhythm {value + 1} · {taps[value].length}/{tapCounts[value] ?? 0} taps
           </button>
         ))}
       </div>
-      <button type="button" className="tap-pad" disabled={disabled} onClick={tap}>
-        Tap the beat
+      <p className="muted">Finish one rhythm before switching. Missed a beat? Retry this rhythm while the clock is running.</p>
+      <button
+        type="button"
+        className="tap-pad"
+        disabled={disabled || tapLimit === 0 || captured}
+        onClick={tap}
+      >
+        {captured
+          ? "Rhythm captured"
+          : `Tap the beat · ${taps[round]?.length ?? 0}/${tapLimit}`}
+      </button>
+      <button
+        type="button"
+        className="stimulus-button"
+        disabled={disabled || taps[round].length === 0}
+        onClick={() => {
+          const next = taps.map((values, index) => index === round ? [] : values);
+          started.current = null;
+          setTaps(next);
+          onChange({ tapsMs: next }, false);
+        }}
+      >
+        Retry this rhythm
       </button>
     </div>
   );
@@ -634,6 +680,7 @@ export function RhythmRecallGame({ challenge, disabled, onChange }: GameComponen
 export function DotEstimateGame({ challenge, disabled, onChange }: GameComponentProps) {
   const dots = (challenge.dots as Array<{ x: number; y: number; r: number }> | undefined) ?? [];
   const [estimate, setEstimate] = useState(70);
+  useSubmitInitialValidAnswer(disabled, onChange, { estimate });
   return (
     <div className="game-stack">
       {dots.length > 0 && (
@@ -689,6 +736,8 @@ export function OddOneOutGame({ challenge, disabled, onChange }: GameComponentPr
           type="button"
           disabled={disabled}
           className={selected === index ? "is-selected" : ""}
+          aria-label={`Tile ${index + 1}`}
+          aria-pressed={selected === index}
           key={index}
           onClick={() => {
             setSelected(index);

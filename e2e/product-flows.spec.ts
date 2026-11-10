@@ -188,6 +188,40 @@ test("Memory Grid flashes briefly, holds the blank board, then unlocks", async (
   await expect(cells.first()).toHaveAttribute("aria-pressed", "true");
 });
 
+test("Rhythm Recall accepts every required beat after the reveal and resets on rematch", async ({ page }) => {
+  await page.goto("/match/practice?game=rhythm_recall&seed=rhythm-fixed");
+  const pad = page.locator(".tap-pad");
+  await expect(pad).toBeEnabled({ timeout: 20_000 });
+
+  await pad.click();
+  await expect(page.getByRole("button", { name: /^Rhythm 2 ·/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Retry this rhythm", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Rhythm 1 · 0\// })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Rhythm 2 ·/ })).toBeEnabled();
+
+  for (let rhythm = 1; rhythm <= 3; rhythm += 1) {
+    const tab = page.getByRole("button", { name: new RegExp(`Rhythm ${rhythm} ·`) });
+    await tab.click();
+    const count = Number((await tab.innerText()).match(/\/(\d+) taps/)?.[1]);
+    expect(count).toBeGreaterThanOrEqual(5);
+    expect(count).toBeLessThanOrEqual(7);
+    for (let beat = 0; beat < count; beat += 1) {
+      await pad.click();
+      await page.waitForTimeout(100);
+    }
+    await expect(pad).toBeDisabled();
+    await expect(tab).toHaveText(`Rhythm ${rhythm} · ${count}/${count} taps`);
+  }
+
+  await page.getByRole("button", { name: "Lock answer", exact: true }).click();
+  // The seeded practice bot may still be finishing after these fast test taps.
+  const rematch = page.getByRole("button", { name: "Rematch", exact: true });
+  await expect(pad.filter({ hasText: "Rhythm captured" }).or(rematch)).toBeVisible();
+  await expect(rematch).toBeVisible({ timeout: 20_000 });
+  await rematch.click();
+  await expect(page.getByRole("button", { name: /^Rhythm 1 · 0\// })).toBeVisible();
+});
+
 test("Frequency Recall v2 gives per-round feedback before advancing", async ({ page }) => {
   await page.goto("/match/practice?game=frequency_recall_v2&seed=frequency-feedback");
   const confirm = page.getByRole("button", { name: "Confirm round" });

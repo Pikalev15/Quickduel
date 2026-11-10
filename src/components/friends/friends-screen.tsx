@@ -202,7 +202,7 @@ export function FriendsScreen() {
         )}
 
         {!state ? (
-          <p className="empty-state">Loading your connections…</p>
+          !error && <p className="empty-state">Loading your connections…</p>
         ) : (
           <div className="friends-layout">
             <section>

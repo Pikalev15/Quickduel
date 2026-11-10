@@ -38,8 +38,11 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const submissionRef = useRef<Submission>({});
   const canSubmitRef = useRef(false);
   const trackedStatuses = useRef(new Set<string>());
+  const reloadInFlight = useRef(false);
 
   const reload = useCallback(async () => {
+    if (reloadInFlight.current) return;
+    reloadInFlight.current = true;
     try {
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
       setSnapshot(next);
@@ -47,6 +50,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       if (next.rematch_match_id) router.replace(`/match/${next.rematch_match_id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load match.");
+    } finally {
+      reloadInFlight.current = false;
     }
   }, [matchId, router]);
 
@@ -397,6 +402,18 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 ? opponent?.submitted_at ? "Finalizing result…" : "Opponent is still playing."
                 : game?.instructions}
             </p>
+            {!secureRecall && phase === "answer" && snapshot && (
+              <div
+                className="game-time-progress"
+                role="progressbar"
+                aria-label="Answer time remaining"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round((remaining / snapshot.answer_duration_ms) * 100)}
+              >
+                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / snapshot.answer_duration_ms))})` }} />
+              </div>
+            )}
             <div className="game-stage">
               {snapshot && secureRecall ? (
                 <RankedRecallRounds
@@ -407,7 +424,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 />
               ) : snapshot ? (
                 <GameRenderer
-                  key={`${snapshot.id}:${phase}`}
+                  key={`${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
                   gameId={snapshot.game_type}
                   challenge={game?.publicChallenge(
                     snapshot?.challenge ?? {},

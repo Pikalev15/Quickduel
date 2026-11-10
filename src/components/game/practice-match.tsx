@@ -210,9 +210,21 @@ export function PracticeMatch({
             <p className="game-instructions">
               {phase === "waiting" ? "Practice Bot is finishing." : game.instructions}
             </p>
+            {phase === "answer" && (
+              <div
+                className="game-time-progress"
+                role="progressbar"
+                aria-label="Answer time remaining"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round((remaining / game.answerDurationMs) * 100)}
+              >
+                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / game.answerDurationMs))})` }} />
+              </div>
+            )}
             <div className="game-stage">
               <GameRenderer
-                key={`${game.id}:${phase}`}
+                key={`${game.id}:${phase === "waiting" ? "answer" : phase}`}
                 gameId={game.id}
                 challenge={publicChallenge}
                 disabled={phase !== "answer"}

@@ -19,6 +19,14 @@ import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
 import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
 import {
+  RHYTHM_COUNT,
+  RHYTHM_MAX_INTERVAL_MS,
+  RHYTHM_MAX_TAPS,
+  RHYTHM_MIN_INTERVAL_MS,
+  RHYTHM_MIN_TAPS,
+  RHYTHM_REVEAL_DURATION_MS,
+} from "./rhythm-input";
+import {
   colourRoundFeedback,
   frequencyRoundFeedback,
 } from "./recall-rounds";
@@ -339,7 +347,7 @@ const timeRecall: GameDefinition = {
     const expected = challenge.durations as number[];
     const guesses = submission.durationsMs as number[];
     const error = mean(expected.map((value, index) => Math.abs(Math.log(guesses[index] / value))));
-    return result(-error, 1 - error, `${Math.round(error * 100)} timing error`, { logRatioError: round(error, 4) });
+    return result(-error, 1 - error, `${Math.round(error * 100)}% timing error`, { logRatioError: round(error, 4) });
   },
   bot(seed, challenge) {
     const random = createRandom(`${seed}:bot`);
@@ -400,22 +408,27 @@ const rhythmRecall: GameDefinition = {
   description: "Hear three short rhythms and tap their relative timing.",
   instructions: "Listen, then tap each rhythm. Relative interval accuracy wins; total duration is secondary.",
   ranked: true,
-  revealDurationMs: 6500,
+  revealDurationMs: RHYTHM_REVEAL_DURATION_MS,
   answerDurationMs: 20000,
   submissionSchema: object({
-    tapsMs: z.array(z.array(z.number().finite().min(0).max(10000)).min(5).max(7)).length(3),
+    tapsMs: z.array(z.array(z.number().finite().min(0).max(10000)).min(RHYTHM_MIN_TAPS).max(RHYTHM_MAX_TAPS)).length(RHYTHM_COUNT),
   }) as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
     return {
-      rhythms: Array.from({ length: 3 }, () => {
-        const count = integer(random, 5, 7);
-        const intervals = Array.from({ length: count - 1 }, () => integer(random, 180, 620));
+      rhythms: Array.from({ length: RHYTHM_COUNT }, () => {
+        const count = integer(random, RHYTHM_MIN_TAPS, RHYTHM_MAX_TAPS);
+        const intervals = Array.from({ length: count - 1 }, () => integer(random, RHYTHM_MIN_INTERVAL_MS, RHYTHM_MAX_INTERVAL_MS));
         return intervals.reduce<number[]>((values, interval) => [...values, values.at(-1)! + interval], [0]);
       }),
     };
   },
-  publicChallenge: hideDuringAnswer(["rhythms"]),
+  publicChallenge(challenge, phase) {
+    if (phase === "reveal" || phase === "result") return challenge;
+    return {
+      tapCounts: (challenge.rhythms as number[][]).map((rhythm) => rhythm.length),
+    };
+  },
   calculate(challenge, submission) {
     const expected = challenge.rhythms as number[][];
     const taps = submission.tapsMs as number[][];
@@ -430,7 +443,7 @@ const rhythmRecall: GameDefinition = {
       Math.abs((taps[index].at(-1) ?? 0) / (rhythm.at(-1) ?? 1) - 1),
     ));
     const relative = mean(relativeErrors);
-    return result(-(relative + durationError * 0.05), 1 - relative, `${Math.round(relative * 100)} rhythm error`, {
+    return result(-(relative + durationError * 0.05), 1 - relative, `${Math.round(relative * 100)}% rhythm error`, {
       relativeIntervalError: round(relative, 4),
       durationError: round(durationError, 4),
     });
@@ -572,11 +585,25 @@ const patternComplete: GameDefinition = {
   generate(seed) {
     const random = createRandom(seed);
     const symbols = ["●", "■", "▲", "◆"];
+    const next = (index: number, step: number) => (index + step) % symbols.length;
+    // Keep the v1 answer and option RNG stream stable for existing matches.
+    const rules = [
+      (start: number) => [start, next(start, 1), next(start, 2), next(start, 3)],
+      (start: number) => [start, next(start, 3), next(start, 2), next(start, 1)],
+      (start: number) => [start, next(start, 1), start, next(start, 1)],
+      (start: number) => [start, next(start, 2), start, next(start, 2)],
+      (start: number) => [next(start, 2), start, next(start, 1), next(start, 2)],
+      (start: number) => [start, start, next(start, 1), next(start, 1)],
+    ];
     return {
       puzzles: Array.from({ length: 6 }, (_, puzzle) => {
         const offset = integer(random, 0, 3);
-        const sequence = Array.from({ length: 4 }, (_, index) => symbols[(index + offset + puzzle) % 4]);
-        return { sequence: [...sequence, "?"], options: shuffle(random, symbols), answer: sequence[0] };
+        const answer = (offset + puzzle) % symbols.length;
+        return {
+          sequence: [...rules[puzzle](answer).map((index) => symbols[index]), "?"],
+          options: shuffle(random, symbols),
+          answer: symbols[answer],
+        };
       }),
     };
   },

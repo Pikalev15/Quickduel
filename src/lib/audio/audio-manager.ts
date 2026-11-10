@@ -1,3 +1,5 @@
+import { RHYTHM_SEQUENCE_GAP_MS } from "@/games/rhythm-input";
+
 export class AudioManager {
   private static instance: AudioManager | null = null;
   private context: AudioContext | null = null;
@@ -17,15 +19,21 @@ export class AudioManager {
     this.volume = Math.max(0, Math.min(0.3, value));
   }
 
-  private getContext() {
+  private async getContext() {
     if (typeof window === "undefined") return null;
     this.context ??= new AudioContext();
-    if (this.context.state === "suspended") void this.context.resume();
+    if (this.context.state === "suspended") {
+      try {
+        await this.context.resume();
+      } catch {
+        return null;
+      }
+    }
     return this.context;
   }
 
   async playToneSequence(frequencies: number[]) {
-    const context = this.getContext();
+    const context = await this.getContext();
     if (!context || this.muted) return;
     let at = context.currentTime + 0.03;
     for (const frequency of frequencies) {
@@ -44,7 +52,7 @@ export class AudioManager {
   }
 
   async playRhythmSequence(rhythms: number[][]) {
-    const context = this.getContext();
+    const context = await this.getContext();
     if (!context || this.muted) return;
     let at = context.currentTime + 0.03;
     for (const rhythm of rhythms) {
@@ -58,7 +66,7 @@ export class AudioManager {
         oscillator.start(at + offset / 1000);
         oscillator.stop(at + offset / 1000 + 0.08);
       }
-      at += (rhythm.at(-1) ?? 0) / 1000 + 0.55;
+      at += (rhythm.at(-1) ?? 0) / 1000 + RHYTHM_SEQUENCE_GAP_MS / 1000;
     }
   }
 }
