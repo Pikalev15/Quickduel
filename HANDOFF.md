@@ -36,16 +36,16 @@
 - PR #10 merged at 31d022c; PR #9 merged at 8005398, both with successful GitHub
   CI and Vercel checks. Next 16.4.5 / Zod 4.6.7 address available production
   advisories. Production audit: zero. Eight moderate dev-tool advisories remain.
-- Gameplay edits remain local and uncommitted. Dependency PRs are merged.
+- Gameplay release published at 9eb1d01; dependency PRs #9 and #10 are merged.
 
 ## Deployment and limits
 
-Apply `supabase/migrations/20261108005000_rhythm_recall_reveal_window.sql` with
-this application update so ranked Rhythm's database reveal window matches the
-13-second client window. The pgTap assertion was added but not run: Supabase
-is not configured locally. Real authentication, multiplayer, database writes,
-and perceived audio quality remain unverified. No claim of complete bug freedom
-or human difficulty balancing. No separate review was run, as requested.
+Production: https://quickduel-nu.vercel.app. Both the Rhythm reveal migration
+and ranked completion trigger fix are applied to hosted Supabase. Production
+browser sessions exercised anonymous authentication, matchmaking, both answer
+submissions, results, rating changes, and rematch. Perceived audio quality and
+human difficulty balancing remain unverified. No separate review was run, as
+requested. Adaptive Turnstile site/secret keys still require configuration.
 
 ## 2026-11-11 release continuation
 
@@ -59,8 +59,15 @@ or human difficulty balancing. No separate review was run, as requested.
   absent. Added a generated sensitive server-only Vercel production/preview key.
   Turnstile keys are still absent; high-risk adaptive challenges need owner setup.
 - Release validation: 100 unit tests, lint and production build passed.
-  Desktop/mobile E2E and production smoke are in progress. One timing race in
-  the test's bot-finished assertion was fixed to accept either captured input
-  or the completed result.
+  Desktop/mobile E2E: 41 passed initially; a test-only bot-result timing race
+  was corrected and both affected desktop/mobile cases passed on rerun (42
+  unique product cases passed overall; four disposable-backend cases skipped).
 - Supabase pgTap is unavailable on the hosted project; verified the changed
   function and privileges directly without installing extensions.
+- Live two-user play uncovered a ranked completion 500: the season trigger's
+  `season_id` variable conflicted with upsert column names. Renamed the variable
+  in a forward migration. The stuck match recovered via normal timeout; a new
+  rematch completed with both submissions and opposite rating deltas (+15/-15).
+- Ran `supabase/tests/ranked_completion_regression.sql` on hosted Supabase in a
+  rollback transaction: normal completion, both season upserts, daily pair cap,
+  and retry idempotency passed without pgTap or persistent test fixtures.
