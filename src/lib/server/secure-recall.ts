@@ -58,16 +58,19 @@ export async function advanceSecureRecallRound(
   userId: string,
 ): Promise<RecallRoundState> {
   const match = await privateRecallMatch(matchId);
-  const candidate = await targetCandidate(matchId, match);
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.rpc("advance_recall_round", {
-    requested_match_id: matchId,
-    requested_user_id: userId,
-    requested_target_round_index: candidate.targetRoundIndex,
-    requested_target: candidate.target,
-  });
-  if (error) throw error;
-  return data as RecallRoundState;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const candidate = await targetCandidate(matchId, match);
+    const { data, error } = await admin.rpc("advance_recall_round", {
+      requested_match_id: matchId,
+      requested_user_id: userId,
+      requested_target_round_index: candidate.targetRoundIndex,
+      requested_target: candidate.target,
+    });
+    if (!error) return data as RecallRoundState;
+    if (error.message !== "QD_ROUND_TARGET_MISMATCH" || attempt === 1) throw error;
+  }
+  throw new Error("QD_ROUND_TARGET_MISMATCH");
 }
 
 export async function submitSecureRecallRound(
