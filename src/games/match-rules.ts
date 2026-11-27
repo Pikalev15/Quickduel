@@ -15,6 +15,8 @@ export const workshopSchema=z.object({
  answerMs:z.number().int().min(3000).max(60000),
  revealMs:z.number().int().min(0).max(RHYTHM_REVEAL_DURATION_MS),
  roundAnswerMs:z.number().int().min(3000).max(6000).optional(),
+ dotDensity:z.enum(["sparse","standard","dense"]).optional(),
+ shapeRange:z.enum(["gentle","standard","wide"]).optional(),
  memory:z.object({size:z.number().int().min(3).max(8),tiles:z.number().int().min(1).max(32),ordered:z.boolean()}).strict().optional()
 }).strict().superRefine((value,ctx)=>{
  if(value.memory&&(value.memory.tiles>=value.memory.size**2||value.revealMs<500))ctx.addIssue({code:"custom",message:"Choose fewer tiles than cells and at least 0.5s to reveal."});
@@ -27,6 +29,7 @@ export const matchRulesSchema=z.discriminatedUnion("kind",[
 ]);
 export type MatchRules=z.infer<typeof matchRulesSchema>;
 export function validWorkshop(game:unknown,rules:WorkshopRules){
+ if((rules.dotDensity!==undefined&&game!=="dot_estimate")||(rules.shapeRange!==undefined&&game!=="shape_recall"))return false;
  const round=customRoundTiming(game);
  if(round)return rules.revealMs===0&&rules.answerMs===round.totalMs&&typeof rules.roundAnswerMs==="number"&&Number.isInteger(rules.roundAnswerMs)&&rules.roundAnswerMs>=3000&&rules.roundAnswerMs<=round.maxMs&&!rules.memory;
  return rules.roundAnswerMs===undefined&&supportsCustomTiming(game)&&(game==="rhythm_recall"?rules.revealMs===RHYTHM_REVEAL_DURATION_MS&&rules.answerMs>=10000:supportsCustomReveal(game)?rules.revealMs>=500&&rules.revealMs<=10000:rules.revealMs===0)&&((game==="memory_grid")===Boolean(rules.memory));
@@ -62,5 +65,6 @@ export function rulesLabel(rules:unknown){
  if(parsed.data.kind==="adaptive")return `${parsed.data.tier[0].toUpperCase()+parsed.data.tier.slice(1)} timing`;
  const r=parsed.data.rules,m=r.memory;
  if(r.roundAnswerMs!==undefined)return `5 rounds · ${r.roundAnswerMs/1000}s answer per round`;
- return m?`${m.size}×${m.size} · ${m.tiles} tiles · ${r.revealMs/1000}s reveal · ${r.answerMs/1000}s answer${m.ordered?" · Ordered recall":""}`:`${r.revealMs?r.revealMs/1000+"s reveal · ":""}${r.answerMs/1000}s answer`;
+ const modifier=r.dotDensity?` · ${r.dotDensity} dots`:r.shapeRange?` · ${r.shapeRange} shape variation`:"";
+ return m?`${m.size}×${m.size} · ${m.tiles} tiles · ${r.revealMs/1000}s reveal · ${r.answerMs/1000}s answer${m.ordered?" · Ordered recall":""}`:`${r.revealMs?r.revealMs/1000+"s reveal · ":""}${r.answerMs/1000}s answer${modifier}`;
 }
