@@ -7,6 +7,7 @@ import { gameCatalog } from "@/games/catalog";
 import {getGame} from "@/games/registry";
 import {supportsCustomTiming,supportsCustomReveal,workshopSchema,validWorkshop,type WorkshopRules} from "@/games/match-rules";
 import {WorkshopControls} from "./workshop-controls";
+import { decodeWorkshopPreset, encodeWorkshopPreset, MAX_WORKSHOP_PRESET_LENGTH } from "@/games/shared-workshop-preset";
 import type { GameId, PlaylistId } from "@/games/types";
 import { track } from "@/lib/analytics";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
@@ -22,6 +23,8 @@ export function CreateDuelScreen() {
   const [bestOf, setBestOf] = useState<1 | 3 | 5>(3);
   const [ranked, setRanked] = useState(false);
   const [workshop,setWorkshop]=useState<WorkshopRules|null>(null);
+  const [presetCode, setPresetCode] = useState("");
+  const [presetNotice, setPresetNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challengeSiteKey, setChallengeSiteKey] = useState<string | null>(null);
@@ -46,6 +49,36 @@ export function CreateDuelScreen() {
     !workshop && user?.is_anonymous === false &&
     playlist !== "experimental" &&
     selectedGame?.ranked !== false;
+
+  const shareCode = selectionKind === "game" && workshop
+    ? encodeWorkshopPreset({ game, bestOf, rules: workshop })
+    : null;
+
+  function importPreset() {
+    const preset = decodeWorkshopPreset(presetCode);
+    if (!preset) {
+      setPresetNotice("Invalid or unsupported Workshop preset. Your current settings have not changed.");
+      return;
+    }
+    setSelectionKind("game");
+    setGame(preset.game);
+    setBestOf(preset.bestOf);
+    setRanked(false);
+    setWorkshop(preset.rules);
+    setError(null);
+    setPresetNotice("Preset loaded. Review the rules before creating your unranked duel.");
+  }
+
+  async function exportPreset() {
+    if (!shareCode) return;
+    setPresetCode(shareCode);
+    try {
+      await navigator.clipboard.writeText(shareCode);
+      setPresetNotice("Preset copied. Send the code to a friend.");
+    } catch {
+      setPresetNotice("Copy the preset code from the text field to share it.");
+    }
+  }
 
   async function create(challengeToken?: string) {
     setSubmitting(true);
@@ -156,6 +189,27 @@ export function CreateDuelScreen() {
           )}
 
           {selectionKind==="game"&&supportsCustomTiming(game)&&<div className="qd-workshop"><label className="feature-check"><input type="checkbox" checked={Boolean(workshop)} onChange={event=>{if(!event.target.checked){setWorkshop(null);return;}const g=getGame(game);setRanked(false);setWorkshop({version:1,revealMs:supportsCustomReveal(game)?g.revealDurationMs:0,answerMs:g.answerDurationMs,...(game==="memory_grid"?{memory:{size:4,tiles:6,ordered:false}}:{})});}}/><span><b>Custom game rules</b><small>Unranked · locked when the room is created</small></span></label>{workshop&&<WorkshopControls game={game} rules={workshop} onChange={setWorkshop}/>}</div>}
+          <fieldset>
+            <legend>Shareable Workshop presets</legend>
+            <p>Copy your custom rules or paste a friend's preset. Presets never create a room automatically.</p>
+            <label>
+              Preset code
+              <textarea
+                rows={3}
+                maxLength={MAX_WORKSHOP_PRESET_LENGTH}
+                value={presetCode}
+                onChange={event => { setPresetCode(event.target.value); setPresetNotice(""); }}
+                placeholder="QD1:…"
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </label>
+            <div className="feature-actions">
+              <button className="calm-secondary" type="button" disabled={!presetCode.trim() || submitting} onClick={importPreset}>Load shared preset</button>
+              <button className="calm-secondary" type="button" disabled={!shareCode || submitting} onClick={() => void exportPreset()}>Copy current preset</button>
+            </div>
+            <p role="status">{presetNotice}</p>
+          </fieldset>
           <fieldset>
             <legend>Series format</legend>
             <div className="segmented-control">
