@@ -718,13 +718,11 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
 }
 
 export function OddOneOutGame({ challenge, disabled, onChange }: GameComponentProps) {
-  const tiles = Number(challenge.tileCount ?? 16);
-  const oddIndex = challenge.showAnswer ? Number(challenge.oddIndex) : -1;
-  const glyph = String(challenge.glyph ?? "◆");
+  const tiles = (challenge.tiles as Array<{ glyph: string; rotation: number }> | undefined) ?? [];
   const [selected, setSelected] = useState(-1);
   return (
     <div className="odd-grid">
-      {Array.from({ length: tiles }, (_, index) => (
+      {tiles.map((tile, index) => (
         <button
           type="button"
           disabled={disabled}
@@ -737,7 +735,7 @@ export function OddOneOutGame({ challenge, disabled, onChange }: GameComponentPr
             onChange({ selectedIndex: index }, true);
           }}
         >
-          <span style={{ transform: `rotate(${index === oddIndex ? 18 : 0}deg)` }}>{glyph}</span>
+          <span style={{ transform: `rotate(${tile.rotation}deg)` }}>{tile.glyph}</span>
         </button>
       ))}
     </div>
@@ -944,29 +942,30 @@ export function TypingSprintGame({
 }
 
 export function ReactionTestGame({ challenge, disabled, onChange }: GameComponentProps) {
-  const waits = useMemo(
-    () => (challenge.waits as number[] | undefined) ?? [900, 1200, 1600, 1100, 1400],
-    [challenge.waits],
-  );
+  const waits = (challenge.waits as number[] | undefined) ?? [];
+  const waitCount = waits.length;
   const [trial, setTrial] = useState(0);
   const [go, setGo] = useState(false);
   const [times, setTimes] = useState<number[]>([]);
   const shownAt = useRef(0);
+  const falseStarts = useRef(0);
+  const trialWait = waits[trial];
   useEffect(() => {
-    if (trial >= waits.length) return;
+    if (disabled || trial >= waitCount || trialWait === undefined) return;
     const timer = window.setTimeout(() => {
       shownAt.current = performance.now();
       setGo(true);
-    }, waits[trial]);
+    }, trialWait);
     return () => window.clearTimeout(timer);
-  }, [trial, waits]);
+  }, [disabled, trial, waitCount, trialWait]);
   const click = () => {
     if (disabled || trial >= waits.length) return;
-    const next = [...times, go ? Math.round(performance.now() - shownAt.current) : 1000];
+    if (!go) falseStarts.current += 1;
+    const next = [...times, go ? Math.min(2000, Math.max(0, Math.round(performance.now() - shownAt.current))) : 1000];
     setGo(false);
     setTimes(next);
     setTrial((value) => value + 1);
-    onChange({ reactionTimesMs: next, falseStarts: next.filter((value) => value === 1000).length }, next.length === waits.length);
+    onChange({ reactionTimesMs: next, falseStarts: falseStarts.current }, next.length === waits.length);
   };
   return (
     <button
