@@ -56,7 +56,7 @@ export async function POST(request:Request){
   const challenge=await db.from("daily_duel_challenges").select("seed,game_version").eq("challenge_date",date).single();
   if(challenge.error)throw challenge.error;
   if(![1,2,3].includes(challenge.data.game_version))return unavailable(id);
-  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,challenge:dailyPublicChallenge(challenge.data.seed,date,challenge.data.game_version),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
+  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,attemptKey:`${user.id}:${date}:${attempt.deadline}`,challenge:dailyPublicChallenge(challenge.data.seed,date,challenge.data.game_version),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
   const score=scoreDaily(challenge.data.seed,parsed.data.answers,date,challenge.data.game_version);
   const finished=await db.rpc("finish_daily_duel",{requested_date:date,requested_user:user.id,calculated_score:score});
   if(finished.error)throw finished.error;
