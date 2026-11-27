@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
+import { CRYPTIC_CLUES, normalizeCrypticAnswer } from "./cryptic-clues";
 import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
 import {
   RHYTHM_COUNT,
@@ -802,6 +803,78 @@ const targetTap: GameDefinition = {
   },
 };
 
+const memoryGridV2: GameDefinition = {
+  ...memoryGrid,
+  id: "memory_grid_v2",
+  version: 2,
+  name: "Memory Grid XL",
+  description: "Recall eight lit cells on a 5×5 board.",
+  instructions: "Memorize eight lit cells, then select up to eight. Correct selections score +1; mistakes cost 0.5.",
+  ranked: false,
+  revealDurationMs: 3350,
+  answerDurationMs: 10_000,
+  submissionSchema: object({
+    selectedCells: z.array(z.number().int().min(0).max(24)).min(1).max(8),
+  }).refine(({ selectedCells }) => new Set(selectedCells).size === selectedCells.length, "Cells must be unique.") as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    return { size: 5, targetCount: 8, flashMs: 1600, revealMs: 3350,
+      highlightedCells: shuffle(random, Array.from({ length: 25 }, (_, index) => index)).slice(0, 8) };
+  },
+  calculate(challenge, submission, completionTimeMs) {
+    const scored = memoryGrid.calculate(challenge, submission, completionTimeMs);
+    return { ...scored, summary: `${scored.details.correct}/8 cells` };
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const expected = challenge.highlightedCells as number[];
+    const selected = expected.filter(() => random() > 0.17);
+    if (!selected.length) selected.push(expected[0]);
+    if (selected.length < 8 && random() < 0.24) {
+      const remaining = Array.from({ length: 25 }, (_, index) => index).filter((cell) => !expected.includes(cell));
+      selected.push(remaining[integer(random, 0, remaining.length - 1)]);
+    }
+    return { submission: { selectedCells: selected }, completionTimeMs: botTime(random, 10_000) };
+  },
+};
+
+const crypticDuel: GameDefinition = {
+  id: "cryptic_duel",
+  version: 1,
+  name: "Cryptic Duel",
+  shortName: "Cryptic",
+  category: "mind",
+  description: "Decode one cryptic clue using definition and wordplay.",
+  instructions: "Solve the clue in 60 seconds. Hints cost two points each; a correct answer scores up to 10.",
+  ranked: false,
+  revealDurationMs: 0,
+  answerDurationMs: 60_000,
+  submissionSchema: object({
+    answer: z.string().regex(/^[A-Za-z]{1,16}$/),
+    hintsUsed: z.number().int().min(0).max(2),
+  }) as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    const clue = CRYPTIC_CLUES[integer(random, 0, CRYPTIC_CLUES.length - 1)];
+    return { ...clue, length: clue.answer.length };
+  },
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
+    return { clue: challenge.clue, length: challenge.length, hints: challenge.hints };
+  },
+  calculate(challenge, submission) {
+    const correct = normalizeCrypticAnswer(String(submission.answer)) === challenge.answer;
+    const hints = Number(submission.hintsUsed);
+    const score = correct ? 10 - hints * 2 : 0;
+    return result(score, correct ? 1 : 0, correct ? `${score}/10 · Solved` : "Not solved", { correct: correct ? 1 : 0, incorrect: correct ? 0 : 1, hintsUsed: hints });
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const solved = random() < 0.7;
+    return { submission: { answer: solved ? String(challenge.answer) : "UNKNOWN", hintsUsed: integer(random, 0, 2) }, completionTimeMs: botTime(random, 60_000) };
+  },
+};
+
 export const gameRegistry = new Map<GameId, GameDefinition>(
   [
     memoryGrid,
@@ -819,6 +892,8 @@ export const gameRegistry = new Map<GameId, GameDefinition>(
     typingSprint,
     reactionTest,
     targetTap,
+    memoryGridV2,
+    crypticDuel,
   ].map((game) => [game.id, game]),
 );
 
