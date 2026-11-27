@@ -5187,3 +5187,161 @@ dd,
   .cryptic-game { gap: 0.45rem; }
   .cryptic-hint-row button { padding-inline: 0.45rem; }
 }
+
+
+/* QuickDuel interaction motion — adapted from Taste Skill's motion principles.
+   State-driven, no scroll choreography, no animated target positions. */
+:root {
+  --qd-hover: 150ms;
+  --qd-release: 120ms;
+  --qd-press: 90ms;
+  --qd-panel: 200ms;
+  --qd-ease: cubic-bezier(.2,.8,.2,1);
+  --qd-settle: cubic-bezier(.22,1,.36,1);
+}
+
+.qd-round-track {
+  display: flex;
+  gap: 5px;
+  height: 4px;
+  min-height: 4px;
+}
+.qd-round-track i {
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.qd-round-track i::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.qd-round-track i[data-step="done"]::after { transform: scaleX(1); }
+.qd-round-track i[data-step="current"]::after { transform: scaleX(.45); }
+.qd-round-score { min-width: 0; }
+.qd-score-meter { display: block; position: relative; height: 4px; border-radius: 999px; overflow: hidden; background: var(--border); }
+.qd-score-meter i { display: block; width: 100%; height: 100%; transform-origin: left; background: var(--accent); border-radius: inherit; }
+.qd-result-signal { display: flex; gap: 5px; justify-content: center; align-items: center; height: 6px; margin-top: 1.1rem; }
+.qd-result-signal i { display: block; height: 4px; width: clamp(14px, 4vw, 40px); border-radius: 2px; background: var(--border); }
+.qd-result[data-outcome="win"] .qd-result-signal i { background: var(--accent); }
+.qd-result[data-outcome="draw"] .qd-result-signal i:nth-child(-n+3) { background: var(--muted); }
+.qd-result[data-outcome="loss"] .qd-result-signal i:nth-child(-n+2) { background: var(--muted); }
+.game-timer[data-urgent="true"] { color: var(--danger); }
+.qd-countdown > span { display: inline-block; font-variant-numeric: tabular-nums; }
+.qd-picked-mark { display: inline-block; }
+
+/* Navigation into a timed match is instant; its countdown owns the pace. */
+.route-transition--fast { animation: none !important; }
+.active-game .memory-board button:disabled[aria-pressed="false"],
+.active-game .colour-round-reveal > span,
+.active-game .reaction-pad.is-go {
+  transition: none;
+  animation: none;
+}
+/* Hit areas are never transformed in response to a press. */
+.active-game .target-field button:active:not(:disabled) { transform: translate(-50%, -50%); }
+.active-game .target-field button { transition: none; }
+.active-game .memory-board button:not(:disabled):hover { transform: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .calm-hero-copy { animation: qd-hero-enter 520ms var(--qd-settle) both; }
+  .arena-preview { animation: qd-arena-settle 620ms var(--qd-settle) both; }
+  .route-transition--standard { animation-duration: 320ms; }
+  ::view-transition-group(.route-view) { animation-duration: 280ms; }
+  ::view-transition-old(.route-view) { animation-duration: 160ms; }
+  ::view-transition-new(.route-view) { animation-duration: 280ms; }
+  .calm-game-row { transition: transform 180ms var(--qd-ease), border-color var(--qd-hover) ease, background-color var(--qd-hover) ease, box-shadow 180ms ease; }
+  .calm-primary, .calm-secondary, .calm-game-actions a, .all-games-disclosure,
+  .clip-button, .recall-replay, .stimulus-button, .round-tabs button {
+    transition: transform var(--qd-release) var(--qd-ease), background-color var(--qd-hover) ease, border-color var(--qd-hover) ease, color var(--qd-hover) ease, box-shadow var(--qd-hover) ease;
+  }
+  .calm-primary:active:not(:disabled), .calm-secondary:active:not(:disabled),
+  .calm-game-actions a:active, .all-games-disclosure:active,
+  .clip-button:active:not(:disabled), .recall-replay:active:not(:disabled), .stimulus-button:active:not(:disabled) {
+    transform: translateY(1px) scale(.985);
+    transition-duration: var(--qd-press);
+  }
+  .active-game .answer-lock[data-state="ready"] .answer-lock-icon,
+  .active-game .answer-lock[data-state="locked"] .answer-lock-icon { animation: qd-confirm-ready 220ms var(--qd-settle) both; }
+  .qd-countdown > span { animation: qd-digit-in 220ms var(--qd-settle) both; }
+  .qd-round-track i::after { transition: transform 240ms var(--qd-ease); }
+  .qd-score-meter i { animation: qd-meter-enter 420ms var(--qd-settle) both; }
+  .qd-resolved { animation: qd-feedback-reveal 220ms var(--qd-settle) both; }
+  .qd-resolved .recall-score-row { animation: qd-result-settle 280ms var(--qd-settle) both; }
+  .qd-picked-mark { animation: qd-confirm-ready 160ms var(--qd-ease) both; }
+  .active-game .memory-board button[aria-pressed="true"],
+  .active-game .odd-grid button[aria-pressed="true"],
+  .active-game .pattern-options button[aria-pressed="true"] {
+    animation: qd-selection-ink 180ms var(--qd-ease) both;
+  }
+  .active-game .memory-board button:not(:disabled),
+  .active-game .odd-grid button:not(:disabled),
+  .active-game .pattern-options button:not(:disabled),
+  .active-game .number-field button:not(:disabled) {
+    transition: background-color 100ms ease, border-color 100ms ease;
+  }
+  .active-game .memory-board button:active:not(:disabled),
+  .active-game .odd-grid button:active:not(:disabled),
+  .active-game .pattern-options button:active:not(:disabled),
+  .active-game .number-field button:active:not(:disabled),
+  .active-game .reaction-pad:active:not(:disabled),
+  .active-game .tap-pad:active:not(:disabled) { transform: none; }
+  .cryptic-hints p { animation: qd-hint-in 180ms var(--qd-ease) both; }
+  .cryptic-input-label input { transition: border-color 140ms ease, background-color 140ms ease; }
+  .queue-radar[data-searching="true"] > span:first-child,
+  .queue-radar[data-searching="true"] > i { animation: qd-search-acquire 1.6s var(--qd-settle) 1 both; }
+  .queue-radar:not([data-searching="true"]) > i { animation: none; }
+  .qd-result { animation: none; }
+  .qd-result .qd-result-title { animation: qd-verdict-in 380ms var(--qd-settle) both; }
+  .qd-result-signal i { transform-origin: center; animation: qd-signal-enter 320ms var(--qd-settle) both; }
+  .qd-result-signal i:nth-child(2), .qd-result-signal i:nth-child(4) { animation-delay: 45ms; }
+  .qd-result-signal i:nth-child(1), .qd-result-signal i:nth-child(5) { animation-delay: 90ms; }
+  .qd-result-comparison { animation: qd-result-settle 380ms var(--qd-settle) 60ms both; }
+  .qd-result-stats { animation: qd-result-settle 380ms var(--qd-settle) 100ms both; }
+  .qd-result-actions { animation: qd-result-settle 380ms var(--qd-settle) 130ms both; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .calm-game-row:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
+  .calm-game-row:hover .game-mark { transform: none; }
+  .calm-primary:hover, .calm-secondary:hover, .calm-game-actions a:hover,
+  .clip-button:hover:not(:disabled) { transform: translateY(-1px); }
+  .calm-primary:active, .calm-secondary:active, .calm-game-actions a:active,
+  .clip-button:active:not(:disabled) { transform: translateY(1px) scale(.985); }
+  .product-nav a:not([aria-current="page"])::after {
+    position: absolute; left: 0; right: 0; bottom: 6px; height: 1px;
+    content: ""; background: currentColor;
+    transform: scaleX(0); transform-origin: left;
+    transition: transform var(--qd-hover) var(--qd-ease);
+  }
+  .product-nav a:not([aria-current="page"]):hover::after { transform: scaleX(1); }
+}
+@keyframes qd-hero-enter { from { opacity: .82; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qd-arena-settle { from { transform: scale(.985); } to { transform: scale(1); } }
+@keyframes qd-digit-in { from { opacity: .8; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+@keyframes qd-confirm-ready { from { opacity: .65; transform: scale(.78); } to { opacity: 1; transform: scale(1); } }
+@keyframes qd-selection-ink { from { opacity: .82; } to { opacity: 1; } }
+@keyframes qd-meter-enter { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes qd-feedback-reveal { from { opacity: .8; } to { opacity: 1; } }
+@keyframes qd-result-settle { from { opacity: .86; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qd-verdict-in { from { opacity: .86; transform: translateY(7px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes qd-signal-enter { from { opacity: .65; transform: scaleX(.45); } to { opacity: 1; transform: scaleX(1); } }
+@keyframes qd-hint-in { from { opacity: .75; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qd-search-acquire { 0% { opacity: .6; transform: scale(.9); } 55% { opacity: 1; transform: scale(1); } 100% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .qd-countdown > span, .qd-picked-mark, .qd-result, .qd-result-title, .qd-result-signal i,
+  .qd-result-comparison, .qd-result-stats, .qd-result-actions, .qd-resolved,
+  .qd-score-meter i, .cryptic-hints p, .queue-radar > i { animation: none !important; }
+  .qd-round-track i::after { transition: none; }
+  .active-game .memory-board button:active, .active-game .odd-grid button:active,
+  .active-game .pattern-options button:active, .active-game .number-field button:active,
+  .active-game .reaction-pad:active, .active-game .tap-pad:active { transform: none; }
+}
+@media (max-width: 400px) and (max-height: 650px) {
+  .active-game .sequential-recall { gap: .35rem; }
+  .qd-round-track { height: 3px; min-height: 3px; }
+}
