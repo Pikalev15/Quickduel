@@ -102,6 +102,7 @@ export function RankedRecallRounds({
   const reloadInFlight = useRef(false);
   const latestState = useRef<RecallRoundState | null>(null);
   const submitting = useRef(false);
+  const lastPollAt = useRef(0);
   const audio = useMemo(() => AudioManager.shared(), []);
 
   const applyState = useCallback((next: RecallRoundState) => {
@@ -143,7 +144,16 @@ export function RankedRecallRounds({
 
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
-    const poll = window.setInterval(() => void reload(), 250);
+    const poll = window.setInterval(() => {
+      const current = latestState.current;
+      const deadline = current?.phaseEndsAt ? Date.parse(current.phaseEndsAt) : 0;
+      const nearBoundary = !deadline || deadline - Date.now() <= 900;
+      const waiting = current?.phase === "waiting" || current?.phase === "countdown" || current?.phase === "reveal";
+      if (nearBoundary || waiting || Date.now() - lastPollAt.current >= 1_000) {
+        lastPollAt.current = Date.now();
+        void reload();
+      }
+    }, 300);
     const clock = window.setInterval(() => setNow(Date.now()), 50);
     return () => {
       window.clearTimeout(initial);
