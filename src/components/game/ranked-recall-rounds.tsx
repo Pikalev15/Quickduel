@@ -97,13 +97,22 @@ export function RankedRecallRounds({
   const [colour, setColour] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [sending, setSending] = useState(false);
   const playedRound = useRef<number | null>(null);
-  const replayAudio = useRef<HTMLAudioElement>(null);
   const heardTarget = useRef<{ round: number; hz: number } | null>(null);
   const inputRound = useRef<number | null>(null);
   const reloadInFlight = useRef(false);
+  const latestState = useRef<RecallRoundState | null>(null);
+  const submitting = useRef(false);
   const audio = useMemo(() => AudioManager.shared(), []);
 
   const applyState = useCallback((next: RecallRoundState) => {
+    const previous = latestState.current;
+    const order: Record<RecallRoundState["phase"], number> = {
+      countdown: 0, reveal: 1, answer: 2, waiting: 3, feedback: 4, complete: 5,
+    };
+    if (previous && (next.roundIndex < previous.roundIndex ||
+      (next.roundIndex === previous.roundIndex &&
+        (order[next.phase] < order[previous.phase] || (previous.ownSubmitted && !next.ownSubmitted))))) return;
+    latestState.current = next;
     if (inputRound.current !== next.roundIndex) {
       inputRound.current = next.roundIndex;
       heardTarget.current = null;
@@ -117,12 +126,14 @@ export function RankedRecallRounds({
   }, []);
 
   const reload = useCallback(async () => {
-    if (reloadInFlight.current) return;
+    if (reloadInFlight.current || submitting.current) return;
     reloadInFlight.current = true;
     try {
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`);
-      applyState(next);
-      if (next.phase === "complete") onComplete();
+      if (!submitting.current) {
+        applyState(next);
+        if (next.phase === "complete") onComplete();
+      }
     } catch (error) {
       onError(error instanceof Error ? error.message : "Could not load the round.");
     } finally {
@@ -148,6 +159,11 @@ export function RankedRecallRounds({
     void audio.playToneSequence([state.target]);
   }, [audio, gameId, state]);
 
+  useEffect(() => {
+    if (state?.phase !== "answer" && state?.phase !== "reveal") audio.stopPlayback();
+  }, [audio, state?.phase]);
+  useEffect(() => () => audio.stopPlayback(), [audio]);
+
   async function replayTarget() {
     if (!state || (state.phase !== "reveal" && state.phase !== "answer")) return;
     const cached = heardTarget.current;
@@ -155,18 +171,17 @@ export function RankedRecallRounds({
       await audio.playToneSequence([cached.hz]);
       return;
     }
-    const player = replayAudio.current;
-    if (!player) return;
     try {
-      player.currentTime = 0;
-      await player.play();
+      await audio.playRemoteTone(`/api/matches/${matchId}/round/audio?roundIndex=${state.roundIndex}`);
     } catch {
       onError("Could not replay the target. Try again before the round closes.");
     }
   }
 
   async function submit() {
-    if (!state || state.phase !== "answer" || sending) return;
+    if (!state || state.phase !== "answer" || submitting.current || state.ownSubmitted) return;
+    submitting.current = true;
+    audio.stopPlayback();
     setSending(true);
     try {
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`, {
@@ -180,9 +195,10 @@ export function RankedRecallRounds({
       applyState(next);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Could not lock the round.");
-      await reload();
     } finally {
+      submitting.current = false;
       setSending(false);
+      void reload();
     }
   }
 
@@ -201,19 +217,10 @@ export function RankedRecallRounds({
       </div>
       {gameId === "frequency_recall_v2" && (state.phase === "reveal" || state.phase === "answer") ? (
         <div className="sequential-answer frequency-controls">
-          <p>Listen to the target and compare your guess. Replay either tone as needed.</p>
-          <audio
-            ref={replayAudio}
-            key={state.roundIndex}
-            preload="none"
-            src={`/api/matches/${matchId}/round/audio?roundIndex=${state.roundIndex}`}
-          />
+          <p>Replay the target as needed, then estimate its pitch.</p>
           <div className="frequency-audio-actions">
             <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void replayTarget()}>
               Replay target
-            </button>
-            <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void audio.playToneSequence([frequency])}>
-              Play my guess
             </button>
           </div>
           <label className="game-range">
@@ -249,7 +256,7 @@ export function RankedRecallRounds({
               </label>
             ))}
           </div>
-          <button type="button" className="recall-confirm" disabled={sending} onClick={() => void submit()}>
+          <button type="button" className="recall-confirm" disabled={sending || remainingMs <= 0} onClick={() => void submit()}>
             {sending ? "Locking…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
           </button>
         </div>
