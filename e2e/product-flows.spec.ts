@@ -226,6 +226,17 @@ test("Frequency Recall v2 gives per-round feedback before advancing", async ({ p
   await page.goto("/match/practice?game=frequency_recall_v2&seed=frequency-feedback");
   const confirm = page.getByRole("button", { name: "Confirm round" });
   await expect(confirm).toBeVisible({ timeout: 8_000 });
+  const replay = page.getByRole("button", { name: "Replay target", exact: true });
+  const preview = page.getByRole("button", { name: "Play my guess", exact: true });
+  const slider = page.getByRole("slider", { name: /round 1 frequency/i });
+  await expect(replay).toBeInViewport();
+  await expect(preview).toBeInViewport();
+  await expect(slider).toBeInViewport();
+  await expect(confirm).toBeInViewport();
+  await replay.click();
+  await replay.click();
+  await preview.click();
+  await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
   await expect(page.getByText("Target", { exact: true })).toBeVisible();
@@ -774,4 +785,16 @@ test("shared result has social image and no private payload", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible();
   await expect(page.getByRole("img", { name: /QuickDuel Memory Grid result card/i })).toBeVisible();
   await expect(page.getByText(/challenge_seed|submission_json/)).toHaveCount(0);
+});
+
+test("timed practice controls fit the viewport without page scrolling", async ({ page }) => {
+  for (const game of ["shape_recall", "pattern_complete", "number_order", "target_tap"]) {
+    await page.goto(`/match/practice?game=${game}&seed=compact-viewport-regression`);
+    await expect(page.locator(".game-stage")).toBeVisible({ timeout: 12_000 });
+    const stage = page.locator(".game-stage");
+    await expect(stage).toBeInViewport({ ratio: 0.98 });
+    const submit = page.getByRole("button", { name: "Lock answer", exact: true });
+    if (await submit.count()) await expect(submit).toBeInViewport({ ratio: 0.98 });
+    expect(await page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(1);
+  }
 });
