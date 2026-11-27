@@ -1,6 +1,8 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 import { queueRequestSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -10,8 +12,9 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return apiError(400, "INVALID_REQUEST", "Matchmaking preference is invalid.", undefined, correlationId);
     }
-    const { supabase } = await requireUser();
-    const { data, error } = await supabase.rpc("heartbeat_matchmaking", {
+    const { user } = await requireUser();
+    await enforceNetworkAbuseBoundary(request, "matchmaking_heartbeat", 240, 60, { adaptiveChallenge: false });
+    const { data, error } = await serverQueueOrDuel(user.id, "heartbeat_matchmaking", {
       requested_playlist: parsed.data.playlist,
       requested_game: parsed.data.preferredGame,
     });
