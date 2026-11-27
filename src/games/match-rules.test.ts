@@ -34,6 +34,32 @@ describe("workshop and rank timing",()=>{
   expect(validWorkshop("colour_recall_v2",{...colour,roundAnswerMs:undefined})).toBe(false);
   expect(validWorkshop("typing_sprint",frequency)).toBe(false);
  });
+ it("applies deterministic game-specific variations without changing standard challenges",()=>{
+  const base={version:1 as const,revealMs:2000,answerMs:10000};
+  for(const dotDensity of ["sparse","standard","dense"] as const){
+   const rules={...base,dotDensity};
+   const game=getGame("dot_estimate");
+   const challenge=generateMatchChallenge(game,"dots",2000,10000,{kind:"workshop",version:1,rules});
+   expect(validWorkshop("dot_estimate",rules)).toBe(true);
+   expect(validWorkshop("shape_recall",rules)).toBe(false);
+   expect(challenge).toEqual(generateMatchChallenge(game,"dots",2000,10000,{kind:"workshop",version:1,rules}));
+   const [min,max]=dotDensity==="sparse"?[20,55]:dotDensity==="dense"?[90,150]:[35,120];
+   expect(Number(challenge.count)).toBeGreaterThanOrEqual(min);
+   expect(Number(challenge.count)).toBeLessThanOrEqual(max);
+   expect((challenge.dots as unknown[]).length).toBe(challenge.count);
+   if(dotDensity==="standard")expect(challenge).toEqual(game.generate("dots"));
+  }
+  for(const shapeRange of ["gentle","standard","wide"] as const){
+   const rules={...base,shapeRange};
+   const game=getGame("shape_recall");
+   const challenge=generateMatchChallenge(game,"shape",2000,10000,{kind:"workshop",version:1,rules});
+   const [min,max]=shapeRange==="gentle"?[35,70]:shapeRange==="wide"?[10,90]:[18,88];
+   expect(validWorkshop("shape_recall",rules)).toBe(true);
+   expect(validWorkshop("dot_estimate",rules)).toBe(false);
+   expect((challenge.radii as number[]).every(n=>n>=min&&n<=max)).toBe(true);
+   if(shapeRange==="standard")expect(challenge).toEqual(game.generate("shape"));
+  }
+ });
  it("generates deterministic secret positions and validates submissions",()=>{
   const c=customMemoryChallenge("seed",config),game=getGame("memory_grid");
   expect(c).toEqual(generateMatchChallenge(game,"seed",4000,10000,{kind:"workshop",version:1,rules:config}));
