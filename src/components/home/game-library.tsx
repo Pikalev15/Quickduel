@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { gameCatalog, type GameCatalogEntry } from "@/games/catalog";
+import { gameCatalog, practiceGameCatalog, type GameCatalogEntry } from "@/games/catalog";
 import { ArrowIcon } from "@/components/ui/icons";
 
 const featuredIds = new Set(["memory_grid", "colour_recall_v2", "frequency_recall_v2"]);
@@ -30,6 +30,11 @@ export function GameLibrary({
         ))}
       </div>
 
+      <div className="calm-section-head"><div><span>New practice previews</span><p>Try the expanded memory board and cryptic wordplay.</p></div></div>
+      <div className="featured-games">
+        {practiceGameCatalog.map((game, index) => <GameRow key={game.id} game={game} index={gameCatalog.length + index + 1} practiceOnly />)}
+      </div>
+
       <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
         <span><b>All games</b><small>13 challenges across sensory, mind, and experimental playlists</small></span>
         <span>{expanded ? "−" : "+"}</span>
@@ -52,7 +57,7 @@ export function GameLibrary({
   );
 }
 
-function GameRow({ game, index }: { game: GameCatalogEntry; index: number }) {
+function GameRow({ game, index, practiceOnly = false }: { game: GameCatalogEntry; index: number; practiceOnly?: boolean }) {
   return (
     <article className="calm-game-row">
       <div className={`game-mark game-mark-${game.category}`}>{String(index).padStart(2, "0")}</div>
@@ -62,13 +67,13 @@ function GameRow({ game, index }: { game: GameCatalogEntry; index: number }) {
       </div>
       <div className="calm-game-tags">
         <span>{game.category}</span>
-        <span>{game.ranked ? "ranked" : "unranked"}</span>
+        <span>{practiceOnly ? "practice only" : game.ranked ? "ranked" : "unranked"}</span>
       </div>
       <div className="calm-game-actions">
         <Link href={`/match/practice?game=${game.id}&seed=first-${game.id}`}>Practice</Link>
-        <Link href={`/play?playlist=${game.category}&game=${game.id}`}>
+        {!practiceOnly && <Link href={`/play?playlist=${game.category}&game=${game.id}`}>
           Duel <ArrowIcon className="h-4 w-4" />
-        </Link>
+        </Link>}
       </div>
     </article>
   );
