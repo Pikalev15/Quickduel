@@ -171,3 +171,7 @@ explicit supported pairs:
 
 Never change a released generator, submission schema, or scoring function in
 place. Add a new ID/version pair so historical matches remain reproducible.
+
+### Gameplay clock and accessibility
+
+Ranked snapshots do not publish the challenge before the server start time. Clients estimate the offset between device and server clocks from timestamped responses; a high-latency sample is discarded rather than moving the countdown unpredictably. All submission deadlines are still enforced on the server. Time Recall's five visual durations are driven by elapsed gameplay time. Reduced-motion mode uses stationary indicators that disappear at their respective deadlines, rather than shortening the stimulus to a decorative animation.
