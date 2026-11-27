@@ -175,11 +175,11 @@ export function ProfileDrawer({
           <>
           <div className="profile-public-code">
             <small>Player code</small>
-            <strong>{profile.display_name}#{profile.public_code ?? "—"}</strong>
+            <strong>{profile.display_name}#{profile.public_code ?? "–"}</strong>
           </div>
           <dl className="profile-stats">
             <div><dt>Rating</dt><dd>{placement?.placed ? profile.rating : "Unranked"}</dd><small>{placement?.placed ? getDivision(profile.rating).name : placement ? `${placement.completed}/${placement.required} placements` : "Rank pending"}</small></div>
-            <div><dt>Rank</dt><dd>{placement?.placed ? `#${profile.rank}` : "—"}</dd></div>
+            <div><dt>Rank</dt><dd>{placement?.placed ? `#${profile.rank}` : "–"}</dd></div>
             <div><dt>Wins</dt><dd>{profile.wins}</dd></div>
             <div><dt>Matches</dt><dd>{profile.matches_played}</dd></div>
           </dl>

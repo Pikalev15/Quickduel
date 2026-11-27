@@ -167,7 +167,7 @@ export function DuelLobbyScreen({ code }: { code: string }) {
               return (
                 <li key={index}>
                   <span>Round {index + 1}</span>
-                  <b>{round ? `${getGameDisplay(round.game_type).shortName} · ${round.winner}` : "—"}</b>
+                  <b>{round ? `${getGameDisplay(round.game_type).shortName} · ${round.winner}` : "–"}</b>
                 </li>
               );
             })}

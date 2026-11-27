@@ -112,7 +112,7 @@ export function HistoryScreen() {
                   )}
                 </div>
                 <div className="history-meta">
-                  <b>{item.rating_delta === null || !item.ranked ? "—" : `${item.rating_delta >= 0 ? "+" : ""}${item.rating_delta} Elo`}</b>
+                  <b>{item.rating_delta === null || !item.ranked ? "–" : `${item.rating_delta >= 0 ? "+" : ""}${item.rating_delta} Elo`}</b>
                   <span>{item.source === "private_duel" ? `Private duel${item.series_round ? ` · Round ${item.series_round}` : ""}` : "Public queue"}</span>
                   <time dateTime={item.completed_at}>{relativeTime(item.completed_at)}</time>
                 </div>

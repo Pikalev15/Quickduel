@@ -64,7 +64,7 @@ export function ResultPanel({
   const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
 
   async function share() {
-    const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""} — ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
+    const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""}: ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
     try {
       const url = onCreateShare ? await onCreateShare() : location.origin;
       if (navigator.share) {

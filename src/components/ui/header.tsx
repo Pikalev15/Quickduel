@@ -20,7 +20,7 @@ export function Header({
           {!simple && onlineCount !== undefined && (
             <span className="site-online">
               <SignalIcon className="h-5 w-5 text-[var(--accent)]" />
-              {onlineCount ?? "—"} ONLINE
+              {onlineCount ?? "–"} ONLINE
             </span>
           )}
           <Link

@@ -510,7 +510,7 @@ function PracticeRecallFeedback({
 }
 
 function signed(value: number | null, suffix = "") {
-  return value === null ? "—" : `${value > 0 ? "+" : ""}${value}${suffix}`;
+  return value === null ? "–" : `${value > 0 ? "+" : ""}${value}${suffix}`;
 }
 
 function colourStyle(colour: RecallColour) {

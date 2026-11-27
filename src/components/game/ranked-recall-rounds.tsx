@@ -20,7 +20,7 @@ async function recallRequest<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function SignedMetric({ value, suffix = "" }: { value: number | null; suffix?: string }) {
-  return <strong>{value === null ? "—" : `${value > 0 ? "+" : ""}${value}${suffix}`}</strong>;
+  return <strong>{value === null ? "–" : `${value > 0 ? "+" : ""}${value}${suffix}`}</strong>;
 }
 
 function Feedback({
@@ -60,7 +60,7 @@ function Feedback({
             </div>
           </div>
           <div className="recall-metrics recall-metrics-four">
-            <div><span>Distance</span><strong>{feedback.distance ?? "—"}</strong></div>
+            <div><span>Distance</span><strong>{feedback.distance ?? "–"}</strong></div>
             <div><span>Lightness</span><SignedMetric value={feedback.lightnessDifference} /></div>
             <div><span>Chroma</span><SignedMetric value={feedback.chromaDifference} /></div>
             <div><span>Hue · wrapped</span><SignedMetric value={feedback.hueDifference} suffix="°" /></div>

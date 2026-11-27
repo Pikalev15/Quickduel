@@ -40,7 +40,7 @@ export function GameHeader({
       <div className="page-shell grid grid-cols-[1fr_auto_1fr] items-center border-y border-[var(--accent)] text-sm">
         <div className="truncate px-3 py-3 text-center sm:text-left">
           <span className="text-[var(--muted)]">YOU · </span>
-          {player} · <strong className="text-[var(--accent)]">{practice ? "Practice" : placement?.placed ? playerRating : placement ? `${placement.completed}/${placement.required}` : "—"}</strong>
+          {player} · <strong className="text-[var(--accent)]">{practice ? "Practice" : placement?.placed ? playerRating : placement ? `${placement.completed}/${placement.required}` : "–"}</strong>
           {!practice && <span className="hidden text-[var(--muted)] sm:inline"> · {placement?.placed ? getDivision(playerRating).name : placement ? "Placement" : "Rank pending"}</span>}
         </div>
         <div className="display border-x border-[var(--accent)] px-3 py-2 text-xl text-[var(--accent)]">
@@ -53,7 +53,7 @@ export function GameHeader({
           ) : (
             <>
               {" · "}
-              <strong className="text-[var(--accent)]">{otherPlacement?.placed && opponentRating !== undefined ? opponentRating : otherPlacement ? "Unranked" : "—"}</strong>
+              <strong className="text-[var(--accent)]">{otherPlacement?.placed && opponentRating !== undefined ? opponentRating : otherPlacement ? "Unranked" : "–"}</strong>
               {otherPlacement?.placed && opponentRating !== undefined && <span className="hidden text-[var(--muted)] sm:inline"> · {getDivision(opponentRating).name}</span>}
               {opponentConnected === false && (
                 <span className="text-[var(--danger)]"> · OFFLINE</span>

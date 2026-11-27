@@ -60,13 +60,13 @@ export function StatsScreen() {
     draws: stats.draws,
   };
   const winRate = overall.total_matches ? overall.wins / overall.total_matches : 0;
-  const mostPlayed = playedGames[0]?.game.name ?? "—";
+  const mostPlayed = playedGames[0]?.game.name ?? "–";
   const bestGame = [...playedGames]
     .sort((a, b) => {
       const aRate = (a.stats?.wins ?? 0) / Math.max(1, a.stats?.played ?? 0);
       const bRate = (b.stats?.wins ?? 0) / Math.max(1, b.stats?.played ?? 0);
       return bRate - aRate;
-    })[0]?.game.name ?? "—";
+    })[0]?.game.name ?? "–";
 
   return (
     <main className="min-h-screen">
@@ -88,7 +88,7 @@ export function StatsScreen() {
             <p>{placement?.placed ? division.next ? `${division.ratingToNext} Elo to ${division.next.name}` : "Highest division reached" : placement ? `${placement.remaining} ranked matches until your first division` : "Placement progress unavailable"}</p>
           </div>
           <dl className="stats-key-numbers">
-            <div><dt>Highest Elo</dt><dd>{placement?.placed ? stats.highest_rating ?? stats.rating : "—"}</dd><small>{placement?.placed ? highestDivision.name : "After placements"}</small></div>
+            <div><dt>Highest Elo</dt><dd>{placement?.placed ? stats.highest_rating ?? stats.rating : "–"}</dd><small>{placement?.placed ? highestDivision.name : "After placements"}</small></div>
             <div><dt>Total matches</dt><dd>{overall.total_matches}</dd></div>
             <div><dt>Win rate</dt><dd>{Math.round(winRate * 100)}%</dd><small>{overall.wins}W · {overall.losses}L · {overall.draws}D</small></div>
             <div><dt>Win streak</dt><dd>{stats.current_win_streak ?? 0}</dd><small>Best {stats.best_win_streak ?? 0}</small></div>
