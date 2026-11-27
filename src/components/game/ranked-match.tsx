@@ -16,6 +16,7 @@ import { MatchChat } from "@/components/match-chat/match-chat";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 import { RankedRecallRounds } from "./ranked-recall-rounds";
+import { AudioManager } from "@/lib/audio/audio-manager";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -29,7 +30,9 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [connected, setConnected] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const requiresAudio = snapshot?.game_type === "frequency_recall_v2" || snapshot?.game_type === "frequency_recall" || snapshot?.game_type === "rhythm_recall";
   const [opponentConnected, setOpponentConnected] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rematchWaiting, setRematchWaiting] = useState(false);
@@ -58,16 +61,21 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
     const clock = window.setInterval(() => setNow(Date.now()), 50);
-    const poll = window.setInterval(() => void reload(), 600);
+    const poll = window.setInterval(() => void reload(), 1_500);
+    const refresh = () => void reload();
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(clock);
       window.clearInterval(poll);
       window.clearTimeout(initial);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [reload]);
 
   useEffect(() => {
-    if (!snapshot || readySent.current || snapshot.status !== "waiting") return;
+    if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady)) return;
     readySent.current = true;
     void request<MatchSnapshot>(`/api/matches/${matchId}/ready`, { method: "POST" })
       .then(() => void reload())
@@ -75,7 +83,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         setError(caught instanceof Error ? caught.message : "Ready failed.");
         readySent.current = false;
       });
-  }, [matchId, reload, snapshot]);
+  }, [matchId, reload, snapshot, requiresAudio, audioReady]);
 
   const currentUserId = snapshot?.current_user_id;
   useEffect(() => {
@@ -426,6 +434,14 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               {phase === "countdown" ? countdown : "…"}
             </div>
             <p className="mt-4 text-sm text-[var(--muted)]">{game?.instructions}</p>
+            {requiresAudio && !audioReady && snapshot?.status === "waiting" && (
+              <Button className="mt-4" onClick={() => {
+                void AudioManager.shared().unlock().then((ready) => {
+                  if (ready) setAudioReady(true);
+                  else setError("Enable sound and try again before starting.");
+                }).catch(() => setError("Audio is unavailable. Check your browser sound settings."));
+              }}>Enable sound and ready up</Button>
+            )}
           </div>
         ) : (
           <>
@@ -479,7 +495,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                     snapshot?.challenge ?? {},
                     phase === "reveal" ? "reveal" : "answer",
                   ) ?? {}}
-                  disabled={phase !== "answer"}
+                  disabled={phase !== "answer" || remaining <= 0}
                   phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {
                     submissionRef.current = next;
@@ -490,7 +506,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               ) : null}
             </div>
             {phase === "answer" && !secureRecall && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
-              <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
+              <Button className="game-submit" disabled={!canSubmit || remaining <= 0} onClick={() => void submit(false)}>
                 Lock answer
               </Button>
             )}
