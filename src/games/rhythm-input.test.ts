@@ -7,10 +7,19 @@ describe("rhythm tap input", () => {
     const taps = [fiveBeatRun, [], []];
 
     expect(appendRhythmTap(taps, 0, 1800, 5)).toEqual({ taps, accepted: false });
-    expect(appendRhythmTap(taps, 1, 300, 7)).toEqual({
-      taps: [fiveBeatRun, [300], []],
+    expect(appendRhythmTap(taps, 1, 0, 7)).toEqual({
+      taps: [fiveBeatRun, [0], []],
       accepted: true,
     });
+  });
+
+  it("rejects repeated, backward, out-of-range and non-finite timestamps", () => {
+    const taps = [[0, 300], [], []];
+    for (const time of [300, 299, 10001, NaN, Infinity]) {
+      expect(appendRhythmTap(taps, 0, time, 5)).toEqual({ taps, accepted: false });
+    }
+    expect(appendRhythmTap(taps, 1, 100, 5).accepted).toBe(false);
+    expect(appendRhythmTap(taps, 0, 600, 5).accepted).toBe(true);
   });
 
   it("marks the run ready only when every generated beat has one tap", () => {
