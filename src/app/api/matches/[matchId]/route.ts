@@ -29,7 +29,7 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("*")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms,status,source,private_duel_id,series_round,match_rules")
       .eq("id", parsed.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing.");
