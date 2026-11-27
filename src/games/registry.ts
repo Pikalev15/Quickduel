@@ -941,6 +941,17 @@ export function pickGame(seed: string, playlist: PlaylistId, preferredGame?: Gam
 export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number, persistedRules?:unknown): Challenge {
   const rules=matchRulesSchema.safeParse(persistedRules);
   if(game.id==="memory_grid"&&rules.success&&rules.data.kind==="workshop")return customMemoryChallenge(seed,rules.data.rules);
+  if(rules.success&&rules.data.kind==="workshop"){
+    const config=rules.data.rules;
+    if(game.id==="dot_estimate"&&config.dotDensity&&config.dotDensity!=="standard"){
+      const random=createRandom(seed),count=config.dotDensity==="sparse"?integer(random,20,55):integer(random,90,150);
+      return {count,dots:Array.from({length:count},()=>({x:round(3+random()*94,2),y:round(3+random()*94,2),r:integer(random,3,7)}))};
+    }
+    if(game.id==="shape_recall"&&config.shapeRange&&config.shapeRange!=="standard"){
+      const random=createRandom(seed),[min,max]=config.shapeRange==="gentle"?[35,70]:[10,90];
+      return {radii:Array.from({length:6},()=>integer(random,min,max))};
+    }
+  }
   const challenge = game.generate(seed);
   if (game.id === "typing_sprint") return { ...challenge, durationMs: answerMs };
   if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: rules.success&&rules.data.kind==="adaptive" ? revealMs : revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
