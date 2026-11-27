@@ -138,7 +138,7 @@ export function RankedRecallRounds({
       const requestedAt = Date.now();
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`);
       if (!submitting.current) {
-        const offset = estimateServerClockOffset(next.serverNow, requestedAt, Date.now());
+        const offset = estimateServerClockOffset(next.serverNow, requestedAt, Date.now(), next.serverReceivedAt);
         if (offset !== null) {
           clockOffsetRef.current = offset;
           setClockOffset(offset);

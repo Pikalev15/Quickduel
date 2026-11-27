@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { estimateServerClockOffset } from "./game-clock";
-
+const iso = (n: number) => new Date(n).toISOString();
 describe("game clock synchronization", () => {
-  it("corrects device clocks ahead of and behind the server", () => {
-    expect(estimateServerClockOffset(new Date(10_000).toISOString(), 20_000, 20_200)).toBe(-10_100);
-    expect(estimateServerClockOffset(new Date(10_000).toISOString(), 1_000, 1_200)).toBe(8_900);
+  it("removes 800ms processing from a 100ms each-way request", () => {
+    expect(estimateServerClockOffset(iso(1900), 1000, 2000, iso(1100))).toBe(0);
   });
-  it("ignores invalid, missing, reversed and excessively delayed samples", () => {
-    expect(estimateServerClockOffset(undefined, 1_000, 1_200)).toBeNull();
-    expect(estimateServerClockOffset("invalid", 1_000, 1_200)).toBeNull();
-    expect(estimateServerClockOffset(new Date(10_000).toISOString(), 1_200, 1_000)).toBeNull();
-    expect(estimateServerClockOffset(new Date(10_000).toISOString(), 1_000, 4_000)).toBeNull();
+  it("corrects clocks ahead of and behind the server, even with slow processing", () => {
+    expect(estimateServerClockOffset(iso(11900), 1000, 2000, iso(11100))).toBe(10000);
+    expect(estimateServerClockOffset(iso(1900), 11000, 12000, iso(1100))).toBe(-10000);
+    expect(estimateServerClockOffset(iso(6100), 1000, 6200, iso(1100))).toBe(0);
+  });
+  it("rejects missing, invalid, reversed and excessive network delays", () => {
+    expect(estimateServerClockOffset(iso(1900), 1000, 2000)).toBeNull();
+    expect(estimateServerClockOffset("invalid", 1000, 2000, iso(1100))).toBeNull();
+    expect(estimateServerClockOffset(iso(1900), 2000, 1000, iso(1100))).toBeNull();
+    expect(estimateServerClockOffset(iso(1100), 1000, 2000, iso(1900))).toBeNull();
+    expect(estimateServerClockOffset(iso(1900), 1000, 4500, iso(1100))).toBeNull();
   });
 });

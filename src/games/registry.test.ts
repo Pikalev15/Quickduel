@@ -53,13 +53,13 @@ describe("game registry", () => {
     expect(correct.rankScore).toBeGreaterThan(fastGuess.rankScore);
   });
 
-  it("uses a short Memory Grid flash, retention interval, and eight-second answer", () => {
+  it("uses a full 2.5-second Memory Grid reveal and seven-second answer", () => {
     const game = getGame("memory_grid");
-    expect(MEMORY_GRID_FLASH_MS).toBe(1200);
-    expect(MEMORY_GRID_RETENTION_MS).toBe(1750);
-    expect(MEMORY_GRID_REVEAL_DURATION_MS).toBe(2950);
+    expect(MEMORY_GRID_FLASH_MS).toBe(2500);
+    expect(MEMORY_GRID_RETENTION_MS).toBe(0);
+    expect(MEMORY_GRID_REVEAL_DURATION_MS).toBe(2500);
     expect(game.revealDurationMs).toBe(MEMORY_GRID_REVEAL_DURATION_MS);
-    expect(game.answerDurationMs).toBe(8000);
+    expect(game.answerDurationMs).toBe(7000);
   });
 
   it("stops Number Order as soon as all targets are selected", () => {

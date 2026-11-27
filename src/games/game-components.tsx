@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FREQUENCY_ANSWER_MS, FREQUENCY_FEEDBACK_MS } from "./timing-pass";
 import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import type { GameComponentProps, Submission } from "./types";
 import { AudioManager } from "../lib/audio/audio-manager";
@@ -171,123 +172,83 @@ function RoundTrack({ completed, active, count = 5 }: { completed: number; activ
   );
 }
 
-export function FrequencyRecallV2Game({
-  challenge,
-  disabled,
-  practiceOpponentSubmission,
-  onChange,
-}: GameComponentProps) {
-  const frequencies = useMemo(
-    () => (challenge.frequencies as number[] | undefined) ?? [],
-    [challenge.frequencies],
-  );
+export function FrequencyRecallV2Game({ challenge, disabled, practiceOpponentSubmission, onChange }: GameComponentProps) {
+  const frequencies = useMemo(() => (challenge.frequencies as number[] | undefined) ?? [], [challenge.frequencies]);
   const [round, setRound] = useState(0);
   const [phase, setPhase] = useState<"reveal" | "answer" | "feedback" | "complete">("reveal");
   const [guess, setGuess] = useState(660);
-  const [guesses, setGuesses] = useState<number[]>([]);
+  const [guesses, setGuesses] = useState<(number | null)[]>([]);
   const [feedback, setFeedback] = useState<RecallRoundFeedback | null>(null);
+  const [deadline, setDeadline] = useState(0);
+  const [remainingMs, setRemainingMs] = useState(FREQUENCY_ANSWER_MS);
+  const [audioError, setAudioError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const resolvedRound = useRef(-1);
   const onChangeRef = useRef(onChange);
   const audio = useMemo(() => AudioManager.shared(), []);
-
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => {
     if (disabled || phase !== "reveal" || !frequencies[round]) return;
-    void audio.playToneSequence([frequencies[round]]);
-    const timer = window.setTimeout(() => setPhase("answer"), 1_050);
-    return () => window.clearTimeout(timer);
-  }, [audio, disabled, frequencies, phase, round]);
-
-  function confirmRound() {
-    if (disabled || phase !== "answer") return;
+    let active = true;
+    void audio.playToneSequence([frequencies[round]], true).then(played => {
+      if (!active) return;
+      if (!played) { setAudioError(true); return; }
+      setDeadline(Date.now() + FREQUENCY_ANSWER_MS);
+      setRemainingMs(FREQUENCY_ANSWER_MS);
+      setPhase("answer");
+    }).catch(() => { if (active) setAudioError(true); });
+    return () => { active = false; audio.stopPlayback(); };
+  }, [audio, disabled, frequencies, phase, round, retry]);
+  const confirmRound = useCallback((answer: number | null) => {
+    if (disabled || phase !== "answer" || resolvedRound.current === round) return;
+    resolvedRound.current = round;
     audio.stopPlayback();
-    const next = [...guesses, guess];
+    const next = [...guesses, answer];
     setGuesses(next);
-    setFeedback(frequencyRoundFeedback(frequencies[round], guess));
-    onChange({ guessesHz: next }, false);
+    setFeedback(frequencyRoundFeedback(frequencies[round], answer));
+    onChangeRef.current({ guessesHz: Array.from({length: frequencies.length}, (_,i)=>next[i] ?? null) }, false);
     setPhase("feedback");
-  }
-
+  }, [disabled, phase, round, audio, guesses, frequencies]);
   useEffect(() => {
-    if (phase !== "feedback") return;
+    if (phase !== "answer" || disabled) return;
+    const tick = () => {
+      const remaining = Math.max(0, deadline - Date.now());
+      setRemainingMs(remaining);
+      if (remaining === 0) confirmRound(null);
+    };
+    const interval = window.setInterval(tick, 50);
+    return () => window.clearInterval(interval);
+  }, [phase, deadline, disabled, confirmRound]);
+  useEffect(() => {
+    if (phase !== "feedback" || disabled) return;
     const timer = window.setTimeout(() => {
       if (guesses.length >= frequencies.length) {
-        onChangeRef.current({ guessesHz: guesses }, true);
         setPhase("complete");
+        onChangeRef.current({ guessesHz: guesses }, true);
       } else {
-        setRound((value) => value + 1);
+        setRound(value => value + 1);
         setGuess(660);
         setFeedback(null);
         setPhase("reveal");
       }
-    }, 2_000);
+    }, FREQUENCY_FEEDBACK_MS);
     return () => window.clearTimeout(timer);
-  }, [frequencies.length, guesses, phase]);
-
-  return (
-    <div className="sequential-recall" aria-live="polite">
-      <div className="sequential-progress">
-        <span>Round {Math.min(round + 1, frequencies.length || 5)} of {frequencies.length || 5}</span>
-        <strong>
-          {guesses.reduce(
-            (sum, value, index) =>
-              sum + frequencyRoundFeedback(frequencies[index], value).score,
-            0,
-          ).toFixed(1)}/50 scored
-        </strong>
-      </div>
-      <RoundTrack completed={guesses.length} active={round} count={frequencies.length || 5} />
-      {phase === "reveal" || phase === "answer" ? (
-        <div className="sequential-answer frequency-controls">
-          <p>Replay the target as needed, then estimate its pitch.</p>
-          <div className="frequency-audio-actions">
-            <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([frequencies[round]])}>
-              Replay target
-            </button>
-          </div>
-          <Range
-            label={`Round ${round + 1} frequency`}
-            value={guess}
-            min={120}
-            max={2000}
-            disabled={disabled}
-            onChange={setGuess}
-          />
-          <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled || phase !== "answer"} onClick={confirmRound} />
-        </div>
-      ) : phase === "feedback" && feedback ? (
-        <PracticeRecallFeedback
-          feedback={feedback}
-          total={guesses.reduce(
-            (sum, value, index) =>
-              sum + frequencyRoundFeedback(frequencies[index], value).score,
-            0,
-          )}
-          opponentRoundScore={
-            frequencyRoundFeedback(
-              frequencies[round],
-              ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[round] ?? null,
-            ).score
-          }
-          opponentTotal={guesses.reduce(
-            (sum, _, index) =>
-              sum + frequencyRoundFeedback(
-                frequencies[index],
-                ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[index] ?? null,
-              ).score,
-            0,
-          )}
-        />
-      ) : (
-        <div className="sequential-complete">
-          <strong>Five rounds locked</strong>
-          <span>Your combined score will be shown out of 50.</span>
-        </div>
-      )}
-    </div>
-  );
+  }, [frequencies.length, guesses, phase, disabled]);
+  const total = guesses.reduce<number>((sum, value, index) => sum + frequencyRoundFeedback(frequencies[index], value).score, 0);
+  return <div className="sequential-recall" aria-live="polite">
+    <div className="sequential-progress"><span>Round {Math.min(round + 1, frequencies.length || 5)} of {frequencies.length || 5}</span><strong>{total.toFixed(1)}/50 scored</strong></div>
+    <RoundTrack completed={guesses.length} active={round} count={frequencies.length || 5} />
+    {phase === "reveal" || phase === "answer" ? <div className="sequential-answer frequency-controls">
+      <p data-frequency-phase={phase}>{phase === "reveal" ? "Listen to the target tone" : "Estimate the pitch"}</p>
+      {audioError && <button type="button" onClick={() => { setAudioError(false); setRetry(v=>v+1); }}>Retry sound</button>}
+      <div className="frequency-audio-actions"><button type="button" className="recall-replay" disabled={disabled || phase !== "answer"} onClick={() => void audio.playToneSequence([frequencies[round]])}>Replay target</button></div>
+      <Range label={`Round ${round+1} frequency`} value={guess} min={120} max={2000} disabled={disabled || phase !== "answer"} onChange={setGuess} />
+      <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled || phase !== "answer" || remainingMs <= 0} remainingMs={phase === "answer" ? remainingMs : undefined} onClick={() => confirmRound(Date.now() < deadline ? guess : null)} />
+    </div> : phase === "feedback" && feedback ? <PracticeRecallFeedback feedback={feedback} total={total}
+      opponentRoundScore={frequencyRoundFeedback(frequencies[round], ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[round] ?? null).score}
+      opponentTotal={guesses.reduce<number>((sum, _, index) => sum + frequencyRoundFeedback(frequencies[index], ((practiceOpponentSubmission?.guessesHz as number[] | undefined) ?? [])[index] ?? null).score, 0)} />
+    : <div className="sequential-complete"><strong>Five rounds locked</strong><span>Your combined score will be shown out of 50.</span></div>}
+  </div>;
 }
 
 export function ColourRecallGame({
@@ -793,6 +754,8 @@ export function TypingSprintGame({
   challenge,
   disabled,
   preparing = false,
+  answerDurationMs = TYPING_SPRINT_DURATION_MS,
+  answerRemainingMs = answerDurationMs,
   onReady,
   onChange,
 }: GameComponentProps) {
@@ -802,30 +765,14 @@ export function TypingSprintGame({
   const wordViewport = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
   const initialized = useRef(false);
-  const startedAt = useRef<number | null>(null);
   const [typed, setTyped] = useState("");
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const elapsedMs = preparing ? 0 : Math.max(0, answerDurationMs - answerRemainingMs);
 
   useEffect(() => {
     if (disabled || initialized.current) return;
     initialized.current = true;
     onChange({ typed: "" }, true);
   }, [disabled, onChange]);
-
-  useEffect(() => {
-    if (disabled) return;
-    startedAt.current ??= performance.now();
-    input.current?.focus({ preventScroll: true });
-    const timer = window.setInterval(() => {
-      setElapsedMs(
-        Math.min(
-          TYPING_SPRINT_DURATION_MS,
-          performance.now() - (startedAt.current ?? performance.now()),
-        ),
-      );
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [disabled]);
 
   function updateTyped(rawValue: string) {
     if (disabled || preparing) {
@@ -857,7 +804,7 @@ export function TypingSprintGame({
     else if (wordBounds.bottom > bounds.bottom) viewport.scrollTop += wordBounds.bottom - bounds.bottom;
   }, [currentWord, windowStart]);
   const statistics = typingSprintStatistics(text, typed, elapsedMs);
-  const remainingSeconds = Math.max(0, TYPING_SPRINT_DURATION_MS - elapsedMs) / 1000;
+  const remainingSeconds = Math.max(0, answerDurationMs - elapsedMs) / 1000;
 
   return (
     <section
@@ -915,7 +862,7 @@ export function TypingSprintGame({
           onReady?.();
         }}>Ready keyboard</button>
       ) : (
-        <p className="typing-focus-copy">{disabled ? "Time is up." : "Focus and keep typing…"}</p>
+        <p className="typing-focus-copy">{disabled ? "Time is up." : "Tap here to focus if needed."}</p>
       )}
       <input
         ref={input}
@@ -941,7 +888,7 @@ export function TypingSprintGame({
           updateTyped(event.currentTarget.value);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter") event.preventDefault();
+          if (preparing || disabled || event.key === "Enter") event.preventDefault();
           if (event.key === " " && (typed.length === 0 || typed.endsWith(" "))) {
             event.preventDefault();
           }
@@ -958,40 +905,44 @@ export function TypingSprintGame({
 
 export function ReactionTestGame({ challenge, disabled, onChange }: GameComponentProps) {
   const waits = (challenge.waits as number[] | undefined) ?? [];
-  const waitCount = waits.length;
+  const tapWindow = Number(challenge.tapWindowMs ?? 2000);
   const [trial, setTrial] = useState(0);
   const [go, setGo] = useState(false);
   const [times, setTimes] = useState<number[]>([]);
   const shownAt = useRef(0);
+  const finishedTrial = useRef(-1);
   const falseStarts = useRef(0);
-  const trialWait = waits[trial];
-  useEffect(() => {
-    if (disabled || trial >= waitCount || trialWait === undefined) return;
-    const timer = window.setTimeout(() => {
-      shownAt.current = performance.now();
-      setGo(true);
-    }, trialWait);
-    return () => window.clearTimeout(timer);
-  }, [disabled, trial, waitCount, trialWait]);
-  const click = () => {
-    if (disabled || trial >= waits.length) return;
-    if (!go) falseStarts.current += 1;
-    const next = [...times, go ? Math.min(2000, Math.max(0, Math.round(performance.now() - shownAt.current))) : 1000];
+  const onChangeRef = useRef(onChange);
+  const wait = waits[trial];
+  const count = waits.length;
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const finish = useCallback((time: number, falseStart: boolean) => {
+    if (disabled || trial >= count || finishedTrial.current === trial) return;
+    finishedTrial.current = trial;
+    if (falseStart) falseStarts.current++;
+    const next = [...times, Math.min(tapWindow, Math.max(0, Math.round(time)))];
     setGo(false);
     setTimes(next);
-    setTrial((value) => value + 1);
-    onChange({ reactionTimesMs: next, falseStarts: falseStarts.current }, next.length === waits.length);
-  };
-  return (
-    <button
-      type="button"
-      className={go ? "reaction-pad is-go" : "reaction-pad"}
-      disabled={disabled || trial >= waits.length}
-      onClick={click}
-    >
-      {trial >= waits.length ? "Trials complete" : go ? "CLICK" : "Wait…"}
+    setTrial(trial + 1);
+    onChangeRef.current({ reactionTimesMs: next, falseStarts: falseStarts.current }, next.length === count);
+  }, [disabled, trial, count, times, tapWindow]);
+  useEffect(() => {
+    if (disabled || trial >= count || wait === undefined) return;
+    let timeout: number | undefined;
+    const signal = window.setTimeout(() => {
+      shownAt.current = performance.now();
+      setGo(true);
+      timeout = window.setTimeout(() => finish(tapWindow, false), tapWindow);
+    }, wait);
+    return () => { window.clearTimeout(signal); window.clearTimeout(timeout); };
+  }, [disabled, trial, count, wait, tapWindow, finish]);
+  return <div className="reaction-test">
+    <p aria-live="polite">Attempt {Math.min(trial + 1, count)} of {count}</p>
+    <button type="button" className={go ? "reaction-pad is-go" : "reaction-pad"} disabled={disabled || trial >= count} onClick={() => finish(go ? performance.now() - shownAt.current : challenge.tapWindowMs ? tapWindow : 1000, !go)}>
+      {trial >= count ? "Trials complete" : go ? "TAP" : "Wait…"}
     </button>
-  );
+    <p>{times.length > 0 ? times.map(t => t >= tapWindow ? "Miss" : t + "ms").join(" · ") : "Wait for green."}</p>
+  </div>;
 }
 
 export function TargetTapGame({ challenge, disabled, onChange }: GameComponentProps) {

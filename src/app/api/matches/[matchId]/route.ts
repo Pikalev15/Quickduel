@@ -3,7 +3,7 @@ import { rpcErrorResponse } from "@/lib/server/http";
 import { matchIdSchema } from "@/lib/validation";
 import { requireUser } from "@/lib/server/route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getGame } from "@/games/registry";
+import { getGame, generateMatchChallenge } from "@/games/registry";
 import type { GamePhase } from "@/games/types";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 
@@ -13,6 +13,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ matchId: string }> },
 ) {
+  const serverReceivedAt = new Date().toISOString();
   const correlationId = requestCorrelationId(request);
   const parsed = matchIdSchema.safeParse((await context.params).matchId);
   if (!parsed.success) {
@@ -28,7 +29,7 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,status,source,private_duel_id,series_round")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms,status,source,private_duel_id,series_round")
       .eq("id", parsed.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing.");
@@ -42,14 +43,6 @@ export async function GET(
         correlationId,
       );
     }
-    const now = Date.now();
-    const startsAt = privateMatch.starts_at ? Date.parse(privateMatch.starts_at) : null;
-    let phase: GamePhase = "waiting";
-    if (privateMatch.status === "completed") phase = "result";
-    else if (!startsAt || now < startsAt) phase = "countdown";
-    else if (now < startsAt + privateMatch.reveal_duration_ms) phase = "reveal";
-    else phase = "answer";
-    const completeChallenge = game.generate(String(privateMatch.challenge_seed));
     let privateDuelCode: string | null = null;
     if (privateMatch.private_duel_id) {
       const { data: privateDuel } = await admin
@@ -59,6 +52,14 @@ export async function GET(
         .single();
       privateDuelCode = privateDuel?.code ?? null;
     }
+    const now = Date.now();
+    const startsAt = privateMatch.starts_at ? Date.parse(privateMatch.starts_at) : null;
+    let phase: GamePhase = "waiting";
+    if (privateMatch.status === "completed") phase = "result";
+    else if (!startsAt || now < startsAt) phase = "countdown";
+    else if (now < startsAt + privateMatch.reveal_duration_ms) phase = "reveal";
+    else phase = "answer";
+    const completeChallenge = generateMatchChallenge(game, String(privateMatch.challenge_seed), privateMatch.reveal_duration_ms, privateMatch.answer_duration_ms);
     return apiSuccess({
       ...data,
       phase,
@@ -67,6 +68,7 @@ export async function GET(
         : phase === "countdown" || privateMatch.status === "cancelled" || privateMatch.status === "abandoned"
           ? {}
           : game.publicChallenge(completeChallenge, phase),
+      server_received_at: serverReceivedAt,
       server_now: new Date().toISOString(),
       source: privateMatch.source,
       private_duel_code: privateDuelCode,

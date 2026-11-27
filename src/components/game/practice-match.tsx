@@ -38,9 +38,9 @@ export function PracticeMatch({
   const [now, setNow] = useState(() => Date.now());
   const prepareKeyboard = useCallback(() => {
     if (keyboardReady) return;
-    setStartAt(now + 2_000);
+    setStartAt(Date.now() + 2_000);
     setKeyboardReady(true);
-  }, [keyboardReady, now]);
+  }, [keyboardReady]);
   const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
@@ -58,7 +58,7 @@ export function PracticeMatch({
     return () => window.clearInterval(timer);
   }, []);
 
-  const answerDurationMs = gameId === "frequency_recall_v2" ? 60_000 : game.answerDurationMs;
+  const answerDurationMs = game.answerDurationMs;
   const answerStart = startAt + game.revealDurationMs;
   const answerEnd = answerStart + answerDurationMs;
   const submit = useCallback(() => {
@@ -255,6 +255,8 @@ export function PracticeMatch({
                 challenge={publicChallenge}
                 disabled={phase !== "answer" || remaining <= 0}
                 preparing={typing && phase === "countdown"}
+                answerDurationMs={answerDurationMs}
+                answerRemainingMs={remaining}
                 onReady={prepareKeyboard}
                 phaseElapsedMs={phaseElapsedMs}
                 practiceOpponentSubmission={bot.submission}
