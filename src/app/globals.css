@@ -5432,3 +5432,27 @@ dd,
 .qd-division-ladder li[data-current="true"] { border-color: var(--accent); background: var(--inset); }
 .qd-division-ladder .division-mark { font-size: .9rem; width: 32px; height: 32px; min-width: 32px; }
 .qd-division-ladder small { color: var(--muted); font-size: .75rem; white-space: nowrap; }
+
+/* Brand refinement: the homepage uses game boards and open rows, not generic card stacks. */
+.qd-feature-grid { display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 1.8rem; border-top: 1px solid var(--border); }
+.qd-feature-card { display: grid; grid-template-columns: minmax(140px, 28%) minmax(0, 1fr); align-items: center; gap: clamp(1rem,4vw,3rem); padding: 1.25rem 0; background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.qd-feature-card:has(a:hover) { transform: none; border-color: var(--border); }
+.qd-feature-visual { height: 130px; margin: 0; border-radius: 6px; }
+.qd-feature-copy { display: grid; justify-items: start; gap: .35rem; min-width: 0; }
+.qd-feature-copy h3 { font-size: clamp(1.35rem, 3vw, 2rem); line-height: 1.15; }
+.qd-feature-copy p { max-width: 50ch; }
+.qd-feature-copy a { justify-content: start; }
+.qd-section-intro h2, .qd-final-cta h2 { text-transform: none; font-size: clamp(2.4rem, 5.5vw, 4.6rem); }
+.calm-game-tags span { border: 0; border-radius: 4px; background: var(--inset); padding: .2rem .45rem; }
+.calm-game-row { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+.calm-game-row:hover { transform: none; box-shadow: none; }
+.calm-game-row:focus-within { border-color: var(--border); }
+.featured-games, .all-games-list { gap: 0; border-top: 1px solid var(--border); }
+.qd-rank-panel { border-radius: 6px; box-shadow: none; }
+.qd-social-visual { border-radius: 6px; }
+.qd-long-home { gap: clamp(2.2rem,6vw,5rem); }
+@media (max-width: 540px) {
+  .qd-feature-card { grid-template-columns: 1fr; gap: .85rem; }
+  .qd-feature-visual { height: 118px; }
+  .qd-feature-copy a { min-height: 44px; }
+}

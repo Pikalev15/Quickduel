@@ -16,8 +16,7 @@ export function GameLibrary({
     <section id="game-library" className="calm-library" aria-label="Game library">
       <div className="calm-section-head">
         <div>
-          <span>Suggested games</span>
-          <p>Start with a familiar test, or open the full collection.</p>
+          <span>Games</span>
         </div>
         <button type="button" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
           {expanded ? "Hide all" : "See all"}
@@ -30,13 +29,13 @@ export function GameLibrary({
         ))}
       </div>
 
-      <div className="calm-section-head"><div><span>New practice previews</span><p>Try the expanded memory board and cryptic wordplay.</p></div></div>
+      <div className="calm-section-head"><div><span>Practice only</span></div></div>
       <div className="featured-games">
         {practiceGameCatalog.map((game, index) => <GameRow key={game.id} game={game} index={gameCatalog.length + index + 1} practiceOnly />)}
       </div>
 
       <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
-        <span><b>All games</b><small>13 challenges across sensory, mind, and experimental playlists</small></span>
+        <span><b>All games</b><small>13 games</small></span>
         <span>{expanded ? "−" : "+"}</span>
       </button>
 

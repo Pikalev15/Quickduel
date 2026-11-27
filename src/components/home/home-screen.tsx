@@ -267,10 +267,9 @@ export function HomeScreen() {
 
       <section className="page-shell calm-hero">
         <div className="calm-hero-copy">
-          <p className="calm-eyebrow"><span>01</span> Fast multiplayer perception games</p>
           <h1>Notice it.<br /><span>Win it.</span></h1>
           <p className="calm-subtitle">
-            Thirteen quick challenges in memory, perception and reasoning. Play head-to-head or sharpen your skills in practice.
+            Challenge a friend or find an opponent. Test your memory, pitch, colour recall and typing speed in your browser.
           </p>
           <div className="calm-hero-actions">
             <button type="button" className="calm-primary" onClick={play} disabled={starting}>
@@ -286,8 +285,7 @@ export function HomeScreen() {
           </div>
           <div className="calm-player-line">
             <span><b>{placement?.placed && profile ? getDivision(profile.rating).name : placement ? `Placement ${placement.completed}/${placement.required}` : "Unranked"}</b>{placement?.placed && profile ? ` · ${profile.rating} Elo` : ""}</span>
-            <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
-            <span>Accuracy first in recall · 8s Memory Grid</span>
+            <span><SignalIcon className="h-4 w-4" /><b>{online ?? "–"}</b> online</span>
           </div>
           {error && (
             <div role="alert" className="calm-error">
@@ -301,11 +299,11 @@ export function HomeScreen() {
 
         <aside className="arena-preview" aria-label="QuickDuel ranked match preview">
           <div className="arena-preview-head">
-            <span>Example round</span>
-            <span className="arena-live">Game preview</span>
+            <span>Memory Grid</span>
+            <span className="arena-live">Preview</span>
           </div>
           <div className="arena-scoreline">
-            <div><span>You</span><strong>{placement?.placed ? profile?.rating : "—"}</strong></div>
+            <div><span>You</span><strong>{placement?.placed ? profile?.rating : "–"}</strong></div>
             <LogoMark className="arena-mark" />
             <div><span>Opponent</span><strong>?</strong></div>
           </div>
@@ -315,27 +313,27 @@ export function HomeScreen() {
             ))}
           </div>
           <div className="arena-preview-foot">
-            <div><span>Current game</span><strong>Memory Grid</strong></div>
-            <div><span>Recall in</span><strong>00:08</strong></div>
+            <div><span>Remember</span><strong>6 tiles</strong></div>
+            <div><span>Answer time</span><strong>8s</strong></div>
           </div>
         </aside>
       </section>
 
       <div className="page-shell calm-content qd-long-home">
         <section className="qd-home-band qd-explore" data-qd-reveal="" aria-labelledby="explore-heading">
-          <div className="qd-section-intro"><p className="calm-eyebrow">01 · The games</p><h2 id="explore-heading">Different skills. One arena.</h2><p>Short rounds that reward attention, timing and fast decisions.</p></div>
+          <div className="qd-section-intro"><h2 id="explore-heading">Try a challenge</h2></div>
           <div className="qd-feature-grid">
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-memory-visual" aria-hidden="true">{Array.from({ length: 25 }, (_, i) => <i key={i} className={[1, 4, 7, 10, 13, 17, 20, 23].includes(i) ? "lit" : ""} />)}</div>
-              <span>01 / Memory</span><h3>Remember the pattern</h3><p>Study a grid, hold it in mind, and reconstruct it before time runs out.</p><Link href="/match/practice?game=memory_grid_v2">Try Memory Grid XL <ArrowIcon className="h-4 w-4" /></Link>
+              <div className="qd-feature-copy"><h3>Memory Grid XL</h3><p>Eight tiles light up on a 5×5 grid. How many can you remember?</p><Link href="/match/practice?game=memory_grid_v2">Play XL <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-tone-visual" aria-hidden="true"><svg viewBox="0 0 240 100"><path d="M0 50 Q10 4 20 50 T40 50 T60 50 T80 50 T100 50 T120 50 T140 50 T160 50 T180 50 T200 50 T220 50 T240 50" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg></div>
-              <span>02 / Perception</span><h3>Find the signal</h3><p>Recall a pitch, a colour or a rhythm. Compare your recall accuracy round by round.</p><Link href="/match/practice?game=frequency_recall_v2">Try Frequency Recall <ArrowIcon className="h-4 w-4" /></Link>
+              <div className="qd-feature-copy"><h3>Frequency Recall</h3><p>Listen to a tone and estimate its pitch. See how close you were after each of five rounds.</p><Link href="/match/practice?game=frequency_recall_v2">Play Frequency Recall <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-word-visual" aria-hidden="true">{"SOLVE".split("").map((letter, i) => <i key={i}>{letter}</i>)}</div>
-              <span>03 / Reasoning</span><h3>Decode the clue</h3><p>Work through patterns, words and logic under pressure. Cryptic Duel is in practice preview.</p><Link href="/match/practice?game=cryptic_duel">Try Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link>
+              <div className="qd-feature-copy"><h3>Cryptic Duel</h3><p>One clue, one word, 60 seconds. Try it in practice.</p><Link href="/match/practice?game=cryptic_duel">Play Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
           </div>
         </section>
@@ -355,8 +353,8 @@ export function HomeScreen() {
           <section className="calm-steps" data-qd-reveal="" aria-label="How QuickDuel works">
             {[
               ["01", "Match", "Choose a playlist or a specific challenge."],
-              ["02", "Play", "Both players receive the same deterministic test."],
-              ["03", "Compare", "Accuracy decides most games; Typing Sprint ranks net WPM."],
+              ["02", "Play", "Both players get the same challenge."],
+              ["03", "Compare", "See your scores and who won."],
             ].map(([step, title, copy]) => (
               <article key={step}>
                 <span>{step}</span>
@@ -368,7 +366,7 @@ export function HomeScreen() {
         )}
 
         <section className="qd-home-band qd-rank-story" data-qd-reveal="" aria-labelledby="placement-heading">
-          <div className="qd-section-intro"><p className="calm-eyebrow">02 · Ranked progression</p><h2 id="placement-heading">Earn your first rank.</h2><p>Play {PLACEMENT_MATCHES} rating-awarding human matches to establish your division. Your provisional Elo updates behind the scenes. Link an account to qualify for public rankings.</p>
+          <div className="qd-section-intro"><h2 id="placement-heading">Your rank</h2><p>Finish {PLACEMENT_MATCHES} ranked matches against other players to earn a rank. Link your account to appear on the leaderboard.</p>
           <button className="calm-primary" type="button" onClick={play} disabled={starting}>{starting ? "Joining…" : placement?.placed ? "Play ranked" : "Start placements"} <ArrowIcon className="h-4 w-4" /></button></div>
           <div className="qd-rank-panel">
             <div className="qd-rank-panel-heading"><span>{placement?.placed && profile ? "Your division" : "Placement progress"}</span><strong>{placement?.placed && profile ? getDivision(profile.rating).name : `${placement?.completed ?? 0}/${PLACEMENT_MATCHES}`}</strong></div>
@@ -378,7 +376,7 @@ export function HomeScreen() {
         </section>
         <section className="qd-home-band qd-social-band" data-qd-reveal="" aria-labelledby="duel-heading">
           <div className="qd-social-visual" aria-hidden="true"><div><span>YOU</span><strong>01</strong></div><b>VS</b><div><span>FRIEND</span><strong>02</strong></div></div>
-          <div className="qd-section-intro"><p className="calm-eyebrow">03 · Play together</p><h2 id="duel-heading">Settle it in a duel.</h2><p>Create a private link, invite a friend and play a short series. Want a rematch? Go again.</p><Link className="calm-secondary" href="/duel/new">Create a private match <ArrowIcon className="h-4 w-4" /></Link></div>
+          <div className="qd-section-intro"><h2 id="duel-heading">Play with friends</h2><p>Send a private duel link and play a best-of-three or best-of-five series.</p><Link className="calm-secondary" href="/duel/new">Create a private match <ArrowIcon className="h-4 w-4" /></Link></div>
         </section>
 
         {preferences.showLeaderboardPreview && (
@@ -402,7 +400,7 @@ export function HomeScreen() {
           </section>
         )}
         <section className="qd-home-band qd-final-cta" data-qd-reveal="">
-          <p className="calm-eyebrow">Your next round</p><h2>Ready to play?</h2><p>One challenge is all it takes to get started.</p>
+          <h2>Ready to play?</h2>
           <button type="button" className="calm-primary" onClick={play} disabled={starting}>{starting ? "Joining…" : "Find a match"} <ArrowIcon className="h-4 w-4" /></button>
         </section>
       </div>

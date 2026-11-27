@@ -17,7 +17,7 @@ export default function NotFound() {
         <div className="qd-404-art" aria-hidden="true"><span>4</span><div className="qd-404-grid">{Array.from({ length: 16 }, (_, i) => <i key={i} data-lit={[0, 1, 2, 3, 4, 7, 8, 11, 12, 13, 14, 15].includes(i) ? "true" : undefined} />)}</div><span>4</span></div>
         <p className="calm-eyebrow">404 · Arena not found</p>
         <h1>Missed that one.</h1>
-        <p>This page or duel link could not be found. Your next round is still waiting.</p>
+        <p>This page or duel link could not be found.</p>
         <div className="feature-actions">
           <Link className="calm-primary" href="/">Return home <ArrowIcon className="h-4 w-4" /></Link>
           <Link className="calm-secondary" href="/match/practice?game=memory_grid">Play a practice round</Link>

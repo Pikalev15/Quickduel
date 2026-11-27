@@ -10,19 +10,19 @@ export type GameCatalogEntry = {
 };
 
 export const gameCatalog: GameCatalogEntry[] = [
-  { id: "memory_grid", name: "Memory Grid", shortName: "Grid", category: "mind", ranked: true, description: "Memorize six charged cells, then recall them before the clock closes." },
+  { id: "memory_grid", name: "Memory Grid", shortName: "Grid", category: "mind", ranked: true, description: "Remember six highlighted tiles, then select them." },
   { id: "frequency_recall_v2", name: "Frequency Recall", shortName: "Frequency", category: "sensory", ranked: true, description: "Reconstruct five tones one at a time for a score out of 50." },
   { id: "colour_recall_v2", name: "Colour Recall", shortName: "Colour", category: "sensory", ranked: true, description: "Reconstruct five colours one at a time for a score out of 50." },
-  { id: "time_recall", name: "Time Recall", shortName: "Time", category: "sensory", ranked: true, description: "Internalize five visual pulse durations and reproduce their timing." },
-  { id: "shape_recall", name: "Shape Recall", shortName: "Shape", category: "sensory", ranked: true, description: "Rebuild a six-point radial silhouette from memory." },
+  { id: "time_recall", name: "Time Recall", shortName: "Time", category: "sensory", ranked: true, description: "Watch five pulses and estimate how long each lasts." },
+  { id: "shape_recall", name: "Shape Recall", shortName: "Shape", category: "sensory", ranked: true, description: "Remember a six-point shape and rebuild it." },
   { id: "rhythm_recall", name: "Rhythm Recall", shortName: "Rhythm", category: "sensory", ranked: true, description: "Hear three short rhythms and tap their relative timing." },
-  { id: "dot_estimate", name: "Dot Estimate", shortName: "Dots", category: "mind", ranked: true, description: "Estimate a dense field without counting every dot." },
-  { id: "number_order", name: "Number Order", shortName: "Order", category: "mind", ranked: true, description: "Clear ten scattered numbers from lowest to highest." },
-  { id: "odd_one_out", name: "Odd One Out", shortName: "Odd", category: "mind", ranked: true, description: "Spot the single rotated symbol in a packed field." },
-  { id: "pattern_complete", name: "Pattern Complete", shortName: "Pattern", category: "mind", ranked: true, description: "Resolve six compact symbol sequences under pressure." },
-  { id: "typing_sprint", name: "Typing Sprint", shortName: "Typing", category: "mind", ranked: true, description: "Type a deterministic word stream for fifteen seconds." },
-  { id: "reaction_test", name: "Reaction Test", shortName: "Reaction", category: "experimental", ranked: false, description: "Five randomized go-signals test raw response latency." },
-  { id: "target_tap", name: "Target Tap", shortName: "Targets", category: "experimental", ranked: false, description: "Strike twelve deterministic targets with minimal misses." },
+  { id: "dot_estimate", name: "Dot Estimate", shortName: "Dots", category: "mind", ranked: true, description: "Estimate how many dots appeared." },
+  { id: "number_order", name: "Number Order", shortName: "Order", category: "mind", ranked: true, description: "Tap ten numbers in ascending order." },
+  { id: "odd_one_out", name: "Odd One Out", shortName: "Odd", category: "mind", ranked: true, description: "Find the rotated symbol." },
+  { id: "pattern_complete", name: "Pattern Complete", shortName: "Pattern", category: "mind", ranked: true, description: "Complete six symbol patterns." },
+  { id: "typing_sprint", name: "Typing Sprint", shortName: "Typing", category: "mind", ranked: true, description: "Type as many words as you can in 15 seconds." },
+  { id: "reaction_test", name: "Reaction Test", shortName: "Reaction", category: "experimental", ranked: false, description: "Wait for green, then tap as quickly as you can." },
+  { id: "target_tap", name: "Target Tap", shortName: "Targets", category: "experimental", ranked: false, description: "Tap 12 targets as quickly and accurately as possible." },
 ];
 
 /** Preview games stay out of matchmaking and private-duel selection. */
