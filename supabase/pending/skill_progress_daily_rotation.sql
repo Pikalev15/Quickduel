@@ -18,7 +18,6 @@ $$;
 revoke all on function public.get_daily_weekly_board(date) from public,anon,authenticated;
 grant execute on function public.get_daily_weekly_board(date) to service_role;
 
--- Read only the caller's real ranked matches; each persisted timing is independent.
 create or replace function public.get_my_skill_progress()
 returns jsonb language sql stable security definer set search_path='' as $$
  with played as (
@@ -87,7 +86,7 @@ begin
  end if;
  return public.get_cosmetics();
 end;
-$;
+$$;
 revoke all on function public.claim_skill_rewards() from public,anon,authenticated;
 grant execute on function public.claim_skill_rewards() to authenticated;
 
