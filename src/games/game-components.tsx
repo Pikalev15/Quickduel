@@ -227,13 +227,10 @@ export function FrequencyRecallV2Game({
       </div>
       {phase === "reveal" || phase === "answer" ? (
         <div className="sequential-answer frequency-controls">
-          <p>Listen to the target and compare your guess. Replay either tone as needed.</p>
+          <p>Replay the target as needed, then estimate its pitch.</p>
           <div className="frequency-audio-actions">
             <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([frequencies[round]])}>
               Replay target
-            </button>
-            <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([guess])}>
-              Play my guess
             </button>
           </div>
           <Range
@@ -1006,7 +1003,7 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
           aria-label={`Target ${index + 1}`}
           type="button"
           disabled={disabled}
-          style={{ left: `${target.x}%`, top: `${target.y}%` }}
+          style={{ left: `clamp(28px, ${target.x}%, calc(100% - 28px))`, top: `clamp(28px, ${target.y}%, calc(100% - 28px))` }}
           onClick={(event) => {
             event.stopPropagation();
             if (!startedAt.current) startedAt.current = performance.now();
