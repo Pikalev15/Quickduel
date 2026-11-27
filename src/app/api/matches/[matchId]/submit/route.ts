@@ -55,7 +55,7 @@ export async function POST(
     const admin = createSupabaseAdminClient();
     const { data: match, error: matchError } = await admin
       .from("matches")
-      .select("*")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms,match_rules")
       .eq("id", matchId.data)
       .single();
     if (matchError || !match || !match.starts_at) {
