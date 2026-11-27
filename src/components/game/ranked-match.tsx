@@ -17,6 +17,7 @@ import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 import { RankedRecallRounds } from "./ranked-recall-rounds";
 import { AudioManager } from "@/lib/audio/audio-manager";
+import { estimateServerClockOffset } from "@/lib/game-clock";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -30,6 +31,9 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [clockOffset, setClockOffset] = useState(0);
+  const clockOffsetRef = useRef(0);
+  const serverNow = now + clockOffset;
   const [connected, setConnected] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const [keyboardReady, setKeyboardReady] = useState(false);
@@ -51,7 +55,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     if (reloadInFlight.current) return;
     reloadInFlight.current = true;
     try {
+      const requestedAt = Date.now();
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
+      const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now());
+      if (offset !== null) {
+        clockOffsetRef.current = offset;
+        setClockOffset(offset);
+      }
       latestSnapshot.current = next;
       setSnapshot(next);
       setError(null);
@@ -68,7 +78,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     const clock = window.setInterval(() => setNow(Date.now()), 50);
     const poll = window.setInterval(() => {
       const current = latestSnapshot.current;
-      const at = Date.now();
+      const at = Date.now() + clockOffsetRef.current;
       const startAt = current?.starts_at ? Date.parse(current.starts_at) : null;
       const revealEnd = startAt !== null && current ? startAt + current.reveal_duration_ms : null;
       const transition = !current || current.status === "waiting" || current.phase === "countdown"
@@ -202,7 +212,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const start = snapshot?.starts_at ? Date.parse(snapshot.starts_at) : null;
   const answerStart = start !== null && snapshot ? start + snapshot.reveal_duration_ms : null;
   const answerEnd = answerStart !== null && snapshot ? answerStart + snapshot.answer_duration_ms : null;
-  const remaining = answerEnd === null ? 0 : Math.max(0, answerEnd - now);
+  const remaining = answerEnd === null ? 0 : Math.max(0, answerEnd - serverNow);
   const phase =
     snapshot?.status === "completed"
       ? "result"
@@ -212,13 +222,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           ? "submitted"
           : start === null
             ? snapshot?.phase ?? "waiting"
-            : now < start
+            : serverNow < start
               ? "countdown"
-              : answerStart !== null && now < answerStart
+              : answerStart !== null && serverNow < answerStart
                 ? "reveal"
                 : "answer";
   const phaseElapsedMs =
-    phase === "reveal" && start !== null ? Math.max(0, now - start) : 0;
+    phase === "reveal" && start !== null ? Math.max(0, serverNow - start) : 0;
   const memoryHolding =
     game?.id === "memory_grid" &&
     phase === "reveal" &&
@@ -253,12 +263,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     }
     const timer = window.setTimeout(() => {
       void submit(!game?.submitAtDeadline);
-    }, Math.max(0, answerEnd - Date.now()));
+    }, Math.max(0, answerEnd - (Date.now() + clockOffsetRef.current)));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     answerEnd,
+    clockOffset,
     canSubmit,
     game?.autoSubmitOnValid,
     game?.submitAtDeadline,
@@ -427,7 +438,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     );
   }
 
-  const countdown = start ? Math.max(1, Math.ceil((start - now) / 1000)) : 3;
+  const countdown = start ? Math.max(1, Math.ceil((start - serverNow) / 1000)) : 3;
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
