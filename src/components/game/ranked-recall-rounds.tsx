@@ -3,6 +3,7 @@
 import { estimateServerClockOffset } from "@/lib/game-clock";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { AudioManager } from "@/lib/audio/audio-manager";
 import type {
   RecallColour,
@@ -248,9 +249,7 @@ export function RankedRecallRounds({
             <input type="range" min={120} max={2000} value={frequency} disabled={sending || remainingMs <= 0} onChange={(event) => setFrequency(Number(event.target.value))} />
             <strong>{frequency} Hz</strong>
           </label>
-          <button type="button" className="recall-confirm" disabled={sending || state.phase !== "answer" || remainingMs <= 0} onClick={() => void submit()}>
-            {sending ? "Locking…" : state.phase === "reveal" ? "Listen…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
-          </button>
+          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={state.phase !== "answer" || remainingMs <= 0} pending={sending} remainingMs={remainingMs} onClick={() => void submit()} />
         </div>
       ) : state.phase === "reveal" ? (
         <div className="colour-round-reveal">
@@ -270,15 +269,14 @@ export function RankedRecallRounds({
                   min={key === "l" ? 35 : key === "c" ? 4 : 0}
                   max={key === "l" ? 90 : key === "c" ? 32 : 359}
                   value={colour[key]}
+                  disabled={sending || remainingMs <= 0}
                   onChange={(event) => setColour((current) => ({ ...current, [key]: Number(event.target.value) }))}
                 />
                 <strong>{colour[key]}</strong>
               </label>
             ))}
           </div>
-          <button type="button" className="recall-confirm" disabled={sending || remainingMs <= 0} onClick={() => void submit()}>
-            {sending ? "Locking…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
-          </button>
+          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={remainingMs <= 0} pending={sending} remainingMs={remainingMs} onClick={() => void submit()} />
         </div>
       ) : state.phase === "waiting" ? (
         <div className="sequential-complete">
