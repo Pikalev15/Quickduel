@@ -227,15 +227,13 @@ test("Frequency Recall v2 gives per-round feedback before advancing", async ({ p
   const confirm = page.getByRole("button", { name: "Confirm round" });
   await expect(confirm).toBeVisible({ timeout: 8_000 });
   const replay = page.getByRole("button", { name: "Replay target", exact: true });
-  const preview = page.getByRole("button", { name: "Play my guess", exact: true });
+  await expect(page.getByRole("button", { name: "Play my guess", exact: true })).toHaveCount(0);
   const slider = page.getByRole("slider", { name: /round 1 frequency/i });
   await expect(replay).toBeInViewport();
-  await expect(preview).toBeInViewport();
   await expect(slider).toBeInViewport();
   await expect(confirm).toBeInViewport();
   await replay.click();
   await replay.click();
-  await preview.click();
   await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
