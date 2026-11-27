@@ -190,6 +190,7 @@ test("Memory Grid flashes briefly, holds the blank board, then unlocks", async (
 
 test("Rhythm Recall accepts every required beat after the reveal and resets on rematch", async ({ page }) => {
   await page.goto("/match/practice?game=rhythm_recall&seed=rhythm-fixed");
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   const pad = page.locator(".tap-pad");
   await expect(pad).toBeEnabled({ timeout: 20_000 });
 
@@ -219,11 +220,13 @@ test("Rhythm Recall accepts every required beat after the reveal and resets on r
   await expect(pad.filter({ hasText: "Rhythm captured" }).or(rematch)).toBeVisible();
   await expect(rematch).toBeVisible({ timeout: 20_000 });
   await rematch.click();
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Rhythm 1 · 0\// })).toBeVisible();
 });
 
 test("Frequency Recall v2 gives per-round feedback before advancing", async ({ page }) => {
   await page.goto("/match/practice?game=frequency_recall_v2&seed=frequency-feedback");
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   const confirm = page.getByRole("button", { name: "Confirm round" });
   await expect(confirm).toBeVisible({ timeout: 8_000 });
   const replay = page.getByRole("button", { name: "Replay target", exact: true });
