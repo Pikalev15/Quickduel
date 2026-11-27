@@ -39,7 +39,7 @@ export function MatchChat({
   }, [matchId]);
 
   useEffect(() => {
-    if (muted || collapsed) return;
+    if (muted || (compact && collapsed)) return;
     let active = true;
     let supabase: SupabaseClient | null = null;
     let channel: RealtimeChannel | null = null;
@@ -74,12 +74,12 @@ export function MatchChat({
       window.clearInterval(poll);
       if (channel && supabase) void supabase.removeChannel(channel);
     };
-  }, [matchId, muted, collapsed, reload]);
+  }, [matchId, muted, compact, collapsed, reload]);
 
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [messages, collapsed]);
+  }, [messages, compact, collapsed]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -118,7 +118,7 @@ export function MatchChat({
     setError("Message reported for review.");
   }
 
-  if (collapsed) {
+  if (compact && collapsed) {
     return (
       <aside className="match-chat match-chat-collapsed" aria-label="Match chat collapsed">
         <button type="button" onClick={() => setCollapsed(false)}>Chat</button>
