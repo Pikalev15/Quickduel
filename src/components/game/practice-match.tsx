@@ -29,6 +29,14 @@ export function PracticeMatch({
   const bot = useMemo(() => game.bot(seed, challenge), [challenge, game, seed]);
   const needsAudio = gameId === "frequency_recall_v2" || gameId === "frequency_recall" || gameId === "rhythm_recall";
   const [audioReady, setAudioReady] = useState(!needsAudio);
+  const typing = gameId === "typing_sprint";
+  const [keyboardReady, setKeyboardReady] = useState(!typing);
+  const prepared = audioReady && keyboardReady;
+  const prepareKeyboard = () => {
+    if (keyboardReady) return;
+    setStartAt(Date.now() + 2_000);
+    setKeyboardReady(true);
+  };
   const [audioError, setAudioError] = useState(false);
   const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
   const [now, setNow] = useState(() => Date.now());
@@ -57,18 +65,18 @@ export function PracticeMatch({
   }, [answerEnd, canSubmit, submittedAt]);
 
   useEffect(() => {
-    if (submittedAt !== null || !audioReady) return;
+    if (submittedAt !== null || !prepared) return;
     const timeout = window.setTimeout(
       () => setSubmittedAt((current) => current ?? answerEnd),
       Math.max(0, answerEnd - Date.now()),
     );
     return () => window.clearTimeout(timeout);
-  }, [answerEnd, submittedAt, audioReady]);
+  }, [answerEnd, submittedAt, prepared]);
 
   let phase: Phase;
   if (submittedAt !== null) {
     phase = now >= answerStart + bot.completionTimeMs ? "result" : "waiting";
-  } else if (!audioReady || now < startAt) {
+  } else if (!prepared || now < startAt) {
     phase = "countdown";
   } else if (now < answerStart) {
     phase = "reveal";
@@ -188,7 +196,7 @@ export function PracticeMatch({
     <main className={`active-game min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader player="You" playerRating={1000} opponent="Practice Bot" connected practice />
       <section className="page-shell screen-enter match-center">
-        {phase === "countdown" ? (
+        {phase === "countdown" && !typing ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">{game.name} · Get ready</p>
             {audioReady ? <div className="display mt-3 text-[clamp(5rem,25vw,10rem)] leading-none text-[var(--accent)]">{countdown}</div> : (
@@ -211,7 +219,9 @@ export function PracticeMatch({
                 <h1 className="display">{game.name}</h1>
               </div>
               <div className="game-timer">
-                {memoryHolding
+                {phase === "countdown"
+                  ? keyboardReady ? `Starts in ${countdown}` : "Ready?"
+                  : memoryHolding
                   ? "HOLD"
                   : phase === "reveal"
                     ? "OBSERVE"
@@ -237,10 +247,12 @@ export function PracticeMatch({
             )}
             <div className="game-stage">
               <GameRenderer
-                key={`${game.id}:${phase === "waiting" ? "answer" : phase}`}
+                key={typing ? `${game.id}:${seed}` : `${game.id}:${phase === "waiting" ? "answer" : phase}`}
                 gameId={game.id}
                 challenge={publicChallenge}
                 disabled={phase !== "answer" || remaining <= 0}
+                preparing={typing && phase === "countdown"}
+                onReady={prepareKeyboard}
                 phaseElapsedMs={phaseElapsedMs}
                 practiceOpponentSubmission={bot.submission}
                 onChange={(next, valid) => {
