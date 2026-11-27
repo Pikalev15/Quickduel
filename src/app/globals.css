@@ -5048,3 +5048,26 @@ dd,
   .active-game.typing-match .game-stage { padding: 0; }
   .active-game.typing-match .typing-stats > span { padding-inline: 0.25rem; }
 }
+
+/* Very short phones: reclaim vertical whitespace, not interactive hit area. */
+@media (max-width: 400px) and (max-height: 650px) {
+  .active-game { --game-room: max(190px, calc(100dvh - 225px)); }
+  .active-game > header { height: 44px; }
+  .active-game > .page-shell:not(header):not(section) > div { padding-block: 0.22rem; }
+  .active-game .match-center,
+  .active-game.typing-match .match-center { padding-block: 0.25rem; }
+  .active-game .game-title-row { gap: 0.25rem; padding-bottom: 0.25rem; }
+  .active-game .game-title-row h1 { font-size: clamp(1.3rem, 5vw, 1.65rem); }
+  .active-game .game-kicker { font-size: 0.58rem; letter-spacing: 0.06em; }
+  .active-game .game-instructions { font-size: 0.7rem; line-height: 1.2; margin-top: 0.25rem; }
+  .active-game .game-time-progress { margin-top: 0.25rem; }
+  .active-game .game-stage { margin-top: 0.25rem; padding: 0.25rem; }
+  .active-game .game-submit { min-height: 44px; margin-top: 0.25rem; padding-block: 0.35rem; }
+  .active-game .pattern-list { gap: 1px; }
+  .active-game .pattern-list section { gap: 2px; padding-bottom: 1px; }
+  .active-game .shape-canvas { max-height: 100px; }
+  .active-game .shape-game, .active-game .time-recall-controls { row-gap: 0; }
+  .active-game .game-stack { gap: 0.3rem; }
+  .active-game .recall-feedback { gap: 0.3rem; }
+  .active-game .recall-metrics > div { padding-block: 0.25rem; }
+}
