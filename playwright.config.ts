@@ -23,5 +23,6 @@ export default defineConfig({
   projects: [
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "chromium-mobile", use: { ...devices["Pixel 7"] } },
+    { name: "chromium-small-mobile", use: { ...devices["Pixel 7"], viewport: { width: 320, height: 568 } }, grep: /viewport|Frequency Recall v2/ },
   ],
 });
