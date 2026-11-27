@@ -1,8 +1,8 @@
 -- Apply only after workshop_adaptive.sql and daily_duel.sql on an isolated database.
 begin;
 alter table public.daily_duel_challenges drop constraint daily_duel_challenges_game_version_check;
-alter table public.daily_duel_challenges add constraint daily_duel_challenges_game_version_check check(game_version in (1,2));
-alter table public.daily_duel_challenges alter column game_version set default 2;
+alter table public.daily_duel_challenges add constraint daily_duel_challenges_game_version_check check(game_version in (1,2,3));
+alter table public.daily_duel_challenges alter column game_version set default 3;
 
 create or replace function public.get_daily_weekly_board(requested_date date)
 returns jsonb language sql stable security invoker set search_path='' as $$
