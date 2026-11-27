@@ -24,3 +24,9 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: "reaction_test", name: "Reaction Test", shortName: "Reaction", category: "experimental", ranked: false, description: "Five randomized go-signals test raw response latency." },
   { id: "target_tap", name: "Target Tap", shortName: "Targets", category: "experimental", ranked: false, description: "Strike twelve deterministic targets with minimal misses." },
 ];
+
+/** Preview games stay out of matchmaking and private-duel selection. */
+export const practiceGameCatalog: GameCatalogEntry[] = [
+  { id: "memory_grid_v2", name: "Memory Grid XL", shortName: "Grid", category: "mind", ranked: false, description: "Eight highlighted tiles on a 5×5 board." },
+  { id: "cryptic_duel", name: "Cryptic Duel", shortName: "Cryptic", category: "mind", ranked: false, description: "Solve an original cryptic clue in 60 seconds." },
+];
