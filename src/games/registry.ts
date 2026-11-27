@@ -559,7 +559,18 @@ const oddOneOut: GameDefinition = {
     const glyphs = ["◆", "▲", "✚", "⬢"];
     return { tileCount: 16, oddIndex: integer(random, 0, 15), glyph: glyphs[integer(random, 0, glyphs.length - 1)], showAnswer: true };
   },
-  publicChallenge: alwaysPublic,
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
+    if (Array.isArray(challenge.tiles)) return { tiles: challenge.tiles };
+    if (typeof challenge.oddIndex !== "number") return {};
+    const glyph = String(challenge.glyph);
+    return {
+      tiles: Array.from({ length: Number(challenge.tileCount) }, (_, index) => ({
+        glyph,
+        rotation: index === challenge.oddIndex ? 18 : 0,
+      })),
+    };
+  },
   calculate(challenge, submission) {
     const correct = Number(submission.selectedIndex) === Number(challenge.oddIndex);
     return result(correct ? 1 : 0, correct ? 1 : 0, correct ? "Correct target" : "Wrong target", { correct });
