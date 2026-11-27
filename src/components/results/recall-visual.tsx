@@ -1,0 +1,10 @@
+import type {RecallRoundFeedback} from "@/games/recall-rounds";
+import {pitchPosition,recallInsight,roundScores} from "@/games/feedback-visual";
+export function RecallVisual({feedback:f}:{feedback:RecallRoundFeedback}){
+ return <div className="qd-recall-visual">{f.kind==="frequency"&&f.guessHz!==null&&<div className="qd-pitch-comparison" role="img" aria-label={`Pitch comparison: target ${f.targetHz} hertz, your guess ${f.guessHz} hertz, logarithmic scale`}><div className="qd-pitch-track"><i className="qd-pitch-target" style={{left:pitchPosition(f.targetHz)+"%"}}/><i className="qd-pitch-guess" style={{left:pitchPosition(f.guessHz)+"%"}}/></div><div className="qd-pitch-scale"><span>120 Hz</span><span>2000 Hz</span></div><div className="qd-pitch-legend"><span><i/>Target</span><span><i/>Your guess</span></div></div>}<p className="qd-recall-insight">{recallInsight(f)}</p></div>;
+}
+export function RoundScoreBars({details,opponentDetails,opponentName="Opponent"}:{details?:Record<string,number|string|boolean>|null;opponentDetails?:Record<string,number|string|boolean>|null;opponentName?:string}){
+ const own=roundScores(details),other=roundScores(opponentDetails);
+ if(own.every(r=>r.score===null))return null;
+ return <div className="qd-round-chart" aria-label="Round score comparison"><div className="qd-round-chart-legend"><span><i/>You</span>{other.some(r=>r.score!==null)&&<span><i/>{opponentName}</span>}</div><div className="qd-round-chart-grid">{own.map((r,i)=><div className="qd-round-chart-cell" key={i}><div className="qd-round-bars" role="img" aria-label={`Round ${i+1}: you ${r.score===null?"unavailable":!r.answered?"no answer":r.score.toFixed(1)+" of 10"}; ${opponentName} ${other[i].score===null?"unavailable":!other[i].answered?"no answer":other[i].score?.toFixed(1)+" of 10"}`}><i className="qd-own-bar" style={{height:(r.score??0)*10+"%"}} data-missing={!r.answered||r.score===null}/><i className="qd-other-bar" style={{height:(other[i].score??0)*10+"%"}} data-missing={!other[i].answered||other[i].score===null}/></div><strong>{!r.answered?"–":r.score?.toFixed(1)??"–"}</strong><small>R{i+1}</small></div>)}</div></div>;
+}

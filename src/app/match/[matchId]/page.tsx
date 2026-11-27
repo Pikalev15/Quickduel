@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { MatchEntry } from "@/components/game/match-entry";
 import { GAME_IDS, type GameId } from "@/games/types";
+import { parseDifficulty } from "@/games/practice-difficulty";
 
 export const metadata: Metadata = {
   title: "Live duel",
@@ -14,10 +15,10 @@ export default async function MatchPage({
   searchParams,
 }: {
   params: Promise<{ matchId: string }>;
-  searchParams: Promise<{ seed?: string; game?: string; onboarding?: string }>;
+  searchParams: Promise<{ seed?: string; game?: string; onboarding?: string; difficulty?: string }>;
 }) {
   const { matchId } = await params;
-  const { seed, game, onboarding } = await searchParams;
+  const { seed, game, onboarding, difficulty } = await searchParams;
   if (matchId === "practice") {
     const practiceSeed = seed && /^[A-Za-z0-9:_-]{1,64}$/.test(seed) ? seed : "123456";
     const gameId = GAME_IDS.includes(game as GameId) ? (game as GameId) : "memory_grid";
@@ -30,6 +31,7 @@ export default async function MatchPage({
         seed={practiceSeed}
         gameId={gameId}
         onboardingStep={onboardingStep}
+        difficulty={onboardingStep ? "standard" : parseDifficulty(difficulty)}
       />
     );
   }

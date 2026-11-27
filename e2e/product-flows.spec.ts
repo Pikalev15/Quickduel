@@ -1004,3 +1004,21 @@ test("Reaction viewport times out missed taps and finishes after five attempts",
   await expect(page.getByRole("heading",{name:/Victory|Defeat|Draw/})).toBeVisible({timeout:30000});
   await expect(page.getByText(/ms median/i).first()).toBeVisible();
 });
+
+test("practice options select real difficulty without changing ranked rules",async({page})=>{
+ await page.goto("/practice?game=memory_grid");
+ await expect(page.getByText("3.5s reveal, 10s to answer",{exact:true})).toBeVisible();
+ await expect(page.getByText("1.8s reveal, 5s to answer",{exact:true})).toBeVisible();
+ await page.getByRole("link",{name:/Play expert/}).click();
+ await expect(page).toHaveURL(/difficulty=expert/);
+ await expect(page.getByText("Practice · expert · unranked")).toBeVisible({timeout:10000});
+ await expect(page.locator(".memory-board button").first()).toBeEnabled({timeout:10000});
+});
+test("frequency feedback shows a visual pitch comparison and interpretation",async({page})=>{
+ await page.goto("/match/practice?game=frequency_recall_v2&seed=visual-feedback");
+ await page.getByRole("button",{name:"Enable sound and start",exact:true}).click();
+ const lock=page.getByRole("button",{name:"Confirm round"});
+ await expect(lock).toBeEnabled({timeout:10000});await lock.click();
+ await expect(page.getByRole("img",{name:/Pitch comparison:/})).toBeVisible();
+ await expect(page.locator(".qd-recall-insight")).toBeVisible();
+});

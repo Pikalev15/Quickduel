@@ -8,6 +8,7 @@ import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
 import { compareGameResults, type GameId, type Submission } from "@/games/types";
 import { getGame } from "@/games/registry";
+import { practiceChallenge,practiceTiming,type PracticeDifficulty } from "@/games/practice-difficulty";
 import { GameRenderer } from "@/games/client-registry";
 import { track } from "@/lib/analytics";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
@@ -19,15 +20,18 @@ export function PracticeMatch({
   seed,
   gameId,
   onboardingStep,
+  difficulty = "standard",
 }: {
   seed: string;
   gameId: GameId;
   onboardingStep?: 1 | 2 | 3;
+  difficulty?: PracticeDifficulty;
 }) {
   const router = useRouter();
   const game = getGame(gameId);
-  const challenge = useMemo(() => game.generate(seed), [game, seed]);
-  const bot = useMemo(() => game.bot(seed, challenge), [challenge, game, seed]);
+  const timing = useMemo(() => practiceTiming(gameId,difficulty),[gameId,difficulty]);
+  const challenge = useMemo(() => practiceChallenge(gameId,seed,difficulty),[gameId,seed,difficulty]);
+  const bot = useMemo(() => {const result=game.bot(seed,challenge);return {...result,completionTimeMs:Math.min(timing.answerMs,result.completionTimeMs)};},[challenge,game,seed,timing.answerMs]);
   const needsAudio = gameId === "frequency_recall_v2" || gameId === "frequency_recall" || gameId === "rhythm_recall";
   const [audioReady, setAudioReady] = useState(!needsAudio);
   const typing = gameId === "typing_sprint";
@@ -58,8 +62,8 @@ export function PracticeMatch({
     return () => window.clearInterval(timer);
   }, []);
 
-  const answerDurationMs = game.answerDurationMs;
-  const answerStart = startAt + game.revealDurationMs;
+  const answerDurationMs = timing.answerMs;
+  const answerStart = startAt + timing.revealMs;
   const answerEnd = answerStart + answerDurationMs;
   const submit = useCallback(() => {
     if (submittedAt !== null || !canSubmit) return;
@@ -174,12 +178,12 @@ export function PracticeMatch({
             details: botResult.details,
           }}
           onRematch={() =>
-            router.replace(`/match/practice?game=${game.id}&seed=${Date.now()}`)
+            router.replace(`/match/practice?game=${game.id}&seed=${Date.now()}&difficulty=${difficulty}`)
           }
-          onNext={() => onboardingStep ? void nextOnboardingStep() : router.push("/play")}
+          onNext={() => onboardingStep ? void nextOnboardingStep() : router.push(`/practice?game=${game.id}`)}
           onHome={() => onboardingStep ? router.push("/onboarding") : router.push("/")}
           rematchLabel={onboardingStep ? "Try this game again" : "Rematch"}
-          nextLabel={onboardingStep ? (onboardingStep === 3 ? "See recommendation" : "Next starter game") : "Next opponent"}
+          nextLabel={onboardingStep ? (onboardingStep === 3 ? "See recommendation" : "Next starter game") : "Practice options"}
           homeLabel={onboardingStep ? "Leave starter sequence" : "Home"}
         />
       </main>
@@ -218,7 +222,7 @@ export function PracticeMatch({
           <>
             <div className="game-title-row">
               <div>
-                <p className="game-kicker">Practice · unranked</p>
+                <p className="game-kicker">Practice · {difficulty} · unranked</p>
                 <h1 className="display">{game.name}</h1>
               </div>
               <div className="game-timer" data-urgent={gameId !== "frequency_recall_v2" && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
@@ -234,7 +238,7 @@ export function PracticeMatch({
               </div>
             </div>
             <p className="game-instructions">
-              {phase === "waiting" ? "Practice Bot is finishing." : game.instructions}
+              {phase === "waiting" ? "Practice Bot is finishing." : gameId === "cryptic_duel" ? `Solve the clue in ${answerDurationMs/1000} seconds. Hints cost two points each.` : game.instructions}
             </p>
             {phase === "answer" && gameId !== "frequency_recall_v2" && (
               <div

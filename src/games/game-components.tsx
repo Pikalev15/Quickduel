@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FREQUENCY_ANSWER_MS, FREQUENCY_FEEDBACK_MS } from "./timing-pass";
 import { LockAnswerButton } from "@/components/game/lock-answer-button";
+import { RecallVisual } from "@/components/results/recall-visual";
 import type { GameComponentProps, Submission } from "./types";
 import { AudioManager } from "../lib/audio/audio-manager";
 import {
@@ -180,7 +181,8 @@ export function FrequencyRecallV2Game({ challenge, disabled, practiceOpponentSub
   const [guesses, setGuesses] = useState<(number | null)[]>([]);
   const [feedback, setFeedback] = useState<RecallRoundFeedback | null>(null);
   const [deadline, setDeadline] = useState(0);
-  const [remainingMs, setRemainingMs] = useState(FREQUENCY_ANSWER_MS);
+  const roundAnswerMs = Number(challenge.roundAnswerMs ?? FREQUENCY_ANSWER_MS);
+  const [remainingMs, setRemainingMs] = useState(roundAnswerMs);
   const [audioError, setAudioError] = useState(false);
   const [retry, setRetry] = useState(0);
   const resolvedRound = useRef(-1);
@@ -193,12 +195,12 @@ export function FrequencyRecallV2Game({ challenge, disabled, practiceOpponentSub
     void audio.playToneSequence([frequencies[round]], true).then(played => {
       if (!active) return;
       if (!played) { setAudioError(true); return; }
-      setDeadline(Date.now() + FREQUENCY_ANSWER_MS);
-      setRemainingMs(FREQUENCY_ANSWER_MS);
+      setDeadline(Date.now() + roundAnswerMs);
+      setRemainingMs(roundAnswerMs);
       setPhase("answer");
     }).catch(() => { if (active) setAudioError(true); });
     return () => { active = false; audio.stopPlayback(); };
-  }, [audio, disabled, frequencies, phase, round, retry]);
+  }, [audio, disabled, frequencies, phase, round, retry, roundAnswerMs]);
   const confirmRound = useCallback((answer: number | null) => {
     if (disabled || phase !== "answer" || resolvedRound.current === round) return;
     resolvedRound.current = round;
@@ -319,9 +321,9 @@ export function ColourRecallV2Game({
 
   useEffect(() => {
     if (disabled || phase !== "reveal" || !colors[round]) return;
-    const timer = window.setTimeout(() => setPhase("answer"), 1_150);
+    const timer = window.setTimeout(() => setPhase("answer"), Number(challenge.roundRevealMs ?? 1150));
     return () => window.clearTimeout(timer);
-  }, [colors, disabled, phase, round]);
+  }, [colors, disabled, phase, round, challenge.roundRevealMs]);
 
   function update(key: keyof RecallColour, value: number) {
     setGuess((current) => ({ ...current, [key]: value }));
@@ -436,7 +438,7 @@ function PracticeRecallFeedback({
         <>
           <div className="recall-comparison">
             <div><span>Target</span><strong>{feedback.targetHz} Hz</strong></div>
-            <div><span>Your guess</span><strong>{feedback.guessHz} Hz</strong></div>
+            <div><span>Your guess</span><strong>{feedback.guessHz === null ? "No answer" : `${feedback.guessHz} Hz`}</strong></div>
           </div>
           <div className="recall-metrics">
             <div><span>Difference</span><strong>{signed(feedback.differenceHz, " Hz")}</strong></div>
@@ -458,8 +460,9 @@ function PracticeRecallFeedback({
           </div>
         </>
       )}
+      <RecallVisual feedback={feedback} />
       <div className="recall-score-row">
-        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(2)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Running total</span><strong>{total.toFixed(1)}<small>/50</small></strong></div>
         <div><span>Bot round</span><strong>{opponentRoundScore.toFixed(1)}<small>/10</small></strong></div>
         <div><span>Bot total</span><strong>{opponentTotal.toFixed(1)}<small>/50</small></strong></div>

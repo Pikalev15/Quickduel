@@ -69,7 +69,7 @@ function GameRow({ game, index, practiceOnly = false }: { game: GameCatalogEntry
         <span>{practiceOnly ? "practice only" : game.ranked ? "ranked" : "unranked"}</span>
       </div>
       <div className="calm-game-actions">
-        <Link href={`/match/practice?game=${game.id}&seed=first-${game.id}`}>Practice</Link>
+        <Link href={`/practice?game=${game.id}`}>Practice</Link>
         {!practiceOnly && <Link href={`/play?playlist=${game.category}&game=${game.id}`}>
           Duel <ArrowIcon className="h-4 w-4" />
         </Link>}

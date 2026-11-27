@@ -279,6 +279,8 @@ export function HomeScreen() {
             <Link className="calm-secondary" href="/duel/new">
               Private duel <ArrowIcon className="h-4 w-4" />
             </Link>
+            <Link className="calm-secondary" href="/daily">Daily Duel</Link>
+            <Link className="calm-tertiary" href="/practice">Practice</Link>
             <button type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
               Choose a game
             </button>
@@ -314,12 +316,13 @@ export function HomeScreen() {
           </div>
           <div className="arena-preview-foot">
             <div><span>Remember</span><strong>6 tiles</strong></div>
-            <div><span>Answer time</span><strong>8s</strong></div>
+            <div><span>Answer time</span><strong>7s</strong></div>
           </div>
         </aside>
       </section>
 
       <div className="page-shell calm-content qd-long-home">
+        <section className="qd-home-band qd-daily-teaser" data-qd-reveal=""><div><p className="game-kicker">One board. Everyone.</p><h2>Daily Duel</h2><p>Six patterns, 45 seconds, one scored attempt each day. Compare your result even when nobody is online.</p></div><Link className="calm-primary" href="/daily">Today’s challenge <ArrowIcon className="h-4 w-4"/></Link></section>
         <section className="qd-home-band qd-explore" data-qd-reveal="" aria-labelledby="explore-heading">
           <div className="qd-section-intro"><h2 id="explore-heading">Try a challenge</h2></div>
           <div className="qd-feature-grid">
@@ -333,7 +336,7 @@ export function HomeScreen() {
             </article>
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-word-visual" aria-hidden="true">{"SOLVE".split("").map((letter, i) => <i key={i}>{letter}</i>)}</div>
-              <div className="qd-feature-copy"><h3>Cryptic Duel</h3><p>One clue, one word, 60 seconds. Try it in practice.</p><Link href="/match/practice?game=cryptic_duel">Play Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link></div>
+              <div className="qd-feature-copy"><h3>Cryptic Duel</h3><p>One clue, one word, 40 seconds. Try it in practice.</p><Link href="/match/practice?game=cryptic_duel">Play Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
           </div>
         </section>

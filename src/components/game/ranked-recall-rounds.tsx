@@ -4,6 +4,7 @@ import { estimateServerClockOffset } from "@/lib/game-clock";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LockAnswerButton } from "@/components/game/lock-answer-button";
+import { RecallVisual } from "@/components/results/recall-visual";
 import { AudioManager } from "@/lib/audio/audio-manager";
 import type {
   RecallColour,
@@ -67,8 +68,9 @@ function Feedback({
           </div>
         </>
       )}
+      <RecallVisual feedback={feedback} />
       <div className="recall-score-row">
-        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(2)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Result</span><strong>{feedback.label}</strong></div>
       </div>
       <div className="recall-next">
