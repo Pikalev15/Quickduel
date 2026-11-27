@@ -759,7 +759,7 @@ test("account deletion requires deliberate typed confirmation", async ({ page })
 
 test("logged-out users cannot render the admin surface", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: /This round does not exist/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missed that one." })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Operations/i })).toHaveCount(0);
 });
 
@@ -885,4 +885,28 @@ test("reduced motion preserves answer feedback and readable results", async ({ p
   await expect(result).toBeVisible({ timeout: 15_000 });
   await expect(result.locator(".qd-result-title")).toHaveCSS("animation-name", "none");
   await expect(result.locator(".qd-result-title")).toHaveCSS("opacity", "1");
+});
+
+test("landing sections reveal progressively and remain visible with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  expect(await page.locator(".qd-long-home [data-qd-reveal]").count()).toBeGreaterThanOrEqual(4);
+  const rank = page.locator(".qd-rank-story");
+  await rank.scrollIntoViewIfNeeded();
+  await expect(rank).toHaveAttribute("data-qd-reveal", "entered");
+  await expect(rank).toHaveCSS("opacity", "1");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(rank).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("heading", { name: "Ready to play?" })).toBeVisible();
+});
+
+test("statistics withhold starting division until five placements", async ({ page }) => {
+  await page.route("**/api/stats", (route) => route.fulfill({ json: { ok: true, data: {
+    ...profile, rating: 1000, matches_played: 2, recent_form: ["win", "loss"], game_stats: {},
+  } } }));
+  await page.goto("/profile/stats");
+  await expect(page.getByRole("heading", { name: "Unranked", exact: true })).toBeVisible();
+  await expect(page.getByText("2/5 complete", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gold", { exact: true })).toHaveCount(0);
 });

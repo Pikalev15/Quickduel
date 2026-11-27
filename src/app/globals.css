@@ -5419,3 +5419,16 @@ dd,
   .qd-long-home [data-qd-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
   .qd-404-art, .qd-404-grid i { animation: none !important; }
 }
+
+.qd-rank-panel { background: var(--surface); border: 1px solid var(--border); padding: clamp(1rem, 3vw, 1.8rem); border-radius: 12px; display: grid; gap: .85rem; }
+.qd-rank-panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.qd-rank-panel-heading span { color: var(--muted); font-size: .85rem; }
+.qd-rank-panel-heading strong { font-family: var(--display); font-size: 1.8rem; }
+.qd-placement-track { display: flex; gap: 5px; }
+.qd-placement-track i { height: 6px; flex: 1; border-radius: 3px; background: var(--border); }
+.qd-placement-track i[data-done="true"] { background: var(--accent); }
+.qd-division-ladder { display: grid; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.qd-division-ladder li { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: .65rem; padding: .45rem; border-radius: 7px; border: 1px solid transparent; }
+.qd-division-ladder li[data-current="true"] { border-color: var(--accent); background: var(--inset); }
+.qd-division-ladder .division-mark { font-size: .9rem; width: 32px; height: 32px; min-width: 32px; }
+.qd-division-ladder small { color: var(--muted); font-size: .75rem; white-space: nowrap; }

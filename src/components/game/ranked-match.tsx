@@ -114,6 +114,18 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }, [matchId, reload, snapshot, requiresAudio, audioReady, typing, keyboardReady]);
 
   const currentUserId = snapshot?.current_user_id;
+  const placementPhase = snapshot?.status === "completed" ? "result" : "playing";
+  const [placementState, setPlacementState] = useState<{ phase: string; counts: Record<string, number> } | null>(null);
+  useEffect(() => {
+    if (!currentUserId) return;
+    let active = true;
+    const controller = new AbortController();
+    void request<Record<string, number>>(`/api/matches/${matchId}/placements`, { signal: controller.signal })
+      .then((counts) => { if (active) setPlacementState({ phase: placementPhase, counts }); })
+      .catch(() => { /* Missing progress never implies an established rank. */ });
+    return () => { active = false; controller.abort(); };
+  }, [currentUserId, matchId, placementPhase]);
+  const placementCounts = placementState?.phase === placementPhase ? placementState.counts : undefined;
   useEffect(() => {
     if (!currentUserId) return;
     let active = true;
@@ -368,6 +380,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           opponent={opponent.display_name}
           opponentRating={opponent.rating_after ?? opponent.rating_before}
           connected={connected}
+          playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+          opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
           opponentConnected={opponentConnected}
         />
         <ResultPanel
@@ -396,6 +410,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             details: opponent.result.details,
           }}
           unranked={!snapshot.ranked}
+          placementMatches={currentUserId ? placementCounts?.[currentUserId] ?? null : null}
           rematchWaiting={rematchWaiting}
           onRematch={() =>
             snapshot.private_duel_code
@@ -428,6 +443,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           opponent={opponent?.display_name ?? "Opponent"}
           opponentRating={opponent?.rating_before}
           connected={connected}
+          playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+          opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
           opponentConnected={opponentConnected}
         />
         <section className="page-shell match-center text-center">
@@ -454,6 +471,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         opponent={opponent?.display_name ?? "Opponent"}
         opponentRating={opponent?.rating_before}
         connected={connected}
+        playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+        opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
         opponentConnected={opponentConnected}
       />
       <section className="page-shell screen-enter match-center">

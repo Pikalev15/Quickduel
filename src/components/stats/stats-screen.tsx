@@ -5,6 +5,7 @@ import { gameCatalog } from "@/games/catalog";
 import type { GameId } from "@/games/types";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { formatAverageResult, GAME_STAT_LABELS } from "@/lib/game-statistics";
 import type { PublicProfile } from "@/types/database";
 import { ProductHeader } from "@/components/ui/product-header";
@@ -49,6 +50,7 @@ export function StatsScreen() {
     return <main className="min-h-screen"><ProductHeader current="profile" /><section className="page-shell feature-shell"><div className="empty-state"><h1>{error ? "Statistics unavailable" : "Loading statistics…"}</h1>{error && <p className="inline-error">{error}</p>}</div></section></main>;
   }
 
+  const placement = getPlacement(stats.matches_played);
   const division = getDivision(stats.rating);
   const highestDivision = getDivision(stats.highest_rating ?? stats.rating);
   const overall = stats.overall ?? {
@@ -78,15 +80,15 @@ export function StatsScreen() {
 
         <section className="stats-overview">
           <div className="division-summary">
-            <span className={`division-mark division-${division.id}`}>{division.mark}</span>
-            <div><small>Current division</small><h2>{division.name}</h2><p>{stats.rating} Elo</p></div>
+            <span className={`division-mark ${placement?.placed ? `division-${division.id}` : ""}`}>{placement?.placed ? division.mark : "?"}</span>
+            <div><small>{placement?.placed ? "Current division" : "Placement matches"}</small><h2>{placement?.placed ? division.name : "Unranked"}</h2><p>{placement?.placed ? `${stats.rating} Elo` : placement ? `${placement.completed}/${placement.required} complete` : "Rank pending"}</p></div>
             <div className="division-progress">
-              <span style={{ width: `${division.progress * 100}%` }} />
+              <span style={{ width: `${placement?.placed ? division.progress * 100 : placement ? placement.completed / placement.required * 100 : 0}%` }} />
             </div>
-            <p>{division.next ? `${division.ratingToNext} Elo to ${division.next.name}` : "Highest division reached"}</p>
+            <p>{placement?.placed ? division.next ? `${division.ratingToNext} Elo to ${division.next.name}` : "Highest division reached" : placement ? `${placement.remaining} ranked matches until your first division` : "Placement progress unavailable"}</p>
           </div>
           <dl className="stats-key-numbers">
-            <div><dt>Highest Elo</dt><dd>{stats.highest_rating ?? stats.rating}</dd><small>{highestDivision.name}</small></div>
+            <div><dt>Highest Elo</dt><dd>{placement?.placed ? stats.highest_rating ?? stats.rating : "—"}</dd><small>{placement?.placed ? highestDivision.name : "After placements"}</small></div>
             <div><dt>Total matches</dt><dd>{overall.total_matches}</dd></div>
             <div><dt>Win rate</dt><dd>{Math.round(winRate * 100)}%</dd><small>{overall.wins}W · {overall.losses}L · {overall.draws}D</small></div>
             <div><dt>Win streak</dt><dd>{stats.current_win_streak ?? 0}</dd><small>Best {stats.best_win_streak ?? 0}</small></div>

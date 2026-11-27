@@ -18,6 +18,8 @@ import {
   type HomePreferences,
 } from "./settings-popover";
 import { track } from "@/lib/analytics";
+import { DIVISIONS, getDivision } from "@/lib/divisions";
+import { getPlacement, PLACEMENT_MATCHES } from "@/lib/placements";
 
 type Leader = {
   rank: number;
@@ -45,6 +47,7 @@ export function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const libraryRef = useRef<HTMLDivElement>(null);
   const shouldFocusLibrary = useRef(false);
+  const placement = getPlacement(profile?.matches_played);
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -282,7 +285,7 @@ export function HomeScreen() {
             </button>
           </div>
           <div className="calm-player-line">
-            <span><b>{profile?.rating ?? "—"}</b> rating</span>
+            <span><b>{placement?.placed && profile ? getDivision(profile.rating).name : placement ? `Placement ${placement.completed}/${placement.required}` : "Unranked"}</b>{placement?.placed && profile ? ` · ${profile.rating} Elo` : ""}</span>
             <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
             <span>Accuracy first in recall · 8s Memory Grid</span>
           </div>
@@ -302,7 +305,7 @@ export function HomeScreen() {
             <span className="arena-live">Game preview</span>
           </div>
           <div className="arena-scoreline">
-            <div><span>You</span><strong>{profile?.rating ?? "—"}</strong></div>
+            <div><span>You</span><strong>{placement?.placed ? profile?.rating : "—"}</strong></div>
             <LogoMark className="arena-mark" />
             <div><span>Opponent</span><strong>?</strong></div>
           </div>
@@ -364,6 +367,15 @@ export function HomeScreen() {
           </section>
         )}
 
+        <section className="qd-home-band qd-rank-story" data-qd-reveal="" aria-labelledby="placement-heading">
+          <div className="qd-section-intro"><p className="calm-eyebrow">02 · Ranked progression</p><h2 id="placement-heading">Earn your first rank.</h2><p>Play {PLACEMENT_MATCHES} rating-awarding human matches to establish your division. Your provisional Elo updates behind the scenes. Link an account to qualify for public rankings.</p>
+          <button className="calm-primary" type="button" onClick={play} disabled={starting}>{starting ? "Joining…" : placement?.placed ? "Play ranked" : "Start placements"} <ArrowIcon className="h-4 w-4" /></button></div>
+          <div className="qd-rank-panel">
+            <div className="qd-rank-panel-heading"><span>{placement?.placed && profile ? "Your division" : "Placement progress"}</span><strong>{placement?.placed && profile ? getDivision(profile.rating).name : `${placement?.completed ?? 0}/${PLACEMENT_MATCHES}`}</strong></div>
+            <div className="qd-placement-track" aria-hidden="true">{Array.from({ length: PLACEMENT_MATCHES }, (_, i) => <i key={i} data-done={i < (placement?.completed ?? 0) ? "true" : undefined} />)}</div>
+            <ol className="qd-division-ladder">{DIVISIONS.map((division) => <li key={division.id} data-current={placement?.placed && profile && getDivision(profile.rating).id === division.id ? "true" : undefined}><span className={`division-mark division-${division.id}`}>{division.mark}</span><b>{division.name}</b><small>{division.minimumRating}+ Elo</small></li>)}</ol>
+          </div>
+        </section>
         <section className="qd-home-band qd-social-band" data-qd-reveal="" aria-labelledby="duel-heading">
           <div className="qd-social-visual" aria-hidden="true"><div><span>YOU</span><strong>01</strong></div><b>VS</b><div><span>FRIEND</span><strong>02</strong></div></div>
           <div className="qd-section-intro"><p className="calm-eyebrow">03 · Play together</p><h2 id="duel-heading">Settle it in a duel.</h2><p>Create a private link, invite a friend and play a short series. Want a rematch? Go again.</p><Link className="calm-secondary" href="/duel/new">Create a private match <ArrowIcon className="h-4 w-4" /></Link></div>

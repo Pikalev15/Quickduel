@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShareIcon } from "@/components/ui/icons";
 import type { DuelOutcome } from "@/games/types";
 import { getDivision, getDivisionChange } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { getGameResultMetric } from "./result-metrics";
 
 export type ResultSide = {
@@ -25,6 +26,7 @@ export function ResultPanel({
   player,
   opponent,
   unranked = false,
+  placementMatches = null,
   rematchWaiting = false,
   onRematch,
   onNext,
@@ -41,6 +43,7 @@ export function ResultPanel({
   player: ResultSide;
   opponent: ResultSide;
   unranked?: boolean;
+  placementMatches?: number | null;
   rematchWaiting?: boolean;
   onRematch: () => void;
   onNext: () => void;
@@ -56,6 +59,7 @@ export function ResultPanel({
   const title = resultTitle ?? (
     outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw"
   );
+  const placement = getPlacement(placementMatches);
   const division = getDivision(player.ratingAfter);
   const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
 
@@ -123,11 +127,16 @@ export function ResultPanel({
         </div>
         <div>
           <div className="text-xs tracking-[0.12em] text-[var(--muted)]">
-            {unranked ? "PRACTICE MATCH" : "RATING CHANGE"}
+            {unranked ? "PRACTICE MATCH" : placement?.placed ? "RATING CHANGE" : "PLACEMENT"}
           </div>
           {unranked ? (
             <div className="display mt-1 text-3xl text-[var(--muted)]">
               Unranked
+            </div>
+          ) : !placement?.placed ? (
+            <div className="display mt-1 text-3xl" role="status">
+              {placement ? `${placement.completed}/${placement.required} complete` : "Rank pending"}
+              {placement && <p className="mt-2 text-sm font-normal text-[var(--muted)]">Unranked · {placement.remaining} remaining</p>}
             </div>
           ) : (
             <div className="display mt-1 text-3xl">
@@ -139,7 +148,7 @@ export function ResultPanel({
               </span>
             </div>
           )}
-          {!unranked && (
+          {!unranked && placement?.placed && (
             <p className={`mt-2 text-sm ${divisionChange === "promotion" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}>
               {divisionChange === "promotion"
                 ? `Promoted to ${division.name}`

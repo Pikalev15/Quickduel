@@ -10,6 +10,7 @@ import type { GameId, PlaylistId } from "@/games/types";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
 type QueueResult = { queued: boolean; match_id: string | null };
@@ -61,6 +62,7 @@ export function MatchmakingScreen({
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const placement = getPlacement(profile?.matches_played);
   const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"connecting" | "searching" | "offline" | "error">(
     "connecting",
@@ -319,15 +321,15 @@ export function MatchmakingScreen({
             </strong>
           </span>
           <span>
-            Rating <strong>{profile?.rating ?? "—"}</strong>
+            Rating <strong>{placement?.placed ? profile?.rating : "—"}</strong>
           </span>
           <span>
-            Division <strong>{profile ? getDivision(profile.rating).name : "—"}</strong>
+            Division <strong>{placement?.placed && profile ? getDivision(profile.rating).name : placement ? `Placement ${placement.completed}/${placement.required}` : "—"}</strong>
           </span>
           <span>
             Rank{" "}
             <strong>
-              {profile?.rank ? `#${profile.rank}` : "—"}
+              {placement?.placed && profile?.rank ? `#${profile.rank}` : "—"}
             </strong>
           </span>
           <span className="queue-connection">
