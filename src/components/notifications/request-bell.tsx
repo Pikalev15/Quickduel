@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { activeRequests, requestTitle, type PlayerRequest, type RequestInbox } from "@/lib/notifications";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 
+const isExpiredRequest = (item: PlayerRequest) => item.expiresAt !== null && Date.parse(item.expiresAt) <= Date.now();
 const keyOf = (item: PlayerRequest) => `${item.kind}:${item.id}`;
 function readSet(key: string): Set<string> {
   try { return new Set(JSON.parse(sessionStorage.getItem(key) ?? "[]") as string[]); } catch { return new Set(); }
@@ -137,7 +138,7 @@ export function RequestBell() {
   }, [open]);
 
   async function respond(item: PlayerRequest, accept: boolean) {
-    if (acting.current || (item.expiresAt !== null && Date.parse(item.expiresAt) <= Date.now())) return;
+    if (acting.current || isExpiredRequest(item)) return;
     const id = keyOf(item);
     if (item.kind === "rematch_ready" && accept) {
       if (item.matchId) router.push(`/match/${item.matchId}`);
