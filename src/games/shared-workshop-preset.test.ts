@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOM_TIMING_GAMES, supportsCustomReveal } from "./match-rules";
+import { CUSTOM_TIMING_GAMES, supportsCustomReveal, customRoundTiming } from "./match-rules";
 import { decodeWorkshopPreset, encodeWorkshopPreset, MAX_WORKSHOP_PRESET_LENGTH } from "./shared-workshop-preset";
 
 const memory = { game: "memory_grid", bestOf: 3, rules: { version: 1, answerMs: 10000, revealMs: 4000, memory: { size: 6, tiles: 8, ordered: true } } };
@@ -8,7 +8,7 @@ describe("portable Workshop presets", () => {
   it("round-trips all supported games, including ordered memory", () => {
     for (const game of CUSTOM_TIMING_GAMES) {
       const preset = game === "memory_grid" ? memory : {
-        game, bestOf: 5, rules: { version: 1, answerMs: 10000, revealMs: game === "rhythm_recall" ? 13000 : supportsCustomReveal(game) ? 2000 : 0 },
+        game, bestOf: 5, rules: { version: 1, answerMs: customRoundTiming(game)?.totalMs ?? 10000, ...(customRoundTiming(game) ? { roundAnswerMs: customRoundTiming(game)!.maxMs } : {}), revealMs: game === "rhythm_recall" ? 13000 : supportsCustomReveal(game) ? 2000 : 0 },
       };
       const code = encodeWorkshopPreset(preset);
       expect(code).not.toBeNull();
