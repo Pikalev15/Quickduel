@@ -225,22 +225,17 @@ export function FrequencyRecallV2Game({
           ).toFixed(1)}/50 scored
         </strong>
       </div>
-      {phase === "reveal" ? (
-        <div className="frequency-reveal">
-          <span className="frequency-wave" aria-hidden="true">∿</span>
-          <strong>Listen</strong>
-          <button
-            type="button"
-            className="recall-replay"
-            disabled={disabled}
-            onClick={() => void audio.playToneSequence([frequencies[round]])}
-          >
-            Play tone again
-          </button>
-        </div>
-      ) : phase === "answer" ? (
-        <div className="sequential-answer">
-          <p>Tune the pitch you just heard.</p>
+      {phase === "reveal" || phase === "answer" ? (
+        <div className="sequential-answer frequency-controls">
+          <p>Listen to the target and compare your guess. Replay either tone as needed.</p>
+          <div className="frequency-audio-actions">
+            <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([frequencies[round]])}>
+              Replay target
+            </button>
+            <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([guess])}>
+              Play my guess
+            </button>
+          </div>
           <Range
             label={`Round ${round + 1} frequency`}
             value={guess}
@@ -249,7 +244,7 @@ export function FrequencyRecallV2Game({
             disabled={disabled}
             onChange={setGuess}
           />
-          <button type="button" className="recall-confirm" onClick={confirmRound}>
+          <button type="button" className="recall-confirm" disabled={disabled || phase !== "answer"} onClick={confirmRound}>
             Confirm round
           </button>
         </div>
