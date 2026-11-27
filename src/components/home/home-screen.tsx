@@ -370,6 +370,7 @@ export function HomeScreen() {
 
       {profileOpen && (
         <ProfileDrawer
+          key={`${profile?.id??user?.id??"guest"}:${profile?"profile":"initial"}`}
           open
           profile={profile}
           user={user}

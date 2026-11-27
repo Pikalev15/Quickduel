@@ -5557,3 +5557,28 @@ dd,
  .qd-request-panel { position:absolute;top:calc(100% + 8px);left:auto;right:0;width:min(360px,calc(100vw - 24px)); }
  .settings-popover { right:-88px; }
 }
+
+/* Shared, flush navigation. The bottom border and active indicator share an edge. */
+.product-header-inner { grid-template-columns:auto minmax(0,1fr) auto; gap:clamp(.5rem,2vw,2rem); min-height:64px; }
+.product-nav { align-self:stretch; align-items:stretch; justify-content:center; gap:0; min-width:0; }
+.product-header .product-nav a { padding-inline:clamp(.55rem,1.5vw,1.25rem); font-size:.86rem; border-radius:0; min-height:44px; }
+.product-header .product-nav a:active { transform:none; }
+.product-nav a[aria-current="page"] { color:var(--accent); font-weight:800; }
+.product-nav-indicator { bottom:0; height:2px; }
+.product-nav a:not([aria-current="page"])::after { display:none; }
+.product-header .qd-header-requests { justify-self:end; min-width:0; gap:.3rem; }
+.product-header .header-controls { gap:.3rem; }
+.product-header .qd-request-bell { flex:none; }
+.product-header .settings-popover { right:0; max-height:calc(100dvh - 84px); overflow:auto; }
+@media(max-width:850px) {
+ .product-header-inner { grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto auto; min-height:0; gap:0; padding-top:5px; }
+ .product-header .wordmark { grid-row:1; grid-column:1; justify-self:start; font-size:1.3rem!important; gap:.35rem!important; }
+ .product-header .wordmark svg { width:27px;height:27px; }
+ .product-header .qd-header-requests { grid-row:1; grid-column:2; gap:.15rem; }
+ .product-header .profile-chip b,.product-header .settings-trigger span,.product-header .site-online { display:none; }
+ .product-header .settings-trigger,.product-header .profile-chip { width:44px; min-width:44px; padding:0; justify-content:center; }
+ .product-header .product-nav { grid-row:2; grid-column:1/-1; justify-content:space-between; border-top:1px solid var(--border); margin-top:4px; gap:0; overflow-x:auto; }
+ .product-header .product-nav a { flex:1 0 auto; justify-content:center; min-height:44px; padding:0 .35rem; font-size:clamp(.72rem,2.7vw,.84rem); }
+ .product-header .settings-anchor { position:static; }
+ .product-header .settings-popover { top:calc(100% + 6px); right:12px; width:min(340px,calc(100vw - 24px)); max-height:calc(100dvh - 125px); overflow-y:auto; }
+}

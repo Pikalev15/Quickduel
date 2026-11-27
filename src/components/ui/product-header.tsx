@@ -6,12 +6,14 @@ import { ProfileControl } from "@/components/profile/profile-control";
 export function ProductHeader({
   current,
   trailing,
+  profileSlot,
 }: {
-  current?: "play" | "friends" | "history" | "leaderboard" | "profile";
+  current?: "home" | "play" | "friends" | "history" | "leaderboard" | "profile";
   trailing?: React.ReactNode;
+  profileSlot?: React.ReactNode;
 }) {
   const links = [
-    ["play", "/play", "Play"],
+    ["home", "/", "Home"],
     ["friends", "/friends", "Friends"],
     ["history", "/history", "History"],
     ["leaderboard", "/leaderboard", "Leaderboard"],
@@ -29,7 +31,7 @@ export function ProductHeader({
             </Link>
           ))}
         </nav>
-        <div className="product-header-trailing qd-header-requests">{trailing}<ProfileControl /><RequestBell /></div>
+        <div className="product-header-trailing qd-header-requests">{trailing}{profileSlot ?? <ProfileControl />}<RequestBell /></div>
       </div>
     </header>
   );

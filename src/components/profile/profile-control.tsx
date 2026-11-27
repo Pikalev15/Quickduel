@@ -10,7 +10,6 @@ export function ProfileControl() {
   const [user,setUser]=useState<User|null>(null);
   const [profile,setProfile]=useState<PublicProfile|null>(null);
   useEffect(()=>{
-    if(!open)return;
     let active=true;
     let unsubscribe:(()=>void)|undefined;
     let generation=0;
@@ -37,9 +36,9 @@ export function ProfileControl() {
       unsubscribe=()=>data.subscription.unsubscribe();
     }).catch(()=>{});
     return()=>{active=false;unsubscribe?.();};
-  },[open]);
+  },[]);
   return <>
     <button type="button" className="profile-chip qd-profile-control" aria-label="Player profile" onClick={()=>setOpen(true)}><span className={`accent-${profile?.accent_colour??"volt"}`}>{(profile?.display_name??"QD").slice(0,2).toUpperCase()}</span></button>
-    {open&&<ProfileDrawer key={profile?.id??user?.id??"guest"} open profile={profile} user={user} onClose={()=>setOpen(false)} onUpdated={setProfile} onSignedOut={()=>{setUser(null);setProfile(null);setOpen(false);}}/>}
+    {open&&<ProfileDrawer key={`${profile?.id??user?.id??"guest"}:${profile?"profile":"initial"}`} open profile={profile} user={user} onClose={()=>setOpen(false)} onUpdated={setProfile} onSignedOut={()=>{setUser(null);setProfile(null);setOpen(false);}}/>}
   </>;
 }

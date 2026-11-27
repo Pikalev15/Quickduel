@@ -153,7 +153,7 @@ test("primary navigation coordinates leaderboard and history transitions", async
 
   await page.goto("/leaderboard");
   await expect(page.getByText("YOU", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "History", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "History", exact: true }).click();
   await expect(page).toHaveURL(/\/history$/);
   await expect(page.getByRole("heading", { name: "Match history" })).toBeVisible();
   await expect
@@ -938,5 +938,40 @@ test("request inbox supports incoming friend and duel requests and rematches", a
   await expect(page.getByText("No pending requests.")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Notifications", exact: true }).click();
+  await expect(page.getByText("No pending requests.")).toBeVisible();
+});
+
+test("shared navigation and site accents remain consistent across pages", async ({ page }) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
+  await expect(nav.getByRole("link",{name:"Home",exact:true})).toHaveAttribute("aria-current","page");
+  await page.getByRole("button",{name:"Settings",exact:true}).click();
+  const settings=page.getByRole("region",{name:"Settings",exact:true});
+  await expect(settings.getByRole("button",{name:/sign in|sign up|sign out/i})).toHaveCount(0);
+  await settings.getByRole("button",{name:"Mint website accent"}).click();
+  await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
+  await page.getByRole("button",{name:"Player profile",exact:true}).click();
+  const drawer=page.getByRole("dialog",{name:"Customize profile"});
+  await expect(drawer.getByRole("heading",{name:"Account"})).toBeVisible();
+  await drawer.getByRole("button",{name:"Close profile"}).click();
+  await nav.getByRole("link",{name:"Leaderboard",exact:true}).click();
+  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
+  await expect(nav.getByRole("link",{name:"Leaderboard",exact:true})).toHaveAttribute("aria-current","page");
+  await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
+});
+test("mobile viewport keeps notification bell at right edge", async ({ page }) => {
+  await page.setViewportSize({width:320,height:568});
+  await page.route("**/api/notifications",route=>route.fulfill({json:{ok:true,data:{userId:profile.id,requests:[]}}}));
+  await page.goto("/");
+  const bell=page.getByRole("button",{name:"Notifications",exact:true});
+  await expect(bell).toBeVisible();
+  const box=await bell.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(320-box!.x-box!.width).toBeLessThanOrEqual(16);
+  await bell.click();
   await expect(page.getByText("No pending requests.")).toBeVisible();
 });
