@@ -975,3 +975,15 @@ test("mobile viewport keeps notification bell at right edge", async ({ page }) =
   await bell.click();
   await expect(page.getByText("No pending requests.")).toBeVisible();
 });
+
+test("game library uses distinct mechanic icons rather than numeric markers", async ({ page }) => {
+  await page.goto("/");
+  const library = page.getByRole("region", { name: "Game library" });
+  await expect(library.locator("[data-game-icon]")).toHaveCount(5);
+  await library.getByRole("button", { name: "See all", exact: true }).click();
+  const icons = library.locator("[data-game-icon]");
+  await expect(icons).toHaveCount(15);
+  const ids = await icons.evaluateAll(elements => elements.map(element => element.getAttribute("data-game-icon")));
+  expect(new Set(ids).size).toBe(15);
+  await expect(library.locator(".game-mark").filter({ hasText: /^\d{2}$/ })).toHaveCount(0);
+});

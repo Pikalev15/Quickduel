@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { gameCatalog, practiceGameCatalog, type GameCatalogEntry } from "@/games/catalog";
 import { ArrowIcon } from "@/components/ui/icons";
+import { GameIcon } from "@/components/ui/game-icon";
 
 const featuredIds = new Set(["memory_grid", "colour_recall_v2", "frequency_recall_v2"]);
 
@@ -24,14 +25,14 @@ export function GameLibrary({
       </div>
 
       <div className="featured-games">
-        {featured.map((game, index) => (
-          <GameRow game={game} index={index + 1} key={game.id} />
+        {featured.map((game) => (
+          <GameRow game={game} key={game.id} />
         ))}
       </div>
 
       <div className="calm-section-head"><div><span>Practice only</span></div></div>
       <div className="featured-games">
-        {practiceGameCatalog.map((game, index) => <GameRow key={game.id} game={game} index={gameCatalog.length + index + 1} practiceOnly />)}
+        {practiceGameCatalog.map((game) => <GameRow key={game.id} game={game} practiceOnly />)}
       </div>
 
       <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
@@ -46,7 +47,6 @@ export function GameLibrary({
             .map((game) => (
               <GameRow
                 game={game}
-                index={gameCatalog.findIndex((entry) => entry.id === game.id) + 1}
                 key={game.id}
               />
             ))}
@@ -56,10 +56,10 @@ export function GameLibrary({
   );
 }
 
-function GameRow({ game, index, practiceOnly = false }: { game: GameCatalogEntry; index: number; practiceOnly?: boolean }) {
+function GameRow({ game, practiceOnly = false }: { game: GameCatalogEntry; practiceOnly?: boolean }) {
   return (
     <article className="calm-game-row">
-      <div className={`game-mark game-mark-${game.category}`}>{String(index).padStart(2, "0")}</div>
+      <div className={`game-mark game-mark-${game.category}`}><GameIcon game={game.id} /></div>
       <div className="calm-game-copy">
         <h3>{game.name}</h3>
         <p>{game.description}</p>

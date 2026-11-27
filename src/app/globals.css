@@ -5582,3 +5582,7 @@ dd,
  .product-header .settings-anchor { position:static; }
  .product-header .settings-popover { top:calc(100% + 6px); right:12px; width:min(340px,calc(100vw - 24px)); max-height:calc(100dvh - 125px); overflow-y:auto; }
 }
+
+/* Game-specific library glyphs use the selected website accent. */
+.game-mark { flex-shrink:0; }
+.game-mark svg { width:25px; height:25px; display:block; }
