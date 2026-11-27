@@ -17,9 +17,15 @@ export function appendRhythmTap(
   if (round < 0 || round >= taps.length || taps[round].length >= tapLimit) {
     return { taps, accepted: false };
   }
+  const previous = taps[round].at(-1);
+  const next = Math.round(elapsedMs);
+  if (!Number.isFinite(next) || next < 0 || next > 10000 ||
+      (previous === undefined ? next !== 0 : next <= previous)) {
+    return { taps, accepted: false };
+  }
   return {
     taps: taps.map((values, index) =>
-      index === round ? [...values, Math.max(values.at(-1) ?? 0, Math.round(elapsedMs))] : values,
+      index === round ? [...values, next] : values,
     ),
     accepted: true,
   };
