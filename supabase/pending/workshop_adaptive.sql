@@ -10,16 +10,17 @@ returns jsonb language plpgsql security definer set search_path='' as $$
 declare result jsonb; m jsonb; g integer; n integer; r integer; a integer; ordered boolean;
 begin
  if auth.uid() is null or requested_ranked is distinct from false or requested_selection_kind is distinct from 'game'
- or requested_game is null or requested_game not in ('memory_grid','shape_recall','dot_estimate','number_order','odd_one_out','pattern_complete','typing_sprint')
+ or requested_game is null or requested_game not in ('memory_grid','shape_recall','dot_estimate','number_order','odd_one_out','pattern_complete','typing_sprint','rhythm_recall')
  or jsonb_typeof(requested_rules) is distinct from 'object' or requested_rules->>'version' is distinct from '1'
  or requested_rules - array['version','answerMs','revealMs','memory'] <> '{}'::jsonb
  or jsonb_typeof(requested_rules->'answerMs') is distinct from 'number' or jsonb_typeof(requested_rules->'revealMs') is distinct from 'number'
  or requested_rules->>'answerMs' !~ '^[0-9]{1,5}$' or requested_rules->>'revealMs' !~ '^[0-9]{1,5}$'
  then raise exception 'Invalid workshop rules'; end if;
  r:=(requested_rules->>'revealMs')::integer; a:=(requested_rules->>'answerMs')::integer;
- if a not between 3000 and 60000 or r not between 0 and 10000
- or (requested_game in ('memory_grid','shape_recall','dot_estimate') and r<500)
- or (requested_game not in ('memory_grid','shape_recall','dot_estimate') and r<>0)
+ if a not between 3000 and 60000 or r not between 0 and 13000
+ or (requested_game in ('memory_grid','shape_recall','dot_estimate') and r not between 500 and 10000)
+ or (requested_game not in ('memory_grid','shape_recall','dot_estimate','rhythm_recall') and r<>0)
+ or (requested_game='rhythm_recall' and (r<>13000 or a<10000))
  then raise exception 'Invalid workshop timing'; end if;
  if requested_game='memory_grid' then
   m:=requested_rules->'memory';
