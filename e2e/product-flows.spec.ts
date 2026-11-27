@@ -851,3 +851,38 @@ test("Cryptic Duel viewport and hints remain usable", async ({ page }) => {
   await lock.click();
   await expect(page.getByText(/^Answer:/)).toBeVisible({ timeout: 50000 });
 });
+
+test("motion keeps the timed viewport and selection hitboxes stable", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/match/practice?game=memory_grid_v2&seed=motion-viewport");
+  const route = page.locator(".route-transition--fast");
+  await expect(route).toHaveCSS("animation-name", "none");
+  const tile = page.getByRole("button", { name: "Cell 1", exact: true });
+  await expect(tile).toBeEnabled({ timeout: 12_000 });
+  const before = await tile.boundingBox();
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  const after = await tile.boundingBox();
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(Math.abs((before?.x ?? 0) - (after?.x ?? 0))).toBeLessThan(1);
+  expect(Math.abs((before?.y ?? 0) - (after?.y ?? 0))).toBeLessThan(1);
+  expect(Math.abs((before?.width ?? 0) - (after?.width ?? 0))).toBeLessThan(1);
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeInViewport();
+});
+
+test("reduced motion preserves answer feedback and readable results", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/match/practice?game=odd_one_out&seed=reduced-motion-feedback");
+  const tile = page.getByRole("button", { name: "Tile 1", exact: true });
+  await expect(tile).toBeEnabled({ timeout: 10_000 });
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeEnabled();
+  await lock.click();
+  const result = page.locator(".qd-result");
+  await expect(result).toBeVisible({ timeout: 15_000 });
+  await expect(result.locator(".qd-result-title")).toHaveCSS("animation-name", "none");
+  await expect(result.locator(".qd-result-title")).toHaveCSS("opacity", "1");
+});
