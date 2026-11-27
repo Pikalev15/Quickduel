@@ -188,7 +188,7 @@ export function CreateDuelScreen() {
             </label>
           )}
 
-          {selectionKind==="game"&&supportsCustomTiming(game)&&<div className="qd-workshop"><label className="feature-check"><input type="checkbox" checked={Boolean(workshop)} onChange={event=>{if(!event.target.checked){setWorkshop(null);return;}const g=getGame(game);setRanked(false);setWorkshop({version:1,revealMs:supportsCustomReveal(game)?g.revealDurationMs:0,answerMs:g.answerDurationMs,...(game==="memory_grid"?{memory:{size:4,tiles:6,ordered:false}}:{})});}}/><span><b>Custom game rules</b><small>Unranked · locked when the room is created</small></span></label>{workshop&&<WorkshopControls game={game} rules={workshop} onChange={setWorkshop}/>}</div>}
+          {selectionKind==="game"&&supportsCustomTiming(game)&&<div className="qd-workshop"><label className="feature-check"><input type="checkbox" checked={Boolean(workshop)} onChange={event=>{if(!event.target.checked){setWorkshop(null);return;}const g=getGame(game);setRanked(false);setWorkshop({version:1,revealMs:supportsCustomReveal(game)||game==="rhythm_recall"?g.revealDurationMs:0,answerMs:g.answerDurationMs,...(game==="memory_grid"?{memory:{size:4,tiles:6,ordered:false}}:{})});}}/><span><b>Custom game rules</b><small>Unranked · locked when the room is created</small></span></label>{workshop&&<WorkshopControls game={game} rules={workshop} onChange={setWorkshop}/>}</div>}
           <fieldset>
             <legend>Shareable Workshop presets</legend>
             <p>Copy your custom rules or paste a friend's preset. Presets never create a room automatically.</p>
