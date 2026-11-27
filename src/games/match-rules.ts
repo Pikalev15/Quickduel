@@ -1,17 +1,18 @@
 import {z} from "zod";
 import type {Challenge} from "./types";
 import {createRandom,shuffle} from "./random";
+import { RHYTHM_REVEAL_DURATION_MS } from "./rhythm-input";
 
 // These games have server-owned answer deadlines and a compatible client renderer.
-// Multi-round and fixed audio/reaction schedules need a separate versioned ruleset.
-export const CUSTOM_TIMING_GAMES=["memory_grid","shape_recall","dot_estimate","number_order","odd_one_out","pattern_complete","typing_sprint"] as const;
+// Secure multi-round audio/colour and reaction schedules need a separate versioned ruleset. Rhythm keeps its full fixed reveal.
+export const CUSTOM_TIMING_GAMES=["memory_grid","shape_recall","dot_estimate","number_order","odd_one_out","pattern_complete","typing_sprint","rhythm_recall"] as const;
 export const CUSTOM_REVEAL_GAMES=["memory_grid","shape_recall","dot_estimate"] as const;
 export const supportsCustomTiming=(game:unknown)=>CUSTOM_TIMING_GAMES.some(id=>id===game);
 export const supportsCustomReveal=(game:unknown)=>CUSTOM_REVEAL_GAMES.some(id=>id===game);
 export const workshopSchema=z.object({
  version:z.literal(1),
  answerMs:z.number().int().min(3000).max(60000),
- revealMs:z.number().int().min(0).max(10000),
+ revealMs:z.number().int().min(0).max(RHYTHM_REVEAL_DURATION_MS),
  memory:z.object({size:z.number().int().min(3).max(8),tiles:z.number().int().min(1).max(32),ordered:z.boolean()}).strict().optional()
 }).strict().superRefine((value,ctx)=>{
  if(value.memory&&(value.memory.tiles>=value.memory.size**2||value.revealMs<500))ctx.addIssue({code:"custom",message:"Choose fewer tiles than cells and at least 0.5s to reveal."});
@@ -24,7 +25,7 @@ export const matchRulesSchema=z.discriminatedUnion("kind",[
 ]);
 export type MatchRules=z.infer<typeof matchRulesSchema>;
 export function validWorkshop(game:unknown,rules:WorkshopRules){
- return supportsCustomTiming(game)&&(supportsCustomReveal(game)?rules.revealMs>=500:rules.revealMs===0)&&((game==="memory_grid")===Boolean(rules.memory));
+ return supportsCustomTiming(game)&&(game==="rhythm_recall"?rules.revealMs===RHYTHM_REVEAL_DURATION_MS&&rules.answerMs>=10000:supportsCustomReveal(game)?rules.revealMs>=500&&rules.revealMs<=10000:rules.revealMs===0)&&((game==="memory_grid")===Boolean(rules.memory));
 }
 export function rankTier(rating:number,matches:number){
  if(matches<5)return "standard" as const;
