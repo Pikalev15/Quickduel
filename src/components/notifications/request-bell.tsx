@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { activeRequests, requestTitle, type PlayerRequest, type RequestInbox } from "@/lib/notifications";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 
@@ -14,7 +15,7 @@ function saveSet(key: string, values: Set<string>) {
   try { sessionStorage.setItem(key, JSON.stringify([...values].slice(-200))); } catch { /* storage unavailable */ }
 }
 
-export function RequestBell() {
+export function RequestBell({ onViewNotification }: { onViewNotification?: () => void } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const [items, setItems] = useState<PlayerRequest[]>([]);
@@ -186,7 +187,8 @@ export function RequestBell() {
   return (
     <div ref={wrapper} className="qd-request-anchor">
       <button ref={trigger} type="button" className="qd-request-bell" aria-label={count ? `Notifications, ${count} pending requests` : "Notifications"} aria-expanded={open} aria-controls="qd-request-panel" onClick={() => { setOpen(!open); setToast(null); nextPoll.current = 0; void reload(); }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        <span className="qd-request-label">Notifications</span>
         {count > 0 && <span className="qd-request-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>}
       </button>
       {open && <section id="qd-request-panel" className="qd-request-panel" aria-label="Notifications">
@@ -204,11 +206,11 @@ export function RequestBell() {
           </article>)}
         </div>}
       </section>}
-      {!open && toast && <aside className="qd-request-toast" role="status">
+      {!open && toast && createPortal(<aside className="qd-request-toast" role="status">
         <div><b>{requestTitle(toast.kind)}</b><p>{toast.sender}: {toast.detail}</p></div>
-        <button type="button" onClick={() => { setOpen(true); setToast(null); }}>View</button>
+        <button type="button" onClick={() => { onViewNotification?.(); setOpen(true); setToast(null); }}>View</button>
         <button type="button" aria-label="Dismiss notification banner" onClick={() => setToast(null)}>×</button>
-      </aside>}
+      </aside>, document.body)}
     </div>
   );
 }

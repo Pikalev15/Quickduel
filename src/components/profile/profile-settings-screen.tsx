@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductHeader } from "@/components/ui/product-header";
+import { AccentPicker } from "@/components/theme/accent-picker";
 import { ANALYTICS_PREFERENCE_KEY, analyticsEnabled } from "@/lib/analytics";
 
 type Cosmetic = {
@@ -99,6 +100,8 @@ export function ProfileSettingsScreen() {
           <p>Cosmetics change presentation only. They never affect score, matchmaking, or Elo.</p>
         </div>
         {message && <p className="profile-message" role="status">{message}</p>}
+
+        <section className="settings-section"><h2>Appearance</h2><AccentPicker /></section>
 
         <section className="settings-section">
           <div className="feature-section-heading"><div><h2>Owned cosmetics</h2><p>Free testing items are available now; there is no shop or payment flow.</p></div></div>

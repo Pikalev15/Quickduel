@@ -3,7 +3,7 @@ import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
 import { matchIdSchema, submitAnswerSchema } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getGame } from "@/games/registry";
+import { getGame, generateMatchChallenge } from "@/games/registry";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 import { isDuplicateSubmission } from "@/lib/server/domain-errors";
 import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
@@ -89,7 +89,7 @@ export async function POST(
     ) {
       return apiError(409, "CONFLICT", "This game submits at the deadline.", undefined, correlationId);
     }
-    const challenge = game.generate(String(match.challenge_seed));
+    const challenge = generateMatchChallenge(game, String(match.challenge_seed), match.reveal_duration_ms, match.answer_duration_ms);
     const submission = parsed.data.timedOut
       ? { success: true as const, data: { timedOut: true } }
       : game.submissionSchema.safeParse(parsed.data.submission);

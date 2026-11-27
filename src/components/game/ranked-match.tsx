@@ -59,7 +59,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     try {
       const requestedAt = Date.now();
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
-      const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now());
+      const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now(), next.server_received_at);
       if (offset !== null) {
         clockOffsetRef.current = offset;
         setClockOffset(offset);
@@ -246,7 +246,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const memoryHolding =
     game?.id === "memory_grid" &&
     phase === "reveal" &&
-    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
+    phaseElapsedMs >= Number(snapshot?.challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
 
   useEffect(() => {
     if (!snapshot || trackedStatuses.current.has(snapshot.status)) return;
@@ -270,7 +270,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }, [matchId, snapshot]);
 
   useEffect(() => {
-    if (secureRecall || phase !== "answer" || !answerEnd || me?.submitted_at) return;
+    if (secureRecall || phase !== "answer" || snapshot?.phase !== "answer" || !answerEnd || me?.submitted_at) return;
     if (game?.autoSubmitOnValid && canSubmit) {
       void submit(false);
       return;
@@ -289,6 +289,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     game?.submitAtDeadline,
     secureRecall,
     phase,
+    snapshot?.phase,
     me?.submitted_at,
   ]);
 
@@ -463,6 +464,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
 
   const countdown = start ? Math.max(1, Math.ceil((start - serverNow) / 1000)) : 3;
   const waiting = phase === "waiting" || phase === "countdown";
+  const typingPreparing = typing && (waiting || (phase === "answer" && snapshot?.phase !== "answer"));
 
   return (
     <main className={`active-game has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
@@ -541,7 +543,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                   onComplete={handleRecallComplete}
                   onError={handleRecallError}
                 />
-              ) : snapshot && (phase === "reveal" || phase === "answer") && snapshot.phase !== phase ? (
+              ) : !typing && snapshot && (phase === "reveal" || phase === "answer") && snapshot.phase !== phase ? (
                 <span className="search-pulse h-3 w-3 bg-[var(--accent)]" aria-label="Synchronizing game" />
               ) : snapshot ? (
                 <GameRenderer
@@ -551,8 +553,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                     snapshot?.challenge ?? {},
                     phase === "reveal" ? "reveal" : "answer",
                   ) ?? {}}
-                  disabled={phase !== "answer" || remaining <= 0 || lockStatus !== "idle"}
-                  preparing={typing && waiting}
+                  disabled={phase !== "answer" || snapshot.phase !== "answer" || remaining <= 0 || lockStatus !== "idle"}
+                  preparing={typingPreparing}
+                  answerDurationMs={snapshot.answer_duration_ms}
+                  answerRemainingMs={remaining}
                   onReady={() => setKeyboardReady(true)}
                   phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {

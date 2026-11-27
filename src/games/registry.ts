@@ -18,7 +18,8 @@ import type {
 import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
 import { CRYPTIC_CLUES, normalizeCrypticAnswer } from "./cryptic-clues";
-import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
+import { MEMORY_GRID_REVEAL_DURATION_MS, MEMORY_GRID_ANSWER_MS, MEMORY_GRID_XL_REVEAL_MS, MEMORY_GRID_XL_ANSWER_MS } from "./memory-grid-timing";
+import { REACTION_ATTEMPTS, REACTION_WAIT_MIN_MS, REACTION_WAIT_MAX_MS, REACTION_TAP_MS, REACTION_DURATION_MS, FREQUENCY_DUEL_MS, CRYPTIC_DURATION_MS, median } from "./timing-pass";
 import {
   RHYTHM_COUNT,
   RHYTHM_MAX_INTERVAL_MS,
@@ -62,7 +63,7 @@ const memoryGrid: GameDefinition = {
   instructions: "Memorize the lit cells. Select every remembered cell; accuracy wins, speed breaks ties.",
   ranked: true,
   revealDurationMs: MEMORY_GRID_REVEAL_DURATION_MS,
-  answerDurationMs: 8000,
+  answerDurationMs: MEMORY_GRID_ANSWER_MS,
   submissionSchema: object({
     selectedCells: z.array(z.number().int().min(0).max(15)).min(1).max(16),
   }).superRefine((value, context) => {
@@ -97,7 +98,7 @@ const memoryGrid: GameDefinition = {
     const selected = expected.filter(() => random() > 0.16);
     if (selected.length === 0) selected.push(expected[0]);
     if (random() < 0.24) selected.push(integer(random, 0, 15));
-    return { submission: { selectedCells: [...new Set(selected)] }, completionTimeMs: botTime(random, 8000) };
+    return { submission: { selectedCells: [...new Set(selected)] }, completionTimeMs: botTime(random, MEMORY_GRID_ANSWER_MS) };
   },
 };
 
@@ -202,8 +203,9 @@ const frequencyRecallV2: GameDefinition = {
   instructions: "Five rounds. Replay the target, estimate its pitch, then lock it. Each round scores 0–10.",
   ranked: true,
   revealDurationMs: 0,
-  answerDurationMs: 30_000,
-  submissionSchema: object({ guessesHz: numberArray(5, 120, 2000) }) as z.ZodType<Submission>,
+  answerDurationMs: FREQUENCY_DUEL_MS,
+  autoSubmitOnValid: true,
+  submissionSchema: object({ guessesHz: z.array(z.number().finite().min(120).max(2000).nullable()).length(5) }) as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
     return {
@@ -215,7 +217,7 @@ const frequencyRecallV2: GameDefinition = {
   publicChallenge: alwaysPublic,
   calculate(challenge, submission) {
     const expected = challenge.frequencies as number[];
-    const guesses = submission.guessesHz as number[];
+    const guesses = submission.guessesHz as (number | null)[];
     const roundFeedback = expected.map((frequency, index) =>
       frequencyRoundFeedback(frequency, guesses[index]),
     );
@@ -233,9 +235,9 @@ const frequencyRecallV2: GameDefinition = {
       ),
       ...Object.fromEntries(roundScores.flatMap((score, index) => [
         [`round${index + 1}Score`, score],
-        [`round${index + 1}Answered`, true],
+        [`round${index + 1}Answered`, guesses[index] !== null],
         [`round${index + 1}Target`, expected[index]],
-        [`round${index + 1}Guess`, guesses[index]],
+        [`round${index + 1}Guess`, guesses[index] ?? 0],
         [`round${index + 1}PercentError`, roundFeedback[index].percentError ?? 0],
         [`round${index + 1}Error`, roundFeedback[index].centsError ?? 0],
       ])),
@@ -252,7 +254,7 @@ const frequencyRecallV2: GameDefinition = {
           ),
         ),
       },
-      completionTimeMs: botTime(random, 30_000),
+      completionTimeMs: botTime(random, FREQUENCY_DUEL_MS),
     };
   },
 };
@@ -648,7 +650,7 @@ const typingSprint: GameDefinition = {
   name: "Typing Sprint",
   shortName: "Typing",
   category: "mind",
-  description: "Type as many words as you can in 15 seconds.",
+  description: "Type as many words as you can in 30 seconds.",
   instructions: "Type quickly and accurately. Errors reduce your WPM.",
   ranked: true,
   revealDurationMs: 0,
@@ -688,6 +690,7 @@ const typingSprint: GameDefinition = {
     const statistics = typingSprintStatistics(
       String(challenge.text),
       String(submission.typed),
+      Number(challenge.durationMs ?? TYPING_SPRINT_DURATION_MS),
     );
     return result(
       statistics.netWpm,
@@ -743,28 +746,33 @@ const reactionTest: GameDefinition = {
   shortName: "Reaction",
   category: "experimental",
   description: "Wait for green, then tap as quickly as you can.",
-  instructions: "Wait for green, then click. False starts receive a 1000ms trial.",
+  instructions: "Five attempts. Tap green within 1.25 seconds. Misses and false starts count as 1250ms. Median time wins.",
   ranked: false,
   revealDurationMs: 0,
-  answerDurationMs: 18000,
+  answerDurationMs: REACTION_DURATION_MS,
+  autoSubmitOnValid: true,
   submissionSchema: object({
     reactionTimesMs: numberArray(5, 0, 2000),
     falseStarts: z.number().int().min(0).max(5),
   }) as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
-    return { waits: Array.from({ length: 5 }, () => integer(random, 800, 2200)) };
+    return { waits: Array.from({ length: REACTION_ATTEMPTS }, () => integer(random, REACTION_WAIT_MIN_MS, REACTION_WAIT_MAX_MS)), tapWindowMs: REACTION_TAP_MS };
   },
   publicChallenge: alwaysPublic,
-  calculate(_challenge, submission) {
-    const times = submission.reactionTimesMs as number[];
-    const average = mean(times);
-    return result(-average, 1 - average / 1000, `${Math.round(average)}ms average`, { averageMs: Math.round(average), falseStarts: Number(submission.falseStarts) });
+  calculate(challenge, submission) {
+    const times = (submission.reactionTimesMs as number[]).map(t => Math.min(Number(challenge.tapWindowMs ?? 2000), t));
+    if (!challenge.tapWindowMs) {
+      const average = mean(times);
+      return result(-average, 1 - average / 1000, `${Math.round(average)}ms average`, { averageMs: Math.round(average), falseStarts: Number(submission.falseStarts) });
+    }
+    const middle = median(times);
+    return result(-middle, 1 - middle / Number(challenge.tapWindowMs), `${Math.round(middle)}ms median`, { medianMs: Math.round(middle), falseStarts: Number(submission.falseStarts), missed: times.filter(t => t >= Number(challenge.tapWindowMs)).length });
   },
-  bot(seed) {
+  bot(seed, challenge) {
     const random = createRandom(`${seed}:bot`);
-    const times = Array.from({ length: 5 }, () => integer(random, 230, 430));
-    return { submission: { reactionTimesMs: times, falseStarts: 0 }, completionTimeMs: times.reduce((a, b) => a + b, 0) };
+    const times = Array.from({ length: REACTION_ATTEMPTS }, () => integer(random, 230, 430));
+    return { submission: { reactionTimesMs: times, falseStarts: 0 }, completionTimeMs: times.reduce((a, b) => a + b, 0) + (challenge.waits as number[]).reduce((a,b)=>a+b,0) };
   },
 };
 
@@ -811,14 +819,14 @@ const memoryGridV2: GameDefinition = {
   description: "Recall eight lit cells on a 5×5 board.",
   instructions: "Memorize eight lit cells, then select up to eight. Correct selections score +1; mistakes cost 0.5.",
   ranked: false,
-  revealDurationMs: 3350,
-  answerDurationMs: 10_000,
+  revealDurationMs: MEMORY_GRID_XL_REVEAL_MS,
+  answerDurationMs: MEMORY_GRID_XL_ANSWER_MS,
   submissionSchema: object({
     selectedCells: z.array(z.number().int().min(0).max(24)).min(1).max(8),
   }).refine(({ selectedCells }) => new Set(selectedCells).size === selectedCells.length, "Cells must be unique.") as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
-    return { size: 5, targetCount: 8, flashMs: 1600, revealMs: 3350,
+    return { size: 5, targetCount: 8, flashMs: MEMORY_GRID_XL_REVEAL_MS, revealMs: MEMORY_GRID_XL_REVEAL_MS,
       highlightedCells: shuffle(random, Array.from({ length: 25 }, (_, index) => index)).slice(0, 8) };
   },
   calculate(challenge, submission, completionTimeMs) {
@@ -845,10 +853,10 @@ const crypticDuel: GameDefinition = {
   shortName: "Cryptic",
   category: "mind",
   description: "Decode one cryptic clue using definition and wordplay.",
-  instructions: "Solve the clue in 60 seconds. Hints cost two points each; a correct answer scores up to 10.",
+  instructions: "Solve the clue in 40 seconds. Hints cost two points each; a correct answer scores up to 10.",
   ranked: false,
   revealDurationMs: 0,
-  answerDurationMs: 60_000,
+  answerDurationMs: CRYPTIC_DURATION_MS,
   submissionSchema: object({
     answer: z.string().regex(/^[A-Za-z]{1,16}$/),
     hintsUsed: z.number().int().min(0).max(2),
@@ -871,7 +879,7 @@ const crypticDuel: GameDefinition = {
   bot(seed, challenge) {
     const random = createRandom(`${seed}:bot`);
     const solved = random() < 0.7;
-    return { submission: { answer: solved ? String(challenge.answer) : "UNKNOWN", hintsUsed: integer(random, 0, 2) }, completionTimeMs: botTime(random, 60_000) };
+    return { submission: { answer: solved ? String(challenge.answer) : "UNKNOWN", hintsUsed: integer(random, 0, 2) }, completionTimeMs: botTime(random, CRYPTIC_DURATION_MS) };
   },
 };
 
@@ -915,4 +923,16 @@ export function pickGame(seed: string, playlist: PlaylistId, preferredGame?: Gam
   const choices = playlistGames[playlist];
   const random = createRandom(seed);
   return choices[Math.floor(random() * choices.length)];
+}
+
+/** Persisted match budgets identify old versus new timing without changing historical seeds. */
+export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number): Challenge {
+  const challenge = game.generate(seed);
+  if (game.id === "typing_sprint") return { ...challenge, durationMs: answerMs };
+  if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
+  if (game.id === "reaction_test" && answerMs === 18000) {
+    const random = createRandom(seed);
+    return { waits: Array.from({ length: 5 }, () => integer(random, 800, 2200)) };
+  }
+  return challenge;
 }

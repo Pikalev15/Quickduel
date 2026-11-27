@@ -1,0 +1,1 @@
+import {describe,expect,it} from "vitest";import {SITE_ACCENTS,isSiteAccent} from "./site-accent";describe("site accents",()=>{it("supports five valid presets only",()=>{expect(SITE_ACCENTS).toHaveLength(5);for(const accent of SITE_ACCENTS)expect(isSiteAccent(accent.id)).toBe(true);expect(isSiteAccent("unknown")).toBe(false);expect(isSiteAccent(null)).toBe(false);});});

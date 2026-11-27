@@ -7,6 +7,7 @@ import type { DuelOutcome } from "@/games/types";
 import { getDivision, getDivisionChange } from "@/lib/divisions";
 import { getPlacement } from "@/lib/placements";
 import { getGameResultMetric } from "./result-metrics";
+import { RoundScoreBars } from "./recall-visual";
 
 export type ResultSide = {
   name: string;
@@ -62,6 +63,8 @@ export function ResultPanel({
   const placement = getPlacement(placementMatches);
   const division = getDivision(player.ratingAfter);
   const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
+  const recall = (gameName === "Frequency Recall" || gameName === "Colour Recall") && typeof player.details?.round1Score === "number";
+  const scored = player.score > -999999 && player.summary !== "No answer";
 
   async function share() {
     const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""}: ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
@@ -82,7 +85,7 @@ export function ResultPanel({
   return (
     <section className="page-shell screen-enter qd-result flex min-h-[calc(100vh-120px)] flex-col items-center justify-center py-10" data-outcome={outcome}>
       <h1
-        className={`display qd-result-title text-center text-[clamp(4.5rem,15vw,9rem)] leading-[0.85] ${
+        className={`display qd-result-title text-center text-[clamp(3rem,10vw,6rem)] leading-[0.85] ${
           outcome === "loss" ? "text-[var(--text)]" : "text-[var(--accent)]"
         }`}
       >
@@ -90,6 +93,7 @@ export function ResultPanel({
       </h1>
       <div className="qd-result-signal" aria-hidden="true"><i /><i /><i /><i /><i /></div>
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
+      {scored && !completionNotice?.toLowerCase().includes("forfeit") && <div className="qd-result-hero"><span>Your score</span><strong>{recall ? `${player.score.toFixed(2)}/50` : player.summary ?? player.score.toFixed(1)}</strong>{recall && <p>{player.score >= 45 ? "Remarkably precise." : player.score >= 35 ? "Strong recall." : player.score >= 20 ? "Keep refining your estimates." : "Build accuracy one round at a time."}</p>}{!unranked && placement?.placed && <span className="qd-result-elo">{player.ratingAfter-player.ratingBefore>=0?"+":""}{player.ratingAfter-player.ratingBefore} Elo</span>}</div>}
       {completionNotice && (
         <p className="result-completion-notice" role="status">{completionNotice}</p>
       )}
@@ -206,6 +210,7 @@ function RecallResultBreakdown({
           Average {isFrequency ? `${Number(player.details?.[averageKey] ?? 0).toFixed(1)} cents` : Number(player.details?.[averageKey] ?? 0).toFixed(4)}
         </p>
       </div>
+      <RoundScoreBars details={player.details} opponentDetails={opponent.details} opponentName={opponent.name} />
       <div className="recall-round-table">
         <div className="recall-round-table-head">
           <span>Round</span><span>You</span><span>{opponent.name}</span>
@@ -243,8 +248,10 @@ function RecallRoundSide({
   frequency: boolean;
   label: string;
 }) {
+  const scoreValue = details?.[`round${index}Score`];
+  if (typeof scoreValue !== "number") return <div className="recall-round-side"><span className="recall-mobile-label">{label}</span><span>Unavailable</span></div>;
   const answered = details?.[`round${index}Answered`] !== false;
-  const score = Number(details?.[`round${index}Score`] ?? 0);
+  const score = scoreValue;
   if (frequency) {
     const target = Number(details?.[`round${index}Target`] ?? 0);
     const guess = Number(details?.[`round${index}Guess`] ?? 0);

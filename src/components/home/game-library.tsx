@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { gameCatalog, practiceGameCatalog, type GameCatalogEntry } from "@/games/catalog";
 import { ArrowIcon } from "@/components/ui/icons";
+import { GameIcon } from "@/components/ui/game-icon";
 
 const featuredIds = new Set(["memory_grid", "colour_recall_v2", "frequency_recall_v2"]);
 
 export function GameLibrary({
   expanded,
   onExpand,
+  ready = true,
 }: {
   expanded: boolean;
   onExpand: () => void;
+  ready?: boolean;
 }) {
   const featured = gameCatalog.filter((game) => featuredIds.has(game.id));
   return (
@@ -18,23 +21,23 @@ export function GameLibrary({
         <div>
           <span>Games</span>
         </div>
-        <button type="button" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
+        <button type="button" disabled={!ready} onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
           {expanded ? "Hide all" : "See all"}
         </button>
       </div>
 
       <div className="featured-games">
-        {featured.map((game, index) => (
-          <GameRow game={game} index={index + 1} key={game.id} />
+        {featured.map((game) => (
+          <GameRow game={game} key={game.id} />
         ))}
       </div>
 
       <div className="calm-section-head"><div><span>Practice only</span></div></div>
       <div className="featured-games">
-        {practiceGameCatalog.map((game, index) => <GameRow key={game.id} game={game} index={gameCatalog.length + index + 1} practiceOnly />)}
+        {practiceGameCatalog.map((game) => <GameRow key={game.id} game={game} practiceOnly />)}
       </div>
 
-      <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
+      <button type="button" className="all-games-disclosure" disabled={!ready} onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
         <span><b>All games</b><small>13 games</small></span>
         <span>{expanded ? "−" : "+"}</span>
       </button>
@@ -46,7 +49,6 @@ export function GameLibrary({
             .map((game) => (
               <GameRow
                 game={game}
-                index={gameCatalog.findIndex((entry) => entry.id === game.id) + 1}
                 key={game.id}
               />
             ))}
@@ -56,10 +58,10 @@ export function GameLibrary({
   );
 }
 
-function GameRow({ game, index, practiceOnly = false }: { game: GameCatalogEntry; index: number; practiceOnly?: boolean }) {
+function GameRow({ game, practiceOnly = false }: { game: GameCatalogEntry; practiceOnly?: boolean }) {
   return (
     <article className="calm-game-row">
-      <div className={`game-mark game-mark-${game.category}`}>{String(index).padStart(2, "0")}</div>
+      <div className={`game-mark game-mark-${game.category}`}><GameIcon game={game.id} /></div>
       <div className="calm-game-copy">
         <h3>{game.name}</h3>
         <p>{game.description}</p>
@@ -69,7 +71,7 @@ function GameRow({ game, index, practiceOnly = false }: { game: GameCatalogEntry
         <span>{practiceOnly ? "practice only" : game.ranked ? "ranked" : "unranked"}</span>
       </div>
       <div className="calm-game-actions">
-        <Link href={`/match/practice?game=${game.id}&seed=first-${game.id}`}>Practice</Link>
+        <Link href={`/practice?game=${game.id}`}>Practice</Link>
         {!practiceOnly && <Link href={`/play?playlist=${game.category}&game=${game.id}`}>
           Duel <ArrowIcon className="h-4 w-4" />
         </Link>}
