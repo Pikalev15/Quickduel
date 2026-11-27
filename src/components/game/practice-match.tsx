@@ -149,6 +149,7 @@ export function PracticeMatch({
         <ResultPanel
           outcome={outcome}
           gameName={game.name}
+          completionNotice={gameId === "cryptic_duel" ? `Answer: ${String(challenge.answer)}. ${String(challenge.explanation)}` : undefined}
           unranked
           player={{
             name: "You",
@@ -189,9 +190,9 @@ export function PracticeMatch({
   const remaining = Math.max(0, answerEnd - now);
   const phaseElapsedMs = phase === "reveal" ? Math.max(0, now - startAt) : 0;
   const memoryHolding =
-    game.id === "memory_grid" &&
+    (game.id === "memory_grid" || game.id === "memory_grid_v2") &&
     phase === "reveal" &&
-    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
+    phaseElapsedMs >= Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
   const publicChallenge = game.publicChallenge(challenge, phase === "reveal" ? "reveal" : "answer");
 
   return (
