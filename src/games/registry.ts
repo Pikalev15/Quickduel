@@ -198,7 +198,7 @@ const frequencyRecallV2: GameDefinition = {
   shortName: "Frequency",
   category: "sensory",
   description: "Reconstruct five tones one at a time for a score out of 50.",
-  instructions: "Five rounds. Hear one tone, rebuild it, then continue. Each round scores 0–10.",
+  instructions: "Five rounds. Replay the target, tune and listen to your guess, then lock it. Each round scores 0–10.",
   ranked: true,
   revealDurationMs: 0,
   answerDurationMs: 30_000,
