@@ -1,3 +1,4 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { readJson, rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     return apiError(400, "INVALID_REQUEST", "Private duel settings are invalid.", parsed?.error.issues, correlationId);
   }
   try {
-    const { supabase, user } = await requireUser();
+    const { user } = await requireUser();
     await enforceNetworkAbuseBoundary(
       request,
       "private_duel_create",
@@ -28,8 +29,8 @@ export async function POST(request: Request) {
       requested_ranked: parsed.data.ranked,
     };
     const {data,error}=parsed.data.workshop
-      ? await supabase.rpc("create_private_duel_workshop",{...args,requested_rules:parsed.data.workshop})
-      : await supabase.rpc("create_private_duel",args);
+      ? await serverQueueOrDuel(user.id, "create_private_duel_workshop",{...args,requested_rules:parsed.data.workshop})
+      : await serverQueueOrDuel(user.id, "create_private_duel",args);
     if (error) throw error;
     return apiSuccess(data, 201, correlationId);
   } catch (error) {
