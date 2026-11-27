@@ -44,12 +44,15 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const canSubmitRef = useRef(false);
   const trackedStatuses = useRef(new Set<string>());
   const reloadInFlight = useRef(false);
+  const latestSnapshot = useRef<MatchSnapshot | null>(null);
+  const lastPollAt = useRef(0);
 
   const reload = useCallback(async () => {
     if (reloadInFlight.current) return;
     reloadInFlight.current = true;
     try {
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
+      latestSnapshot.current = next;
       setSnapshot(next);
       setError(null);
       if (next.rematch_match_id) router.replace(`/match/${next.rematch_match_id}`);
@@ -63,7 +66,18 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
     const clock = window.setInterval(() => setNow(Date.now()), 50);
-    const poll = window.setInterval(() => void reload(), 1_500);
+    const poll = window.setInterval(() => {
+      const current = latestSnapshot.current;
+      const at = Date.now();
+      const startAt = current?.starts_at ? Date.parse(current.starts_at) : null;
+      const revealEnd = startAt !== null && current ? startAt + current.reveal_duration_ms : null;
+      const transition = !current || current.status === "waiting" || current.phase === "countdown"
+        || (revealEnd !== null && current.phase === "reveal" && revealEnd - at <= 750);
+      if (transition || at - lastPollAt.current >= 1_500) {
+        lastPollAt.current = at;
+        void reload();
+      }
+    }, 250);
     const refresh = () => void reload();
     window.addEventListener("online", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -491,6 +505,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                   onComplete={handleRecallComplete}
                   onError={handleRecallError}
                 />
+              ) : snapshot && (phase === "reveal" || phase === "answer") && snapshot.phase !== phase ? (
+                <span className="search-pulse h-3 w-3 bg-[var(--accent)]" aria-label="Synchronizing game" />
               ) : snapshot ? (
                 <GameRenderer
                   key={typing ? snapshot.id : `${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
