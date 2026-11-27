@@ -786,6 +786,7 @@ export function TypingSprintGame({
   const text = String(challenge.text ?? "");
   const words = (challenge.words as string[] | undefined) ?? text.split(" ");
   const input = useRef<HTMLInputElement>(null);
+  const wordViewport = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
   const initialized = useRef(false);
   const startedAt = useRef<number | null>(null);
@@ -829,6 +830,15 @@ export function TypingSprintGame({
   );
   const windowStart = Math.max(0, currentWord - 10);
   const visibleWords = words.slice(windowStart, windowStart + 42);
+  useEffect(() => {
+    const viewport = wordViewport.current;
+    const current = viewport?.querySelector<HTMLElement>(".typing-word.is-current");
+    if (!viewport || !current) return;
+    const bounds = viewport.getBoundingClientRect();
+    const wordBounds = current.getBoundingClientRect();
+    if (wordBounds.top < bounds.top) viewport.scrollTop += wordBounds.top - bounds.top;
+    else if (wordBounds.bottom > bounds.bottom) viewport.scrollTop += wordBounds.bottom - bounds.bottom;
+  }, [currentWord, windowStart]);
   const statistics = typingSprintStatistics(text, typed, elapsedMs);
   const remainingSeconds = Math.max(0, TYPING_SPRINT_DURATION_MS - elapsedMs) / 1000;
 
@@ -846,7 +856,7 @@ export function TypingSprintGame({
         <span><small>Time</small><strong>{remainingSeconds.toFixed(1)}</strong></span>
       </div>
 
-      <div className="typing-words" aria-hidden="true">
+      <div className="typing-words" aria-hidden="true" ref={wordViewport}>
         {visibleWords.map((word, visibleIndex) => {
           const wordIndex = windowStart + visibleIndex;
           const attempt = attempts[wordIndex] ?? "";
