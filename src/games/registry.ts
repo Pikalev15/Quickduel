@@ -1,3 +1,4 @@
+import {customMemoryChallenge,matchRulesSchema,orderedMemoryScore} from "./match-rules";
 import { z } from "zod";
 import { createRandom, integer, round, shuffle } from "./random";
 import {
@@ -82,11 +83,12 @@ const memoryGrid: GameDefinition = {
   calculate(challenge, submission) {
     const expected = new Set(challenge.highlightedCells as number[]);
     const selected = submission.selectedCells as number[];
+    if(challenge.ordered===true){const s=orderedMemoryScore([...expected],selected);return result(s.rankScore,s.accuracy,`${s.correct}/${expected.size} in order`,{correct:s.correct,incorrect:s.incorrect,missed:s.missed,ordered:true});}
     const correct = selected.filter((cell) => expected.has(cell)).length;
     const incorrect = selected.length - correct;
     const missed = expected.size - correct;
     const score = correct - incorrect * 0.5;
-    return result(score, correct / (correct + incorrect + missed), `${correct}/6 cells`, {
+    return result(score, correct / (correct + incorrect + missed), `${correct}/${expected.size} cells`, {
       correct,
       incorrect,
       missed,
@@ -926,10 +928,12 @@ export function pickGame(seed: string, playlist: PlaylistId, preferredGame?: Gam
 }
 
 /** Persisted match budgets identify old versus new timing without changing historical seeds. */
-export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number): Challenge {
+export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number, persistedRules?:unknown): Challenge {
+  const rules=matchRulesSchema.safeParse(persistedRules);
+  if(game.id==="memory_grid"&&rules.success&&rules.data.kind==="workshop")return customMemoryChallenge(seed,rules.data.rules);
   const challenge = game.generate(seed);
   if (game.id === "typing_sprint") return { ...challenge, durationMs: answerMs };
-  if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
+  if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: rules.success&&rules.data.kind==="adaptive" ? revealMs : revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
   if (game.id === "reaction_test" && answerMs === 18000) {
     const random = createRandom(seed);
     return { waits: Array.from({ length: 5 }, () => integer(random, 800, 2200)) };

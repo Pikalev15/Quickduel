@@ -1,4 +1,5 @@
 "use client";
+import {rulesLabel} from "@/games/match-rules";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LockAnswerButton } from "@/components/game/lock-answer-button";
@@ -487,7 +488,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <div className="display qd-countdown mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
               <span key={phase === "countdown" ? countdown : "waiting"}>{phase === "countdown" ? countdown : "…"}</span>
             </div>
-            <p className="mt-4 text-sm text-[var(--muted)]">{game?.instructions}</p>
+            <p className="mt-4 text-sm text-[var(--muted)]">{snapshot?.match_rules?.kind==="workshop" ? rulesLabel(snapshot.match_rules) : game?.instructions}</p>
             {requiresAudio && !audioReady && snapshot?.status === "waiting" && (
               <Button className="mt-4" onClick={() => {
                 void AudioManager.shared().unlock().then((ready) => {
@@ -501,7 +502,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           <>
             <div className="game-title-row">
               <div>
-                <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : "Experimental · unranked"}</p>
+                <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : snapshot?.match_rules?.kind==="workshop" ? "Workshop · unranked" : "Experimental · unranked"}{snapshot?.match_rules?.kind==="adaptive"?` · ${rulesLabel(snapshot.match_rules)}`:""}</p>
                 <h1 className="display">{game?.name}</h1>
               </div>
               <div className="game-timer" data-urgent={!secureRecall && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
@@ -521,7 +522,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <p className="game-instructions">
               {phase === "submitted"
                 ? opponent?.submitted_at ? "Finalizing result…" : "Opponent is still playing."
-                : game?.instructions}
+                : snapshot?.match_rules?.kind==="workshop" && snapshot.game_type==="memory_grid" ? snapshot.match_rules.rules.memory?.ordered ? "Memorize the numbered tiles in order, then tap in that same order." : `Remember ${snapshot.match_rules.rules.memory?.tiles} tiles. Select the positions.` : game?.instructions}
             </p>
             {!secureRecall && phase === "answer" && snapshot && (
               <div

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ACTIVE_GAME_IDS, GAME_IDS } from "../games/types";
+import {workshopSchema,validWorkshop} from "../games/match-rules";
 
 export const matchIdSchema = z.string().uuid();
 
@@ -96,8 +97,10 @@ export const privateDuelCreateSchema = z
     playlist: z.enum(["quick", "sensory", "mind", "experimental"]),
     bestOf: z.union([z.literal(1), z.literal(3), z.literal(5)]),
     ranked: z.boolean().default(false),
+    workshop: workshopSchema.optional(),
   })
   .superRefine((value, context) => {
+    if(value.workshop&&(value.ranked||value.selectionKind!=="game"||!validWorkshop(value.game,value.workshop)))context.addIssue({code:"custom",path:["workshop"],message:"Custom rules require a supported unranked single game."});
     if (value.selectionKind === "game" && value.game === null) {
       context.addIssue({
         code: "custom",

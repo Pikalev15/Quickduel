@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { gameCatalog } from "@/games/catalog";
+import {getGame} from "@/games/registry";
+import {supportsCustomTiming,supportsCustomReveal,workshopSchema,validWorkshop,type WorkshopRules} from "@/games/match-rules";
+import {WorkshopControls} from "./workshop-controls";
 import type { GameId, PlaylistId } from "@/games/types";
 import { track } from "@/lib/analytics";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
@@ -18,6 +21,7 @@ export function CreateDuelScreen() {
   const [playlist, setPlaylist] = useState<PlaylistId>("quick");
   const [bestOf, setBestOf] = useState<1 | 3 | 5>(3);
   const [ranked, setRanked] = useState(false);
+  const [workshop,setWorkshop]=useState<WorkshopRules|null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challengeSiteKey, setChallengeSiteKey] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export function CreateDuelScreen() {
     [game],
   );
   const rankedAllowed =
-    user?.is_anonymous === false &&
+    !workshop && user?.is_anonymous === false &&
     playlist !== "experimental" &&
     selectedGame?.ranked !== false;
 
@@ -47,6 +51,7 @@ export function CreateDuelScreen() {
     setSubmitting(true);
     setError(null);
     try {
+      if(workshop&&(!workshopSchema.safeParse(workshop).success||!validWorkshop(game,workshop)))throw new Error("Adjust the custom game parameters before creating the duel.");
       const supabase = await loadSupabaseBrowserClient();
       if (!supabase) throw new Error("Private duels need Supabase configuration.");
       let currentUser = (await supabase.auth.getUser()).data.user;
@@ -73,7 +78,8 @@ export function CreateDuelScreen() {
                 : selectedGame?.category ?? "quick"
               : playlist,
           bestOf,
-          ranked: ranked && currentUser?.is_anonymous === false,
+          ranked: !workshop && ranked && currentUser?.is_anonymous === false,
+          ...(workshop?{workshop}:{}),
         }),
       });
       const body = await response.json();
@@ -120,7 +126,7 @@ export function CreateDuelScreen() {
               <button type="button" aria-pressed={selectionKind === "game"} onClick={() => setSelectionKind("game")}>
                 One game
               </button>
-              <button type="button" aria-pressed={selectionKind === "playlist"} onClick={() => setSelectionKind("playlist")}>
+              <button type="button" aria-pressed={selectionKind === "playlist"} onClick={() => {setSelectionKind("playlist");setWorkshop(null);}}>
                 Playlist
               </button>
             </div>
@@ -129,7 +135,7 @@ export function CreateDuelScreen() {
           {selectionKind === "game" ? (
             <label>
               Game
-              <select value={game} onChange={(event) => setGame(event.target.value as GameId)}>
+              <select value={game} onChange={(event) => {setGame(event.target.value as GameId);setWorkshop(null);}}>
                 {gameCatalog.map((entry) => (
                   <option value={entry.id} key={entry.id}>
                     {entry.name}{entry.ranked ? "" : " · unranked"}
@@ -149,6 +155,7 @@ export function CreateDuelScreen() {
             </label>
           )}
 
+          {selectionKind==="game"&&supportsCustomTiming(game)&&<div className="qd-workshop"><label className="feature-check"><input type="checkbox" checked={Boolean(workshop)} onChange={event=>{if(!event.target.checked){setWorkshop(null);return;}const g=getGame(game);setRanked(false);setWorkshop({version:1,revealMs:supportsCustomReveal(game)?g.revealDurationMs:0,answerMs:g.answerDurationMs,...(game==="memory_grid"?{memory:{size:4,tiles:6,ordered:false}}:{})});}}/><span><b>Custom game rules</b><small>Unranked · locked when the room is created</small></span></label>{workshop&&<WorkshopControls game={game} rules={workshop} onChange={setWorkshop}/>}</div>}
           <fieldset>
             <legend>Series format</legend>
             <div className="segmented-control">

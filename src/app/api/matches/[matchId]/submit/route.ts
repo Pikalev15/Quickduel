@@ -1,3 +1,4 @@
+import {memorySelectionSchema,validMemorySelection,matchRulesSchema} from "@/games/match-rules";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -54,7 +55,7 @@ export async function POST(
     const admin = createSupabaseAdminClient();
     const { data: match, error: matchError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms")
+      .select("*")
       .eq("id", matchId.data)
       .single();
     if (matchError || !match || !match.starts_at) {
@@ -89,13 +90,16 @@ export async function POST(
     ) {
       return apiError(409, "CONFLICT", "This game submits at the deadline.", undefined, correlationId);
     }
-    const challenge = generateMatchChallenge(game, String(match.challenge_seed), match.reveal_duration_ms, match.answer_duration_ms);
+    const challenge = generateMatchChallenge(game, String(match.challenge_seed), match.reveal_duration_ms, match.answer_duration_ms, match.match_rules);
+    const rules=matchRulesSchema.safeParse(match.match_rules);
+    const customMemory=rules.success&&rules.data.kind==="workshop"&&match.game_type==="memory_grid";
     const submission = parsed.data.timedOut
       ? { success: true as const, data: { timedOut: true } }
-      : game.submissionSchema.safeParse(parsed.data.submission);
+      : customMemory ? memorySelectionSchema.safeParse(parsed.data.submission) : game.submissionSchema.safeParse(parsed.data.submission);
     if (!submission.success) {
       return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues, correlationId);
     }
+    if(customMemory&&!parsed.data.timedOut&&!validMemorySelection(challenge,submission.data as {selectedCells:number[]}))return apiError(400,"INVALID_REQUEST","Selected cells do not fit the custom grid.",undefined,correlationId);
     if (
       !parsed.data.timedOut &&
       game.validateSubmission &&

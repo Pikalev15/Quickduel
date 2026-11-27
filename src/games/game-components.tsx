@@ -85,6 +85,8 @@ export function MemoryGridGame({
   const targetCount = Number(challenge.targetCount ?? 0);
   const flashMs = Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
   const showingPattern = revealing && phaseElapsedMs < flashMs;
+  const ordered = challenge.ordered===true;
+  const visibleOrder = Math.min(revealed.length-1,Math.floor(phaseElapsedMs/Math.max(1,flashMs/revealed.length)));
   const retentionRemainingMs = Math.max(
     0,
     Number(challenge.revealMs ?? MEMORY_GRID_REVEAL_DURATION_MS) - phaseElapsedMs,
@@ -98,7 +100,7 @@ export function MemoryGridGame({
       >
         {Array.from({ length: size * size }, (_, cell) => {
           const active =
-            (showingPattern && revealed.includes(cell)) ||
+            (showingPattern && (ordered ? revealed[visibleOrder]===cell : revealed.includes(cell))) ||
             selected.includes(cell);
           return (
             <button
@@ -115,14 +117,14 @@ export function MemoryGridGame({
                 setSelected(next);
                 onChange({ selectedCells: next }, next.length > 0);
               }}
-            />
+            >{ordered && showingPattern && revealed[visibleOrder]===cell ? visibleOrder+1 : ordered && selected.includes(cell) ? selected.indexOf(cell)+1 : null}</button>
           );
         })}
       </div>
       {revealing && (
         <p className="memory-phase-status" aria-live="polite">
           {showingPattern
-            ? "Memorize"
+            ? ordered ? `Memorize the order · ${visibleOrder+1}/${revealed.length}` : "Memorize"
             : `Hold · ${(retentionRemainingMs / 1000).toFixed(1)}s`}
         </p>
       )}
