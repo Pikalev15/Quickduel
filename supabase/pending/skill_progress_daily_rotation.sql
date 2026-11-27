@@ -44,7 +44,9 @@ revoke all on function public.get_my_skill_progress() from public,anon,authentic
 grant execute on function public.get_my_skill_progress() to authenticated;
 
 insert into public.cosmetics(id,cosmetic_type,name,configuration,free) values
- ('frame-precision','profile_frame','Precision frame','{"style":"precision"}',false)
+ ('frame-precision','profile_frame','Precision frame','{"style":"precision"}',false),
+ ('frame-versatility','profile_frame','Versatility frame','{"style":"versatility"}',false),
+ ('frame-champion','profile_frame','Champion frame','{"style":"champion"}',false)
  on conflict(id) do nothing;
 
 create or replace function public.claim_skill_rewards()
@@ -62,9 +64,30 @@ begin
  ) then
   insert into public.user_cosmetics(user_id,cosmetic_id,granted_by) values(auth.uid(),'frame-precision','achievement') on conflict do nothing;
  end if;
+ -- All grants use authoritative normal, non-invalidated ranked public results.
+ if exists (
+ select 1 from public.match_players mp join public.matches m on m.id=mp.match_id
+ join public.profiles p on p.id=mp.user_id
+ where mp.user_id=auth.uid() and p.deleted_at is null and p.account_state='normal'
+ and m.ranked and m.source='public_queue' and m.status='completed' and m.invalidated_at is null and m.completion_reason='normal'
+ and jsonb_typeof(mp.result_json->'accuracy')='number' and (mp.result_json->>'accuracy')::numeric>=.80
+ having count(distinct m.game_type)>=5
+ ) then
+  insert into public.user_cosmetics(user_id,cosmetic_id,granted_by) values(auth.uid(),'frame-versatility','achievement') on conflict do nothing;
+ end if;
+ if exists (
+ select 1 from public.match_players mp join public.matches m on m.id=mp.match_id
+ join public.profiles p on p.id=mp.user_id
+ where mp.user_id=auth.uid() and p.deleted_at is null and p.account_state='normal'
+ and m.ranked and m.source='public_queue' and m.status='completed' and m.invalidated_at is null and m.completion_reason='normal'
+ and m.winner_id=auth.uid()
+ having count(*)>=25
+ ) then
+  insert into public.user_cosmetics(user_id,cosmetic_id,granted_by) values(auth.uid(),'frame-champion','achievement') on conflict do nothing;
+ end if;
  return public.get_cosmetics();
 end;
-$$;
+$;
 revoke all on function public.claim_skill_rewards() from public,anon,authenticated;
 grant execute on function public.claim_skill_rewards() to authenticated;
 
