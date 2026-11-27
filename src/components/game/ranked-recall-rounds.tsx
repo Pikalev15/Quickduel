@@ -97,6 +97,8 @@ export function RankedRecallRounds({
   const [colour, setColour] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [sending, setSending] = useState(false);
   const playedRound = useRef<number | null>(null);
+  const replayAudio = useRef<HTMLAudioElement>(null);
+  const heardTarget = useRef<{ round: number; hz: number } | null>(null);
   const inputRound = useRef<number | null>(null);
   const reloadInFlight = useRef(false);
   const audio = useMemo(() => AudioManager.shared(), []);
@@ -104,8 +106,12 @@ export function RankedRecallRounds({
   const applyState = useCallback((next: RecallRoundState) => {
     if (inputRound.current !== next.roundIndex) {
       inputRound.current = next.roundIndex;
+      heardTarget.current = null;
       setFrequency(660);
       setColour({ l: 65, c: 18, h: 180 });
+    }
+    if (next.gameId === "frequency_recall_v2" && next.phase === "reveal" && typeof next.target === "number") {
+      heardTarget.current = { round: next.roundIndex, hz: next.target };
     }
     setState(next);
   }, []);
@@ -142,6 +148,23 @@ export function RankedRecallRounds({
     void audio.playToneSequence([state.target]);
   }, [audio, gameId, state]);
 
+  async function replayTarget() {
+    if (!state || (state.phase !== "reveal" && state.phase !== "answer")) return;
+    const cached = heardTarget.current;
+    if (cached?.round === state.roundIndex) {
+      await audio.playToneSequence([cached.hz]);
+      return;
+    }
+    const player = replayAudio.current;
+    if (!player) return;
+    try {
+      player.currentTime = 0;
+      await player.play();
+    } catch {
+      onError("Could not replay the target. Try again before the round closes.");
+    }
+  }
+
   async function submit() {
     if (!state || state.phase !== "answer" || sending) return;
     setSending(true);
@@ -176,57 +199,56 @@ export function RankedRecallRounds({
         <span>Round {state.roundIndex + 1} of 5</span>
         <strong>You {state.ownScore.toFixed(1)} · Opponent {state.opponentScore.toFixed(1)}</strong>
       </div>
-      {state.phase === "reveal" ? (
-        gameId === "frequency_recall_v2" ? (
-          <div className="frequency-reveal">
-            <span className="frequency-wave" aria-hidden="true">∿</span>
-            <strong>Listen</strong>
-            <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
-            <button
-              type="button"
-              className="recall-replay"
-              disabled={sending || typeof state.target !== "number"}
-              onClick={() => typeof state.target === "number" && void audio.playToneSequence([state.target])}
-            >
-              Play tone again
+      {gameId === "frequency_recall_v2" && (state.phase === "reveal" || state.phase === "answer") ? (
+        <div className="sequential-answer frequency-controls">
+          <p>Listen to the target and compare your guess. Replay either tone as needed.</p>
+          <audio
+            ref={replayAudio}
+            key={state.roundIndex}
+            preload="none"
+            src={`/api/matches/${matchId}/round/audio?roundIndex=${state.roundIndex}`}
+          />
+          <div className="frequency-audio-actions">
+            <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void replayTarget()}>
+              Replay target
+            </button>
+            <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void audio.playToneSequence([frequency])}>
+              Play my guess
             </button>
           </div>
-        ) : (
-          <div className="colour-round-reveal">
-            <span style={{ background: colourCss(state.target as RecallColour) }} />
-            <strong>Remember this colour</strong>
-            <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
-          </div>
-        )
+          <label className="game-range">
+            <span>Frequency</span>
+            <input type="range" min={120} max={2000} value={frequency} disabled={sending || remainingMs <= 0} onChange={(event) => setFrequency(Number(event.target.value))} />
+            <strong>{frequency} Hz</strong>
+          </label>
+          <button type="button" className="recall-confirm" disabled={sending || state.phase !== "answer" || remainingMs <= 0} onClick={() => void submit()}>
+            {sending ? "Locking…" : state.phase === "reveal" ? "Listen…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
+          </button>
+        </div>
+      ) : state.phase === "reveal" ? (
+        <div className="colour-round-reveal">
+          <span style={{ background: colourCss(state.target as RecallColour) }} />
+          <strong>Remember this colour</strong>
+          <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
+        </div>
       ) : state.phase === "answer" ? (
         <div className="sequential-answer">
-          {gameId === "frequency_recall_v2" ? (
-            <>
-              <p>Tune the pitch you just heard.</p>
-              <label className="game-range">
-                <span>Frequency</span>
-                <input type="range" min={120} max={2000} value={frequency} onChange={(event) => setFrequency(Number(event.target.value))} />
-                <strong>{frequency}</strong>
+          <div className="colour-round-answer">
+            <div className="colour-preview" aria-label="Your reconstructed colour" style={{ background: colourCss(colour) }} />
+            {(["l", "c", "h"] as const).map((key) => (
+              <label className="game-range" key={key}>
+                <span>{key === "l" ? "Lightness" : key === "c" ? "Chroma" : "Hue"}</span>
+                <input
+                  type="range"
+                  min={key === "l" ? 35 : key === "c" ? 4 : 0}
+                  max={key === "l" ? 90 : key === "c" ? 32 : 359}
+                  value={colour[key]}
+                  onChange={(event) => setColour((current) => ({ ...current, [key]: Number(event.target.value) }))}
+                />
+                <strong>{colour[key]}</strong>
               </label>
-            </>
-          ) : (
-            <div className="colour-round-answer">
-              <div className="colour-preview" aria-label="Your reconstructed colour" style={{ background: colourCss(colour) }} />
-              {(["l", "c", "h"] as const).map((key) => (
-                <label className="game-range" key={key}>
-                  <span>{key === "l" ? "Lightness" : key === "c" ? "Chroma" : "Hue"}</span>
-                  <input
-                    type="range"
-                    min={key === "l" ? 35 : key === "c" ? 4 : 0}
-                    max={key === "l" ? 90 : key === "c" ? 32 : 359}
-                    value={colour[key]}
-                    onChange={(event) => setColour((current) => ({ ...current, [key]: Number(event.target.value) }))}
-                  />
-                  <strong>{colour[key]}</strong>
-                </label>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
           <button type="button" className="recall-confirm" disabled={sending} onClick={() => void submit()}>
             {sending ? "Locking…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
           </button>
