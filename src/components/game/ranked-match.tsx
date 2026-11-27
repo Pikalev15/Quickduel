@@ -462,8 +462,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">
               {game ? `${game.name} · Get ready` : "Synchronizing duel"}
             </p>
-            <div className="display mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
-              {phase === "countdown" ? countdown : "…"}
+            <div className="display qd-countdown mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
+              <span key={phase === "countdown" ? countdown : "waiting"}>{phase === "countdown" ? countdown : "…"}</span>
             </div>
             <p className="mt-4 text-sm text-[var(--muted)]">{game?.instructions}</p>
             {requiresAudio && !audioReady && snapshot?.status === "waiting" && (
@@ -482,7 +482,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : "Experimental · unranked"}</p>
                 <h1 className="display">{game?.name}</h1>
               </div>
-              <div className="game-timer">
+              <div className="game-timer" data-urgent={!secureRecall && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
                 {waiting
                   ? phase === "countdown" ? `Starts in ${countdown}` : "Ready?"
                   : memoryHolding
