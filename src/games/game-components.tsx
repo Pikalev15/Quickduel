@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import type { GameComponentProps, Submission } from "./types";
 import { AudioManager } from "../lib/audio/audio-manager";
 import {
@@ -242,9 +243,7 @@ export function FrequencyRecallV2Game({
             disabled={disabled}
             onChange={setGuess}
           />
-          <button type="button" className="recall-confirm" disabled={disabled || phase !== "answer"} onClick={confirmRound}>
-            Confirm round
-          </button>
+          <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled || phase !== "answer"} onClick={confirmRound} />
         </div>
       ) : phase === "feedback" && feedback ? (
         <PracticeRecallFeedback
@@ -411,9 +410,7 @@ export function ColourRecallV2Game({
           <Range label="Lightness" value={guess.l} min={35} max={90} disabled={disabled} onChange={(value) => update("l", value)} />
           <Range label="Chroma" value={guess.c} min={4} max={32} disabled={disabled} onChange={(value) => update("c", value)} />
           <Range label="Hue" value={guess.h} min={0} max={359} disabled={disabled} onChange={(value) => update("h", value)} />
-          <button type="button" className="recall-confirm" onClick={confirmRound}>
-            Confirm round
-          </button>
+          <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled} onClick={confirmRound} />
         </div>
       ) : phase === "feedback" && feedback ? (
         <PracticeRecallFeedback
