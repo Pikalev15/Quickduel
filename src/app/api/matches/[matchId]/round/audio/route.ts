@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/server/route";
 import { matchIdSchema } from "@/lib/validation";
 import { getSecureRecallReplayTarget } from "@/lib/server/secure-recall";
 import { createFrequencyWave } from "@/lib/server/frequency-audio";
+import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ matchId
   }
   try {
     const { user } = await requireUser();
+    await enforceNetworkAbuseBoundary(request, "frequency_replay", 120, 60, { adaptiveChallenge: false });
     const target = await getSecureRecallReplayTarget(matchId.data, user.id, Number(round));
     if (target === null) return apiError(409, "CONFLICT", "That round is not available for replay.", undefined, correlationId);
     return new Response(createFrequencyWave(target), { headers: {
