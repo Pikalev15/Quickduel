@@ -4993,3 +4993,48 @@ dd,
   .active-game .shape-game { grid-template-columns: minmax(120px, 1fr) 1.2fr; }
   .active-game .shape-canvas { max-height: 180px; }
 }
+
+/* Mobile-first active controls: maintain hit targets, reduce vertical rows. */
+.frequency-audio-actions { grid-template-columns: minmax(0, 1fr); }
+.active-game .memory-board, .active-game .memory-grid-shell, .active-game .odd-grid {
+  width: min(100%, 76vw, 390px, max(200px, var(--game-room)));
+  gap: 0.35rem;
+}
+.active-game .memory-board button, .active-game .odd-grid button { min-height: 44px; min-width: 44px; }
+.active-game .target-field button { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+.active-game input[type="range"] { min-height: 44px; touch-action: pan-y; }
+.active-game .game-title-row h1 { overflow-wrap: anywhere; }
+.active-game .game-instructions { text-wrap: pretty; }
+.active-game .typing-capture-input { font-size: 16px; }
+.active-game .game-stage > * { min-width: 0; max-width: 100%; }
+.active-game .round-tabs button { min-width: 0; font-size: 0.75rem; line-height: 1.2; padding-inline: 0.2rem; }
+@media (max-width: 640px) {
+  .active-game { --game-room: max(200px, calc(100dvh - 290px)); }
+  .active-game .shape-game { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .active-game .shape-canvas { grid-column: 1 / -1; width: min(100%, 140px); justify-self: center; }
+  .active-game .shape-game .game-range {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+  }
+  .active-game .shape-game .game-range input { grid-column: 1 / -1; grid-row: 2; }
+  .active-game .shape-game .game-range strong { grid-column: 2; grid-row: 1; }
+  .active-game .time-recall-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .active-game .time-recall-controls .time-pulse-list { grid-column: 1 / -1; }
+  .active-game .time-recall-controls .game-range { grid-template-columns: minmax(0, 1fr) auto; gap: 0; }
+  .active-game .time-recall-controls .game-range input { grid-column: 1 / -1; grid-row: 2; }
+  .active-game .time-recall-controls .game-range strong { grid-column: 2; grid-row: 1; }
+  .active-game .pattern-options button { min-width: 44px; }
+  .active-game .pattern-list section { grid-template-columns: minmax(0, 1fr) auto; }
+  .active-game .pattern-sequence span { width: clamp(15px, 4.5vw, 24px); }
+}
+@media (max-width: 359px) {
+  .active-game .pattern-list section { grid-template-columns: minmax(0, 1fr) auto; }
+  .active-game .pattern-sequence { gap: 1px; }
+  .active-game .pattern-options { gap: 1px; }
+  .active-game .pattern-sequence span { width: 16px; }
+}
+@media (max-height: 550px) {
+  .active-game .game-instructions { font-size: 0.72rem; }
+  .active-game .typing-match .game-stage { padding: 0; }
+  .active-game .typing-words { max-height: 4.75rem; }
+}
