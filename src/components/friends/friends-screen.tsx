@@ -179,7 +179,7 @@ export function FriendsScreen() {
       <section className="page-shell feature-shell">
         <div className="feature-heading feature-heading-row">
           <div>
-            <p className="calm-eyebrow">Connections without chat</p>
+            <p className="calm-eyebrow">Friends · no private messaging</p>
             <h1>Friends</h1>
             <p>Find a player, keep a head-to-head record, and invite them directly.</p>
           </div>
