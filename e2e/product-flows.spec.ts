@@ -173,23 +173,18 @@ test("primary navigation coordinates leaderboard and history transitions", async
     .toBe(1);
 });
 
-test("Memory Grid flashes briefly, holds the blank board, then unlocks", async ({
-  page,
-}) => {
+test("Memory Grid viewport shows the full pattern before answer", async ({ page }) => {
   await page.goto("/match/practice?game=memory_grid&seed=memory-retention");
   const board = page.locator(".memory-board");
   const cells = board.getByRole("button");
   const activeCells = board.locator("button.is-active");
   await expect(activeCells).toHaveCount(6, { timeout: 10_000 });
-
-  await expect(activeCells).toHaveCount(0, { timeout: 2_000 });
-  await expect(page.getByText(/^Hold · \d\.\ds$/)).toBeVisible();
   await expect(cells.first()).toBeDisabled();
-
-  await expect(page.getByText(/^Hold · \d\.\ds$/)).toHaveCount(0, {
-    timeout: 3_000,
-  });
-  await expect(cells.first()).toBeEnabled();
+  await page.waitForTimeout(1300);
+  await expect(activeCells).toHaveCount(6);
+  await expect(cells.first()).toBeDisabled();
+  await expect(cells.first()).toBeEnabled({ timeout: 3500 });
+  await expect(activeCells).toHaveCount(0);
   await cells.first().click();
   await expect(cells.first()).toHaveAttribute("aria-pressed", "true");
 });
@@ -246,7 +241,7 @@ test("Frequency Recall v2 gives per-round feedback before advancing", async ({ p
   await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
-  await expect(page.getByText("Target", { exact: true })).toBeVisible();
+  await expect(page.locator(".recall-comparison").getByText("Target", { exact: true })).toBeVisible();
   await expect(page.getByText("Your guess", { exact: true })).toBeVisible();
   await expect(page.getByText("Difference", { exact: true })).toBeVisible();
   await expect(page.getByText("Percent", { exact: true })).toBeVisible();
@@ -432,6 +427,7 @@ test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline
   });
   expect(pastePrevented).toBe(true);
 
+  await expect(page.locator(".typing-word").first()).toBeVisible({ timeout: 5000 });
   const firstWord = await page.locator(".typing-word").first().textContent();
   expect(firstWord?.length).toBeGreaterThan(2);
   await page.keyboard.type(firstWord!.slice(0, 2));
@@ -449,7 +445,7 @@ test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline
   await captureProductScreenshot(page, testInfo, "typing-sprint-active");
 
   await expect(page.getByRole("heading", { name: /Victory|Defeat|Draw/ })).toBeVisible({
-    timeout: 20_000,
+    timeout: 35_000,
   });
   await expect(page.getByText("Typing Sprint ranks net WPM. Errors reduce your score.")).toBeVisible();
 });
@@ -949,6 +945,92 @@ test("request inbox supports incoming friend and duel requests and rematches", a
   await expect(page.getByText("No pending requests.")).toBeVisible();
 });
 
+function timingSnapshot(matchId: string, game: "typing_sprint" | "memory_grid", start: number, duration: number, phase: "countdown" | "reveal" | "answer", received: number, sent: number) {
+  const iso = (n: number) => new Date(n).toISOString();
+  const participants = [profile.id,"00000000-0000-4000-8000-000000000002"].map((id,i)=>({user_id:id,display_name:i?"Opponent":"Player",ready_at:iso(start-2000),submitted_at:null,calculated_score:null,correct_count:null,incorrect_count:null,completion_time_ms:null,rating_before:1000,rating_after:null,rating_delta:null,rematch_requested_at:null,result:null}));
+  return { id:matchId,status:phase==="countdown"?"countdown":"active",game_type:game,game_version:1,ranked:true,phase,challenge:phase==="countdown"?{}:game==="typing_sprint"?{text:"alpha bravo charlie delta",words:["alpha","bravo","charlie","delta"],durationMs:duration}:phase==="reveal"?{size:4,highlightedCells:[0,1,2,3,4,5],flashMs:2500,revealMs:2500}:{size:4,flashMs:2500,revealMs:2500},reveal_duration_ms:game==="memory_grid"?2500:0,answer_duration_ms:duration,starts_at:iso(start),expires_at:iso(start+60000),winner_id:null,completed_at:null,rematch_match_id:null,current_user_id:profile.id,players:participants,server_received_at:iso(received),server_now:iso(sent)};
+}
+
+test("ranked timing viewport keeps the keyboard input through a delayed answer snapshot",async({page})=>{
+  const id="00000000-0000-4000-8000-000000000071";
+  let start=0;
+  await page.route(`**/api/matches/${id}/chat**`,route=>route.fulfill({json:{ok:true,data:[]}}));
+  await page.route(`**/api/matches/${id}/placements`,route=>route.fulfill({json:{ok:true,data:{}}}));
+  await page.route(`**/api/matches/${id}`,async route=>{
+    const received=Date.now();if(!start)start=received+4000;
+    const phase=received<start?"countdown":"answer";
+    if(phase==="answer")await new Promise(resolve=>setTimeout(resolve,1100));
+    await route.fulfill({json:{ok:true,data:timingSnapshot(id,"typing_sprint",start,30000,phase,received,Date.now())}});
+  });
+  await page.goto(`/match/${id}`);
+  await page.getByRole("button",{name:"Ready keyboard",exact:true}).click();
+  const input=page.getByLabel("Type the displayed words");
+  await expect(input).toBeFocused();
+  await input.evaluate(el=>{el.setAttribute("data-original-input","true");});
+  await expect.poll(()=>Date.now()).toBeGreaterThan(start+300);
+  await expect(input).toHaveAttribute("data-original-input","true");
+  await expect(input).toBeFocused();
+  await expect(page.locator(".typing-word").first()).toBeVisible({timeout:6000});
+  await expect(input).toHaveAttribute("data-original-input","true");
+  await expect(input).toBeFocused();
+  await page.keyboard.type("alpha ");
+  await expect(input).toHaveValue("alpha ");
+});
+
+test("delayed ranked snapshot processing does not consume extra reveal or answer time",async({page})=>{
+  const id="00000000-0000-4000-8000-000000000072";
+  let start=0;
+  let submittedAt=0;
+  await page.route(`**/api/matches/${id}/chat**`,route=>route.fulfill({json:{ok:true,data:[]}}));
+  await page.route(`**/api/matches/${id}/placements`,route=>route.fulfill({json:{ok:true,data:{}}}));
+  await page.route(`**/api/matches/${id}/submit`,route=>{submittedAt=Date.now();return route.fulfill({json:{ok:true,data:{}}});});
+  await page.route(`**/api/matches/${id}`,async route=>{
+    const received=Date.now();
+    if(!start)start=received+2500;
+    await new Promise(resolve=>setTimeout(resolve,800));
+    const sent=Date.now();
+    const phase=sent<start?"countdown":sent<start+2500?"reveal":"answer";
+    await route.fulfill({json:{ok:true,data:timingSnapshot(id,"memory_grid",start,7000,phase,received,sent)}});
+  });
+  await page.goto(`/match/${id}`);
+  await expect(page.locator(".memory-board button.is-active")).toHaveCount(6,{timeout:10000});
+  const revealEnd=start+2500;
+  // A +400ms skew would hide the board around revealEnd-400ms.
+  await new Promise(resolve=>setTimeout(resolve,Math.max(0,revealEnd-240-Date.now())));
+  await expect(page.locator(".memory-board button.is-active")).toHaveCount(6,{timeout:150});
+  await expect(page.locator(".memory-board button").first()).toBeEnabled({timeout:3000});
+  await expect.poll(()=>submittedAt,{timeout:11000}).toBeGreaterThan(0);
+  expect(submittedAt).toBeGreaterThanOrEqual(start+2500+7000-125);
+});
+
+test("Reaction viewport times out missed taps and finishes after five attempts",async({page})=>{
+  await page.goto("/match/practice?game=reaction_test&seed=timing-pass");
+  const tap=page.getByRole("button",{name:"TAP",exact:true});
+  await expect(tap).toBeVisible({timeout:10000});
+  await expect(page.getByText("Attempt 2 of 5")).toBeVisible({timeout:2500});
+  for(let i=0;i<4;i++){await expect(tap).toBeVisible({timeout:5000});await tap.click();}
+  await expect(page.getByRole("heading",{name:/Victory|Defeat|Draw/})).toBeVisible({timeout:30000});
+  await expect(page.getByText(/ms median/i).first()).toBeVisible();
+});
+
+test("practice options select real difficulty without changing ranked rules",async({page})=>{
+ await page.goto("/practice?game=memory_grid");
+ await expect(page.getByText("3.5s reveal, 10s to answer",{exact:true})).toBeVisible();
+ await expect(page.getByText("1.8s reveal, 5s to answer",{exact:true})).toBeVisible();
+ await page.getByRole("link",{name:/Play expert/}).click();
+ await expect(page).toHaveURL(/difficulty=expert/);
+ await expect(page.getByText("Practice · expert · unranked")).toBeVisible({timeout:10000});
+ await expect(page.locator(".memory-board button").first()).toBeEnabled({timeout:10000});
+});
+test("frequency feedback shows a visual pitch comparison and interpretation",async({page})=>{
+ await page.goto("/match/practice?game=frequency_recall_v2&seed=visual-feedback");
+ await page.getByRole("button",{name:"Enable sound and start",exact:true}).click();
+ const lock=page.getByRole("button",{name:"Confirm round"});
+ await expect(lock).toBeEnabled({timeout:10000});await lock.click();
+ await expect(page.getByRole("img",{name:/Pitch comparison:/})).toBeVisible();
+ await expect(page.locator(".qd-recall-insight")).toBeVisible();
+});
+
 test("shared navigation and site accents remain consistent across pages", async ({ page }) => {
   await page.goto("/");
   await openPrimaryMenu(page);
@@ -1016,7 +1098,10 @@ test("game library uses distinct mechanic icons rather than numeric markers", as
   await page.goto("/");
   const library = page.getByRole("region", { name: "Game library" });
   await expect(library.locator("[data-game-icon]")).toHaveCount(5);
-  await library.getByRole("button", { name: "See all", exact: true }).click();
+  const expand = library.getByRole("button", { name: "See all", exact: true });
+  await expect(expand).toBeEnabled();
+  await expand.click();
+  await expect(library.getByRole("button", { name: "Hide all", exact: true })).toHaveAttribute("aria-expanded", "true");
   const icons = library.locator("[data-game-icon]");
   await expect(icons).toHaveCount(15);
   const ids = await icons.evaluateAll(elements => elements.map(element => element.getAttribute("data-game-icon")));

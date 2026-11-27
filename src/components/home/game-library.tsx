@@ -8,9 +8,11 @@ const featuredIds = new Set(["memory_grid", "colour_recall_v2", "frequency_recal
 export function GameLibrary({
   expanded,
   onExpand,
+  ready = true,
 }: {
   expanded: boolean;
   onExpand: () => void;
+  ready?: boolean;
 }) {
   const featured = gameCatalog.filter((game) => featuredIds.has(game.id));
   return (
@@ -19,7 +21,7 @@ export function GameLibrary({
         <div>
           <span>Games</span>
         </div>
-        <button type="button" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
+        <button type="button" disabled={!ready} onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
           {expanded ? "Hide all" : "See all"}
         </button>
       </div>
@@ -35,7 +37,7 @@ export function GameLibrary({
         {practiceGameCatalog.map((game) => <GameRow key={game.id} game={game} practiceOnly />)}
       </div>
 
-      <button type="button" className="all-games-disclosure" onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
+      <button type="button" className="all-games-disclosure" disabled={!ready} onClick={onExpand} aria-controls="all-games-list" aria-expanded={expanded}>
         <span><b>All games</b><small>13 games</small></span>
         <span>{expanded ? "−" : "+"}</span>
       </button>
@@ -69,7 +71,7 @@ function GameRow({ game, practiceOnly = false }: { game: GameCatalogEntry; pract
         <span>{practiceOnly ? "practice only" : game.ranked ? "ranked" : "unranked"}</span>
       </div>
       <div className="calm-game-actions">
-        <Link href={`/match/practice?game=${game.id}&seed=first-${game.id}`}>Practice</Link>
+        <Link href={`/practice?game=${game.id}`}>Practice</Link>
         {!practiceOnly && <Link href={`/play?playlist=${game.category}&game=${game.id}`}>
           Duel <ArrowIcon className="h-4 w-4" />
         </Link>}

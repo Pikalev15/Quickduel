@@ -42,6 +42,7 @@ export function HomeScreen() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(defaultPreferences);
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const libraryRef = useRef<HTMLDivElement>(null);
@@ -81,6 +82,8 @@ export function HomeScreen() {
         }
       } catch {
         // Invalid local settings fall back to calm defaults.
+      } finally {
+        if (active) setPreferencesReady(true);
       }
     }, 0);
 
@@ -229,7 +232,9 @@ export function HomeScreen() {
             <Link className="calm-secondary" href="/duel/new">
               Private duel <ArrowIcon className="h-4 w-4" />
             </Link>
-            <button type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
+            <Link className="calm-secondary" href="/daily">Daily Duel</Link>
+            <Link className="calm-tertiary" href="/practice">Practice</Link>
+            <button disabled={!preferencesReady} type="button" className="calm-tertiary" aria-controls="game-library" onClick={chooseGame}>
               Choose a game
             </button>
           </div>
@@ -270,25 +275,27 @@ export function HomeScreen() {
       </section>
 
       <div className="page-shell calm-content qd-long-home">
+        <section className="qd-home-band qd-daily-teaser" data-qd-reveal=""><div><p className="game-kicker">One board. Everyone.</p><h2>Daily Duel</h2><p>Six patterns, 45 seconds, one scored attempt each day. Compare your result even when nobody is online.</p></div><Link className="calm-primary" href="/daily">Today’s challenge <ArrowIcon className="h-4 w-4"/></Link></section>
         <section className="qd-home-band qd-explore" data-qd-reveal="" aria-labelledby="explore-heading">
           <div className="qd-section-intro"><h2 id="explore-heading">Try a challenge</h2></div>
           <div className="qd-feature-grid">
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-memory-visual" aria-hidden="true">{Array.from({ length: 25 }, (_, i) => <i key={i} className={[1, 4, 7, 10, 13, 17, 20, 23].includes(i) ? "lit" : ""} />)}</div>
-              <div className="qd-feature-copy"><h3>Memory Grid XL</h3><p>Eight tiles light up on a 5×5 grid. How many can you remember?</p><Link href="/match/practice?game=memory_grid_v2">Play XL <ArrowIcon className="h-4 w-4" /></Link></div>
+              <div className="qd-feature-copy"><h3>Memory Grid XL</h3><p>Eight tiles light up on a 5×5 grid. How many can you remember?</p><Link href="/practice?game=memory_grid_v2">Play XL <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-tone-visual" aria-hidden="true"><svg viewBox="0 0 240 100"><path d="M0 50 Q10 4 20 50 T40 50 T60 50 T80 50 T100 50 T120 50 T140 50 T160 50 T180 50 T200 50 T220 50 T240 50" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg></div>
-              <div className="qd-feature-copy"><h3>Frequency Recall</h3><p>Listen to a tone and estimate its pitch. See how close you were after each of five rounds.</p><Link href="/match/practice?game=frequency_recall_v2">Play Frequency Recall <ArrowIcon className="h-4 w-4" /></Link></div>
+              <div className="qd-feature-copy"><h3>Frequency Recall</h3><p>Listen to a tone and estimate its pitch. See how close you were after each of five rounds.</p><Link href="/practice?game=frequency_recall_v2">Play Frequency Recall <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
             <article className="qd-feature-card">
               <div className="qd-feature-visual qd-word-visual" aria-hidden="true">{"SOLVE".split("").map((letter, i) => <i key={i}>{letter}</i>)}</div>
-              <div className="qd-feature-copy"><h3>Cryptic Duel</h3><p>One clue, one word, 60 seconds. Try it in practice.</p><Link href="/match/practice?game=cryptic_duel">Play Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link></div>
+              <div className="qd-feature-copy"><h3>Cryptic Duel</h3><p>One clue, one word, 40 seconds. Try it in practice.</p><Link href="/practice?game=cryptic_duel">Play Cryptic Duel <ArrowIcon className="h-4 w-4" /></Link></div>
             </article>
           </div>
         </section>
         <div className="game-library-anchor" ref={libraryRef} tabIndex={-1} data-qd-reveal="">
           <GameLibrary
+            ready={preferencesReady}
             expanded={preferences.showGameLibrary}
             onExpand={() =>
               updatePreferences({

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { GameId } from "@/games/types";
+import type { PracticeDifficulty } from "@/games/practice-difficulty";
 import { Header } from "@/components/ui/header";
 
 const PracticeMatch = dynamic(
@@ -33,6 +34,7 @@ type MatchEntryProps =
       seed: string;
       gameId: GameId;
       onboardingStep?: 1 | 2 | 3;
+      difficulty?: PracticeDifficulty;
     }
   | { mode: "ranked"; matchId: string };
 
@@ -40,10 +42,11 @@ export function MatchEntry(props: MatchEntryProps) {
   if (props.mode === "practice") {
     return (
       <PracticeMatch
-        key={`${props.gameId}:${props.seed}`}
+        key={`${props.gameId}:${props.seed}:${props.difficulty??"standard"}`}
         seed={props.seed}
         gameId={props.gameId}
         onboardingStep={props.onboardingStep}
+        difficulty={props.difficulty}
       />
     );
   }

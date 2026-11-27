@@ -1,8 +1,73 @@
--- Pending migration candidate: generate a timestamped migration with the Supabase CLI.
--- New frequency matches get 0.8s reveal, 8.2s answer and 2s feedback (55s nominal).
--- 60s persisted budget leaves 5s transition slack; old 30s matches retain old timing.
--- Verify on a disposable migrated database before applying to production.
+-- Staged timing pass. Validate on a disposable migrated database before promoting to migrations.
+-- Existing rows retain persisted budgets. New frequency rounds use a bounded listen gate.
 BEGIN;
+
+create or replace function public.game_reveal_duration(requested_game text)
+returns integer
+language sql
+immutable
+security definer
+set search_path = ''
+as $
+  select case requested_game
+    when 'memory_grid' then 2500
+    when 'frequency_recall' then 2400
+    when 'frequency_recall_v2' then 0
+    when 'colour_recall' then 2600
+    when 'colour_recall_v2' then 0
+    when 'time_recall' then 6500
+    when 'shape_recall' then 2600
+    when 'rhythm_recall' then 13000
+    when 'dot_estimate' then 2200
+    else 0
+  end;
+$;
+
+revoke all on function public.game_reveal_duration(text)
+  from public, anon, authenticated;
+
+
+-- Service-only acknowledgments for new 60-second frequency matches.
+CREATE TABLE public.frequency_listen_acks (
+  match_id uuid NOT NULL,
+  round_index smallint NOT NULL,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  acknowledged_at timestamptz NOT NULL,
+  PRIMARY KEY (match_id, round_index, user_id),
+  FOREIGN KEY (match_id, round_index) REFERENCES public.match_rounds(match_id, round_index) ON DELETE CASCADE
+);
+ALTER TABLE public.frequency_listen_acks ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.frequency_listen_acks FROM public, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.ack_frequency_listened(requested_match_id uuid, requested_user_id uuid, requested_round_index smallint)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $ack$
+DECLARE
+  m public.matches;
+  r public.match_rounds;
+  at_time timestamptz;
+  gate_end timestamptz;
+BEGIN
+  SELECT * INTO m FROM public.matches WHERE id=requested_match_id FOR UPDATE;
+  IF NOT FOUND OR m.game_type <> 'frequency_recall_v2' OR m.game_version <> 2 OR m.answer_duration_ms < 60000
+    OR m.status NOT IN ('countdown','active') OR NOT EXISTS (
+      SELECT 1 FROM public.match_players WHERE match_id=m.id AND user_id=requested_user_id
+    ) THEN RAISE EXCEPTION USING errcode='P0001',message='QD_MATCH_NOT_FOUND'; END IF;
+  SELECT * INTO r FROM public.match_rounds WHERE match_id=m.id AND round_index=requested_round_index FOR UPDATE;
+  IF NOT FOUND OR r.resolved_at IS NOT NULL THEN RAISE EXCEPTION USING errcode='P0001',message='QD_ROUND_CLOSED'; END IF;
+  IF EXISTS (SELECT 1 FROM public.frequency_listen_acks WHERE match_id=m.id AND round_index=r.round_index AND user_id=requested_user_id) THEN RETURN; END IF;
+  at_time := clock_timestamp();
+  IF at_time >= r.reveal_ends_at OR at_time < r.started_at + interval '390 milliseconds'
+    THEN RAISE EXCEPTION USING errcode='P0001',message='QD_ROUND_CLOSED'; END IF;
+  INSERT INTO public.frequency_listen_acks VALUES(m.id,r.round_index,requested_user_id,at_time);
+  IF (SELECT count(*) FROM public.frequency_listen_acks WHERE match_id=m.id AND round_index=r.round_index) = 2 THEN
+    gate_end := least(r.reveal_ends_at,at_time+interval '250 milliseconds');
+    UPDATE public.match_rounds SET reveal_ends_at=gate_end, answer_ends_at=gate_end+interval '8200 milliseconds'
+      WHERE match_id=m.id AND round_index=r.round_index;
+  END IF;
+END;
+$ack$;
+REVOKE ALL ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.game_answer_duration(requested_game text)
  RETURNS integer
@@ -11,7 +76,7 @@ CREATE OR REPLACE FUNCTION public.game_answer_duration(requested_game text)
  SET search_path TO ''
 AS $function$
   select case requested_game
-    when 'memory_grid' then 8000
+    when 'memory_grid' then 7000
     when 'frequency_recall' then 12000
     when 'frequency_recall_v2' then 60000
     when 'colour_recall' then 16000
@@ -23,12 +88,12 @@ AS $function$
     when 'number_order' then 8000
     when 'odd_one_out' then 6000
     when 'pattern_complete' then 18000
-    when 'typing_sprint' then 15000
-    when 'reaction_test' then 18000
+    when 'typing_sprint' then 30000
+    when 'reaction_test' then 26000
     when 'target_tap' then 16000
     else 8000
   end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.advance_recall_round(requested_match_id uuid, requested_user_id uuid, requested_target_round_index smallint, requested_target jsonb)
  RETURNS jsonb
@@ -57,11 +122,14 @@ declare
   result_details jsonb;
   best_round integer;
   average_error numeric;
+  listen_required boolean := false;
+  listen_acknowledged boolean := false;
 begin
   select * into match_row
   from public.matches
   where id = requested_match_id
   for update;
+  current_time := clock_timestamp();
 
   if not found
     or match_row.game_type not in ('frequency_recall_v2', 'colour_recall_v2')
@@ -125,7 +193,8 @@ begin
     );
   end if;
 
-  reveal_ms := 800;
+  listen_required := match_row.game_type = 'frequency_recall_v2' and match_row.answer_duration_ms >= 60000;
+  reveal_ms := case when listen_required then 4000 else 800 end;
   answer_ms := case
     when match_row.game_type = 'frequency_recall_v2' and match_row.answer_duration_ms >= 60000 then 8200
     when match_row.game_type = 'frequency_recall_v2' then 3200
@@ -414,6 +483,10 @@ begin
     and mrs.user_id = opponent_id
     and mr.resolved_at is not null;
 
+  if listen_required then
+    select exists(select 1 from public.frequency_listen_acks where match_id=requested_match_id and round_index=round_row.round_index and user_id=requested_user_id) into listen_acknowledged;
+  end if;
+
   if round_row.resolved_at is not null then
     phase := 'feedback';
     exposed_target := round_row.target_json;
@@ -421,7 +494,7 @@ begin
   elsif current_time < round_row.reveal_ends_at then
     phase := 'reveal';
     exposed_target := round_row.target_json;
-  elsif own_submission.user_id is not null then
+  elsif own_submission.user_id is not null or (listen_required and not listen_acknowledged) then
     phase := 'waiting';
   else
     phase := 'answer';
@@ -439,6 +512,8 @@ begin
       else null
     end,
     'target', exposed_target,
+    'listenRequired', listen_required,
+    'listenAcknowledged', listen_acknowledged,
     'ownAnswer', case
       when round_row.resolved_at is not null and not own_submission.timed_out
         then own_submission.answer_json
@@ -451,10 +526,109 @@ begin
     'opponentScore', opponent_score
   );
 end;
-$function$
+$function$;
+
+create or replace function public.submit_recall_round(
+  requested_match_id uuid,
+  requested_user_id uuid,
+  requested_round_index smallint,
+  submitted_answer jsonb,
+  calculated_feedback jsonb,
+  calculated_score numeric
+)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $
+declare
+  match_row public.matches;
+  round_row public.match_rounds;
+  existing_answer jsonb;
+  current_time timestamptz := clock_timestamp();
+  submission_count integer;
+begin
+  if submitted_answer is null or calculated_feedback is null
+    or pg_column_size(submitted_answer) > 2048
+    or pg_column_size(calculated_feedback) > 4096
+    or calculated_score < 0 or calculated_score > 10 then
+    raise exception using errcode = 'P0001', message = 'QD_INVALID_ROUND_SUBMISSION';
+  end if;
+  select * into match_row
+  from public.matches
+  where id = requested_match_id
+  for update;
+  if not found
+    or match_row.status not in ('countdown', 'active')
+    or match_row.game_type not in ('frequency_recall_v2', 'colour_recall_v2')
+    or match_row.game_version <> 2
+    or not exists (
+      select 1 from public.match_players mp
+      where mp.match_id = requested_match_id and mp.user_id = requested_user_id
+    ) then
+    raise exception using errcode = 'P0001', message = 'QD_MATCH_NOT_FOUND';
+  end if;
+
+  select * into round_row
+  from public.match_rounds mr
+  where mr.match_id = requested_match_id
+    and mr.round_index = requested_round_index
+  for update;
+  if not found or round_row.resolved_at is not null then
+    raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
+  end if;
+  current_time := clock_timestamp();
+  if match_row.game_type = 'frequency_recall_v2' and match_row.answer_duration_ms >= 60000
+    and not exists (select 1 from public.frequency_listen_acks where match_id=requested_match_id and round_index=requested_round_index and user_id=requested_user_id) then
+    raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
+  end if;
+  if current_time < round_row.reveal_ends_at then
+    raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
+  end if;
+  if current_time > round_row.answer_ends_at then
+    raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
+  end if;
+
+  select mrs.answer_json into existing_answer
+  from public.match_round_submissions mrs
+  where mrs.match_id = requested_match_id
+    and mrs.round_index = requested_round_index
+    and mrs.user_id = requested_user_id;
+  if found then
+    if existing_answer = submitted_answer then return; end if;
+    raise exception using errcode = 'P0001', message = 'QD_DUPLICATE_ROUND_SUBMISSION';
+  end if;
+
+  insert into public.match_round_submissions (
+    match_id, round_index, user_id, answer_json, feedback_json,
+    score, timed_out, submitted_at
+  ) values (
+    requested_match_id, requested_round_index, requested_user_id,
+    submitted_answer, calculated_feedback, calculated_score, false, current_time
+  );
+
+  select count(*) into submission_count
+  from public.match_round_submissions mrs
+  where mrs.match_id = requested_match_id
+    and mrs.round_index = requested_round_index;
+  if submission_count = 2 then
+    update public.match_rounds
+    set
+      resolved_at = current_time,
+      feedback_ends_at = current_time + interval '2 seconds'
+    where match_id = requested_match_id
+      and round_index = requested_round_index
+      and resolved_at is null;
+  end if;
+end;
+$;
+
 
 REVOKE ALL ON FUNCTION public.game_answer_duration(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.game_answer_duration(text) TO service_role;
 REVOKE ALL ON FUNCTION public.advance_recall_round(uuid, uuid, smallint, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.advance_recall_round(uuid, uuid, smallint, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.submit_recall_round(uuid,uuid,smallint,jsonb,jsonb,numeric) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_recall_round(uuid,uuid,smallint,jsonb,jsonb,numeric) TO service_role;
 COMMIT;
