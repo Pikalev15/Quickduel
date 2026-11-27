@@ -190,6 +190,7 @@ export function FrequencyRecallV2Game({
 
   function confirmRound() {
     if (disabled || phase !== "answer") return;
+    audio.stopPlayback();
     const next = [...guesses, guess];
     setGuesses(next);
     setFeedback(frequencyRoundFeedback(frequencies[round], guess));
@@ -511,7 +512,7 @@ export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentP
   const [guesses, setGuesses] = useState([1200, 1500, 1800, 2100, 2400]);
   useSubmitInitialValidAnswer(disabled, onChange, { durationsMs: guesses });
   return (
-    <div className="game-stack">
+    <div className="game-stack time-recall-controls">
       {durations.length > 0 && <PulseSequence durations={durations} />}
       {guesses.map((guess, index) => (
         <Range
