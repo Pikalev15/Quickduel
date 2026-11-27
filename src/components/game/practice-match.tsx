@@ -221,7 +221,7 @@ export function PracticeMatch({
                 <p className="game-kicker">Practice · unranked</p>
                 <h1 className="display">{game.name}</h1>
               </div>
-              <div className="game-timer" data-urgent={phase === "answer" && remaining <= 3000 ? "true" : undefined}>
+              <div className="game-timer" data-urgent={gameId !== "frequency_recall_v2" && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
                 {phase === "countdown"
                   ? keyboardReady ? `Starts in ${countdown}` : "Ready?"
                   : memoryHolding
@@ -230,13 +230,13 @@ export function PracticeMatch({
                     ? "OBSERVE"
                     : phase === "waiting"
                       ? "LOCKED"
-                      : `${(remaining / 1000).toFixed(1)}s`}
+                      : gameId === "frequency_recall_v2" ? "ROUND" : `${(remaining / 1000).toFixed(1)}s`}
               </div>
             </div>
             <p className="game-instructions">
               {phase === "waiting" ? "Practice Bot is finishing." : game.instructions}
             </p>
-            {phase === "answer" && (
+            {phase === "answer" && gameId !== "frequency_recall_v2" && (
               <div
                 className="game-time-progress"
                 role="progressbar"

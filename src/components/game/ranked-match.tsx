@@ -270,7 +270,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }, [matchId, snapshot]);
 
   useEffect(() => {
-    if (secureRecall || phase !== "answer" || !answerEnd || me?.submitted_at) return;
+    if (secureRecall || phase !== "answer" || snapshot?.phase !== "answer" || !answerEnd || me?.submitted_at) return;
     if (game?.autoSubmitOnValid && canSubmit) {
       void submit(false);
       return;
@@ -289,6 +289,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     game?.submitAtDeadline,
     secureRecall,
     phase,
+    snapshot?.phase,
     me?.submitted_at,
   ]);
 

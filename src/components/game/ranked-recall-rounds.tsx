@@ -102,6 +102,9 @@ export function RankedRecallRounds({
   const [colour, setColour] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [sending, setSending] = useState(false);
   const playedRound = useRef<number | null>(null);
+  const [listenedRound, setListenedRound] = useState<number | null>(null);
+  const [soundError, setSoundError] = useState(false);
+  const [soundRetry, setSoundRetry] = useState(0);
   const heardTarget = useRef<{ round: number; hz: number } | null>(null);
   const inputRound = useRef<number | null>(null);
   const reloadInFlight = useRef(false);
@@ -173,12 +176,34 @@ export function RankedRecallRounds({
     };
   }, [reload]);
 
+  const listeningRound = state?.phase === "reveal" && gameId === "frequency_recall_v2" ? state.roundIndex : null;
+  const listeningTarget = listeningRound !== null && typeof state?.target === "number" ? state.target : null;
+  const requiresListenAck = state?.listenRequired === true;
+  const acknowledged = state?.listenAcknowledged === true;
+
   useEffect(() => {
-    if (!state || state.phase !== "reveal" || gameId !== "frequency_recall_v2") return;
-    if (playedRound.current === state.roundIndex || typeof state.target !== "number") return;
-    playedRound.current = state.roundIndex;
-    void audio.playToneSequence([state.target]);
-  }, [audio, gameId, state]);
+    if (listeningRound === null || listeningTarget === null || acknowledged || playedRound.current === listeningRound) return;
+    let active = true;
+    playedRound.current = listeningRound;
+    void (async () => {
+      try {
+        const played = await audio.playToneSequence([listeningTarget], true);
+        if (!active) return;
+        if (!played) throw new Error("Tone did not finish");
+        setListenedRound(listeningRound);
+        if (requiresListenAck) {
+          await recallRequest(`/api/matches/${matchId}/round/listen`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roundIndex: listeningRound }),
+          });
+          if (active) void reload();
+        }
+      } catch {
+        if (active) { playedRound.current = null; setSoundError(true); }
+      }
+    })();
+    return () => { active = false; };
+  }, [audio, listeningRound, listeningTarget, acknowledged, requiresListenAck, matchId, reload, soundRetry]);
 
   useEffect(() => {
     if (state?.phase !== "answer" && state?.phase !== "reveal") audio.stopPlayback();
@@ -186,7 +211,7 @@ export function RankedRecallRounds({
   useEffect(() => () => audio.stopPlayback(), [audio]);
 
   async function replayTarget() {
-    if (!state || (state.phase !== "reveal" && state.phase !== "answer")) return;
+    if (!state || state.phase !== "answer") return;
     const cached = heardTarget.current;
     if (cached?.round === state.roundIndex) {
       await audio.playToneSequence([cached.hz]);
@@ -200,7 +225,7 @@ export function RankedRecallRounds({
   }
 
   async function submit() {
-    if (!state || state.phase !== "answer" || submitting.current || state.ownSubmitted) return;
+    if (!state || state.phase !== "answer" || submitting.current || state.ownSubmitted || (state.listenRequired && !state.listenAcknowledged)) return;
     submitting.current = true;
     audio.stopPlayback();
     setSending(true);
@@ -241,18 +266,19 @@ export function RankedRecallRounds({
       </div>
       {gameId === "frequency_recall_v2" && (state.phase === "reveal" || state.phase === "answer") ? (
         <div className="sequential-answer frequency-controls">
-          <p>Replay the target as needed, then estimate its pitch.</p>
+          <p data-frequency-phase={state.phase}>{state.phase === "reveal" ? acknowledged || listenedRound === state.roundIndex ? "Waiting for both players to finish listening" : "Listen to the target tone" : "Estimate the pitch"}</p>
+          {state.phase === "reveal" && soundError && !acknowledged && <button type="button" onClick={() => { setSoundError(false); setSoundRetry(v => v+1); }}>Retry sound</button>}
           <div className="frequency-audio-actions">
-            <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void replayTarget()}>
+            <button type="button" className="recall-replay" disabled={sending || state.phase !== "answer" || remainingMs <= 0} onClick={() => void replayTarget()}>
               Replay target
             </button>
           </div>
           <label className="game-range">
             <span>Frequency</span>
-            <input type="range" min={120} max={2000} value={frequency} disabled={sending || remainingMs <= 0} onChange={(event) => setFrequency(Number(event.target.value))} />
+            <input type="range" min={120} max={2000} value={frequency} disabled={sending || state.phase !== "answer" || remainingMs <= 0} onChange={(event) => setFrequency(Number(event.target.value))} />
             <strong>{frequency} Hz</strong>
           </label>
-          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={state.phase !== "answer" || remainingMs <= 0} pending={sending} remainingMs={remainingMs} onClick={() => void submit()} />
+          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={state.phase !== "answer" || remainingMs <= 0 || (state.listenRequired && !state.listenAcknowledged)} pending={sending} remainingMs={state.phase === "answer" ? remainingMs : undefined} onClick={() => void submit()} />
         </div>
       ) : state.phase === "reveal" ? (
         <div className="colour-round-reveal">
@@ -283,7 +309,7 @@ export function RankedRecallRounds({
         </div>
       ) : state.phase === "waiting" ? (
         <div className="sequential-complete">
-          <strong>Answer locked</strong>
+          <strong>{state.listenRequired && !state.listenAcknowledged && !state.ownSubmitted ? "Listening window missed" : "Answer locked"}</strong>
           <span>{state.opponentSubmitted ? "Resolving round…" : "Waiting for opponent or the round deadline."}</span>
           <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
         </div>

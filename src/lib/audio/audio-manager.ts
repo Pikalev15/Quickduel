@@ -76,12 +76,13 @@ export class AudioManager {
     return this.context;
   }
 
-  async playToneSequence(frequencies: number[]) {
+  async playToneSequence(frequencies: number[], waitForEnd = false): Promise<boolean> {
     this.stopPlayback();
     const id = this.playbackId;
     const context = await this.getContext();
-    if (!context || this.muted || id !== this.playbackId) return;
+    if (!context || context.state !== "running" || this.muted || id !== this.playbackId || !frequencies.length) return false;
     let at = context.currentTime + 0.03;
+    let last: OscillatorNode | null = null;
     for (const frequency of frequencies) {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
@@ -94,8 +95,18 @@ export class AudioManager {
       this.track(oscillator);
       oscillator.start(at);
       oscillator.stop(at + 0.36);
+      last = oscillator;
       at += 0.48;
     }
+    if (!waitForEnd || !last) return true;
+    return new Promise<boolean>(resolve => {
+      const source = last;
+      const safety = window.setTimeout(() => resolve(false), frequencies.length * 480 + 3000);
+      source.addEventListener("ended", () => {
+        window.clearTimeout(safety);
+        resolve(id === this.playbackId && !this.muted && context.state === "running");
+      }, { once: true });
+    });
   }
 
   async playRhythmSequence(rhythms: number[][]) {
