@@ -12,6 +12,15 @@ describe("workshop and rank timing",()=>{
   expect(workshopSchema.safeParse({...config,revealMs:500}).success).toBe(false);
   expect(validWorkshop("frequency_recall_v2",config)).toBe(false);
  });
+ it("allows only a complete fixed rhythm reveal and at least ten seconds to answer",()=>{
+  const rhythm={version:1 as const,revealMs:13000,answerMs:20000};
+  expect(workshopSchema.safeParse(rhythm).success).toBe(true);
+  expect(validWorkshop("rhythm_recall",rhythm)).toBe(true);
+  expect(validWorkshop("rhythm_recall",{...rhythm,revealMs:10000})).toBe(false);
+  expect(validWorkshop("rhythm_recall",{...rhythm,answerMs:9000})).toBe(false);
+  expect(validWorkshop("shape_recall",rhythm)).toBe(false);
+  expect(validWorkshop("rhythm_recall",{...rhythm,memory:config.memory})).toBe(false);
+ });
  it("generates deterministic secret positions and validates submissions",()=>{
   const c=customMemoryChallenge("seed",config),game=getGame("memory_grid");
   expect(c).toEqual(generateMatchChallenge(game,"seed",4000,10000,{kind:"workshop",version:1,rules:config}));
