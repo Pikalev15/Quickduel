@@ -5456,3 +5456,39 @@ dd,
   .qd-feature-visual { height: 118px; }
   .qd-feature-copy a { min-height: 44px; }
 }
+
+
+/* Actionable in-app requests, never displayed on active game screens. */
+.qd-request-anchor { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; }
+.qd-request-bell { position: relative; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); display: grid; place-items: center; }
+.qd-request-count { position: absolute; right: -3px; top: -3px; min-width: 18px; height: 18px; padding: 0 3px; border: 2px solid var(--surface); border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+.qd-header-requests { display: flex; align-items: center; gap: .5rem; }
+.qd-request-panel { position: absolute; right: 0; top: calc(100% + 9px); z-index: 80; width: min(340px, calc(100vw - 24px)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 12px 36px #0002; }
+.qd-request-heading { display: flex; justify-content: space-between; align-items: center; padding: .6rem 1rem; border-bottom: 1px solid var(--border); }
+.qd-request-heading h2 { font-size: 1.1rem; font-weight: 800; }
+.qd-request-heading button { min-width: 44px; min-height: 44px; font-size: 1.4rem; }
+.qd-request-list { max-height: min(460px, 65dvh); overflow-y: auto; overscroll-behavior: contain; }
+.qd-request-item { display: grid; gap: .28rem; padding: .85rem 1rem; border-bottom: 1px solid var(--border); }
+.qd-request-item:last-child { border-bottom: 0; }
+.qd-request-kind { color: var(--accent); font-size: .75rem; font-weight: 750; }
+.qd-request-item > b { overflow-wrap: anywhere; font-size: .98rem; }
+.qd-request-item p, .qd-request-empty { color: var(--muted); font-size: .85rem; }
+.qd-request-empty, .qd-request-error { padding: 1rem; }
+.qd-request-error { color: var(--danger); font-size: .8rem; }
+.qd-request-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .3rem; }
+.qd-request-actions button, .qd-request-toast button { min-height: 44px; padding: .35rem .6rem; border: 1px solid var(--border); border-radius: 7px; font-weight: 700; font-size: .85rem; }
+.qd-request-actions button:first-child, .qd-request-toast button:first-of-type { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.qd-request-actions button:disabled { opacity: .5; }
+.qd-request-toast { position: fixed; z-index: 79; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: min(390px, calc(100vw - 24px)); display: flex; align-items: center; gap: .55rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); padding: .7rem; box-shadow: 0 8px 24px #0002; }
+.qd-request-toast > div { flex: 1; min-width: 0; }
+.qd-request-toast b { font-size: .88rem; }
+.qd-request-toast p { font-size: .78rem; color: var(--muted); overflow-wrap: anywhere; }
+.qd-request-toast button:last-child { min-width: 44px; }
+@media (max-width: 640px) {
+  .qd-request-panel { position: fixed; top: max(74px, env(safe-area-inset-top)); right: 12px; left: 12px; width: auto; }
+  .qd-request-bell { width: 44px; height: 44px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .qd-request-panel, .qd-request-toast { animation: qd-request-enter 180ms var(--qd-settle, ease-out) both; }
+  @keyframes qd-request-enter { from { opacity: .4; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+}

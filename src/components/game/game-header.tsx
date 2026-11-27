@@ -2,6 +2,7 @@ import { SignalIcon } from "@/components/ui/icons";
 import { Wordmark } from "@/components/ui/wordmark";
 import { getDivision } from "@/lib/divisions";
 import { getPlacement } from "@/lib/placements";
+import { RequestBell } from "@/components/notifications/request-bell";
 
 export function GameHeader({
   player,
@@ -13,6 +14,7 @@ export function GameHeader({
   connected,
   practice = false,
   opponentConnected,
+  showRequests = false,
 }: {
   player: string;
   playerRating: number;
@@ -23,6 +25,7 @@ export function GameHeader({
   connected: boolean;
   practice?: boolean;
   opponentConnected?: boolean | null;
+  showRequests?: boolean;
 }) {
   const placement = getPlacement(playerMatches);
   const otherPlacement = getPlacement(opponentMatches);
@@ -30,12 +33,15 @@ export function GameHeader({
     <>
       <header className="page-shell flex h-[70px] items-center justify-between">
         <Wordmark compact />
+        <div className="flex items-center gap-2">
+        {showRequests && <RequestBell />}
         <span
           className={`display flex items-center gap-2 text-xs tracking-[0.1em] ${connected ? "text-[var(--accent)]" : "text-[var(--danger)]"}`}
         >
           <SignalIcon className="h-5 w-5" />
           {connected ? "Connected" : "Reconnecting"}
         </span>
+        </div>
       </header>
       <div className="page-shell grid grid-cols-[1fr_auto_1fr] items-center border-y border-[var(--accent)] text-sm">
         <div className="truncate px-3 py-3 text-center sm:text-left">

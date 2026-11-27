@@ -375,6 +375,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     return (
       <main className="has-match-chat min-h-screen">
         <GameHeader
+          showRequests
           player={me.display_name}
           playerRating={me.rating_after ?? me.rating_before}
           opponent={opponent.display_name}
@@ -411,7 +412,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           }}
           unranked={!snapshot.ranked}
           placementMatches={currentUserId ? placementCounts?.[currentUserId] ?? null : null}
-          rematchWaiting={rematchWaiting}
+          rematchWaiting={rematchWaiting || Boolean(me.rematch_requested_at && !snapshot.rematch_match_id)}
           onRematch={() =>
             snapshot.private_duel_code
               ? router.push(`/duel/${snapshot.private_duel_code}`)
@@ -423,7 +424,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               : router.push("/play")
           }
           onHome={() => router.push("/")}
-          rematchLabel={snapshot.private_duel_code ? "Return to series" : "Rematch"}
+          rematchLabel={snapshot.private_duel_code ? "Return to series" : opponent.rematch_requested_at && !me.rematch_requested_at ? "Accept rematch" : "Request rematch"}
           nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
           onCreateShare={createShareUrl}
           completionNotice={completionNotice}

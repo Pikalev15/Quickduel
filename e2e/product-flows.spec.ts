@@ -910,3 +910,33 @@ test("statistics withhold starting division until five placements", async ({ pag
   await expect(page.getByText("2/5 complete", { exact: true })).toBeVisible();
   await expect(page.getByText("Gold", { exact: true })).toHaveCount(0);
 });
+
+test("request inbox supports incoming friend and duel requests and rematches", async ({ page }) => {
+  let requests = [
+    { id: "friend-1", kind: "friend", sender: "Ari", detail: "Wants to add you as a friend.", createdAt: new Date().toISOString(), expiresAt: null },
+    { id: "duel-1", kind: "duel", sender: "Sam", detail: "Best of 3 · Unranked", createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+60_000).toISOString() },
+    { id: "00000000-0000-4000-8000-000000000013", kind: "rematch", sender: "Mika", detail: "Wants another round.", createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+60_000).toISOString(), matchId: "00000000-0000-4000-8000-000000000013" },
+  ];
+  await page.route("**/api/notifications", route => route.fulfill({ json: { ok: true, data: { userId: profile.id, requests } } }));
+  await page.route("**/api/friends", async route => {
+    expect(route.request().method()).toBe("PATCH");
+    expect(route.request().postDataJSON()).toEqual({ requestId: "friend-1", accept: true });
+    requests = requests.filter(item => item.id !== "friend-1");
+    await route.fulfill({ json: { ok: true, data: {} } });
+  });
+  await page.route("**/api/invitations", async route => {
+    expect(route.request().postDataJSON()).toEqual({ invitationId: "duel-1", accept: false });
+    requests = requests.filter(item => item.id !== "duel-1");
+    await route.fulfill({ json: { ok: true, data: { status: "declined" } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Notifications, 3 pending requests" }).click();
+  await page.getByRole("button", { name: "Accept friend request from Ari" }).click();
+  await expect(page.getByRole("button", { name: "Notifications, 2 pending requests" })).toBeVisible();
+  await page.getByRole("button", { name: "Decline private duel invitation from Sam" }).click();
+  await page.getByRole("button", { name: "Dismiss rematch request from Mika" }).click();
+  await expect(page.getByText("No pending requests.")).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Notifications", exact: true }).click();
+  await expect(page.getByText("No pending requests.")).toBeVisible();
+});
