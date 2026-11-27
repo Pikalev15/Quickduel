@@ -31,7 +31,7 @@ function Feedback({
   remainingMs: number;
 }) {
   return (
-    <div className="recall-feedback" aria-live="polite">
+    <div className="recall-feedback qd-resolved" aria-live="polite">
       {feedback.kind === "frequency" ? (
         <>
           <div className="recall-comparison">
@@ -68,7 +68,7 @@ function Feedback({
         </>
       )}
       <div className="recall-score-row">
-        <div><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Result</span><strong>{feedback.label}</strong></div>
       </div>
       <div className="recall-next">
@@ -235,6 +235,9 @@ export function RankedRecallRounds({
       <div className="sequential-progress">
         <span>Round {state.roundIndex + 1} of 5</span>
         <strong>You {state.ownScore.toFixed(1)} · Opponent {state.opponentScore.toFixed(1)}</strong>
+      </div>
+      <div className="qd-round-track" aria-hidden="true">
+        {Array.from({ length: 5 }, (_, index) => <i key={index} data-step={index < state.roundIndex || (index === state.roundIndex && (state.phase === "feedback" || state.phase === "complete")) ? "done" : index === state.roundIndex ? "current" : "upcoming"} />)}
       </div>
       {gameId === "frequency_recall_v2" && (state.phase === "reveal" || state.phase === "answer") ? (
         <div className="sequential-answer frequency-controls">
