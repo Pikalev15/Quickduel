@@ -80,13 +80,16 @@ export function MemoryGridGame({
   const revealed = (challenge.highlightedCells as number[] | undefined) ?? [];
   const [selected, setSelected] = useState<number[]>([]);
   const revealing = revealed.length > 0;
-  const showingPattern = revealing && phaseElapsedMs < MEMORY_GRID_FLASH_MS;
+  const targetCount = Number(challenge.targetCount ?? 0);
+  const flashMs = Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
+  const showingPattern = revealing && phaseElapsedMs < flashMs;
   const retentionRemainingMs = Math.max(
     0,
-    MEMORY_GRID_REVEAL_DURATION_MS - phaseElapsedMs,
+    Number(challenge.revealMs ?? MEMORY_GRID_REVEAL_DURATION_MS) - phaseElapsedMs,
   );
   return (
-    <div className="memory-grid-shell">
+    <div className={`memory-grid-shell${targetCount ? " memory-grid-xl" : ""}`}>
+      {!revealing && targetCount > 0 && <p className="memory-phase-status">{selected.length}/{targetCount} selected</p>}
       <div
         className={`memory-board${revealing && !showingPattern ? " is-retaining" : ""}`}
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
@@ -100,7 +103,7 @@ export function MemoryGridGame({
               type="button"
               aria-label={`Cell ${cell + 1}`}
               aria-pressed={selected.includes(cell)}
-              disabled={disabled || revealing}
+              disabled={disabled || revealing || (targetCount > 0 && selected.length >= targetCount && !selected.includes(cell))}
               className={active ? "is-active" : ""}
               key={cell}
               onClick={() => {
@@ -1037,4 +1040,38 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
 export function EmptyGame({ onChange }: GameComponentProps) {
   useEffect(() => onChange({} as Submission, false), [onChange]);
   return null;
+}
+
+
+export function CrypticDuelGame({ challenge, disabled, onChange }: GameComponentProps) {
+  const [answer, setAnswer] = useState("");
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const length = Number(challenge.length ?? 0);
+  const hints = (challenge.hints as string[] | undefined) ?? [];
+  const update = (value: string, count: number) => {
+    onChange({ answer: value, hintsUsed: count }, value.length === length && length > 0);
+  };
+  return (
+    <div className="cryptic-game">
+      <p className="game-kicker">Definition + wordplay</p>
+      <h2>{String(challenge.clue ?? "")}</h2>
+      <label className="cryptic-input-label">
+        <span>Your answer · {length} letters</span>
+        <input type="text" aria-label="Cryptic answer" value={answer} maxLength={length} disabled={disabled}
+          autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false}
+          placeholder={Array.from({ length }, () => "_").join(" ")}
+          onChange={(event) => { const next = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, length); setAnswer(next); update(next, hintsUsed); }} />
+      </label>
+      <div className="cryptic-hint-row">
+        <span>{10 - hintsUsed * 2} possible points</span>
+        <button type="button" className="recall-replay" disabled={disabled || hintsUsed >= hints.length}
+          onClick={() => { const next = hintsUsed + 1; setHintsUsed(next); update(answer, next); }}>
+          {hintsUsed >= hints.length ? "All hints used" : "Reveal hint · −2"}
+        </button>
+      </div>
+      <div aria-live="polite" className="cryptic-hints">
+        {hints.slice(0, hintsUsed).map((hint, index) => <p key={index}><b>Hint {index + 1}</b> {hint}</p>)}
+      </div>
+    </div>
+  );
 }
