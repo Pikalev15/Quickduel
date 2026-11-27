@@ -66,7 +66,7 @@ async function verifyTurnstile(request: Request, token: string) {
     const expectedHost = new URL(
       process.env.NEXT_PUBLIC_APP_URL ?? request.url,
     ).hostname;
-    return !result.hostname || result.hostname === expectedHost;
+    return result.hostname === expectedHost;
   } catch {
     return false;
   }
@@ -103,7 +103,11 @@ export async function enforceNetworkAbuseBoundary(
     allowed?: boolean;
     challenge_required?: boolean;
   } | null;
-  if (result?.challenge_required && options.adaptiveChallenge) {
+  if (typeof result?.allowed !== "boolean" || typeof result.challenge_required !== "boolean") {
+    throw new Error("QD_NETWORK_LIMIT_UNAVAILABLE");
+  }
+  if (!result.allowed) throw new Error("QD_NETWORK_RATE_LIMITED");
+  if (result.challenge_required && options.adaptiveChallenge) {
     if (
       process.env.NODE_ENV !== "production"
       && process.env.ABUSE_CHALLENGE_DEV_BYPASS === "true"
@@ -116,8 +120,5 @@ export async function enforceNetworkAbuseBoundary(
         process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null,
       );
     }
-  }
-  if (result?.allowed === false) {
-    throw new Error("QD_NETWORK_RATE_LIMITED");
   }
 }
