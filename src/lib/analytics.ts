@@ -16,7 +16,7 @@ type EventContext = {
 export const ANALYTICS_PREFERENCE_KEY = "quickduel:analytics-enabled";
 
 export function analyticsEnabled() {
-  return localStorage.getItem(ANALYTICS_PREFERENCE_KEY) !== "false";
+  try { return typeof window !== "undefined" && localStorage.getItem(ANALYTICS_PREFERENCE_KEY) !== "false"; } catch { return false; }
 }
 
 function sessionId() {
@@ -62,11 +62,7 @@ export function track(eventType: EventName, context: EventContext = {}) {
     properties: context.properties ?? {},
   });
   if (navigator.sendBeacon) {
-    navigator.sendBeacon(
-      "/api/analytics",
-      new Blob([payload], { type: "application/json" }),
-    );
-    return;
+    if (navigator.sendBeacon("/api/analytics", new Blob([payload], { type: "application/json" }))) return;
   }
   void fetch("/api/analytics", {
     method: "POST",

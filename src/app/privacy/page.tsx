@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen">
       <ProductHeader />
       <article className="page-shell legal-shell">
-        <p className="calm-eyebrow">Effective September 17, 2026</p>
+        <p className="calm-eyebrow">Updated November 27, 2026</p>
         <h1>Privacy policy</h1>
         <p>QuickDuel collects only the information needed to operate accounts, multiplayer matches, safety controls, and coarse product analytics.</p>
 
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         <p>Match records include participants, game type, validated score, trusted timing, outcome, and integrity state. Challenge seeds, answers, enforcement records, private messages, friend relationships, and provider credentials are not public.</p>
 
         <h2>Analytics</h2>
-        <p>First-party analytics may record a random session identifier, event name, coarse device class, referrer category, game or playlist reference, and duration. QuickDuel does not collect advertising identifiers, fingerprints, raw keystrokes, pointer traces, audio, or challenge answers. Analytics can be disabled in Profile settings.</p>
+        <p>First-party analytics may record a random session identifier, event name, coarse device class, referrer category, game or playlist reference, and duration. QuickDuel does not collect advertising identifiers, fingerprints, raw keystrokes, pointer traces, audio, or challenge answers. Vercel Web Analytics and Speed Insights may measure visits, broad location, device and browser information, and page performance on public static pages. Private match and lobby routes and query strings are excluded from the event URLs. All optional analytics can be disabled on this device in Profile settings.</p>
 
         <h2>Storage and cookies</h2>
         <p>Authentication uses essential Supabase session cookies. Local and session storage remember theme, interface, queue safety, onboarding, analytics preference, and anonymous-session state. QuickDuel does not use third-party advertising cookies.</p>
