@@ -507,14 +507,14 @@ function colourStyle(colour: RecallColour) {
   return `oklch(${colour.l}% ${colour.c / 100} ${colour.h})`;
 }
 
-export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
+export function TimeRecallGame({ challenge, disabled, phaseElapsedMs = 0, onChange }: GameComponentProps) {
   const durations = (challenge.durations as number[] | undefined) ?? [];
   const [guesses, setGuesses] = useState([1200, 1500, 1800, 2100, 2400]);
   useSubmitInitialValidAnswer(disabled, onChange, { durationsMs: guesses });
   return (
     <div className="game-stack time-recall-controls">
-      {durations.length > 0 && <PulseSequence durations={durations} />}
-      {guesses.map((guess, index) => (
+      {durations.length > 0 && <PulseSequence durations={durations} elapsedMs={phaseElapsedMs} />}
+      {durations.length === 0 && guesses.map((guess, index) => (
         <Range
           key={index}
           label={`Pulse ${index + 1}`}
@@ -534,13 +534,16 @@ export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentP
   );
 }
 
-function PulseSequence({ durations }: { durations: number[] }) {
+function PulseSequence({ durations, elapsedMs }: { durations: number[]; elapsedMs: number }) {
   return (
     <div className="time-pulse-list" aria-label="Five pulse durations">
       {durations.map((duration, index) => (
         <div className="time-pulse-row" key={index}>
           <span>Pulse {index + 1}</span>
-          <i style={{ animationDuration: `${duration}ms` }} />
+          <i
+            data-pulse-active={elapsedMs < duration}
+            style={{ transform: `scaleX(${Math.max(0, Math.min(1, elapsedMs / duration))})` }}
+          />
         </div>
       ))}
     </div>
