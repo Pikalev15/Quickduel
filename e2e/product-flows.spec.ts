@@ -806,3 +806,18 @@ test("timed practice controls fit the viewport without page scrolling", async ({
     });
   }
 });
+
+
+test("answer lock remains reachable and has an immediate accessible action", async ({ page }) => {
+  await page.goto("/match/practice?game=odd_one_out&seed=lock-button-regression");
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeVisible({ timeout: 10_000 });
+  await expect(lock).toBeDisabled();
+  await page.getByRole("button", { name: "Tile 1", exact: true }).click();
+  await expect(lock).toBeEnabled();
+  await expect(lock).toBeInViewport({ ratio: 0.98 });
+  const bounds = await lock.boundingBox();
+  expect(bounds?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await lock.click();
+  await expect(lock).toHaveCount(0);
+});
