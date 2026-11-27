@@ -17,7 +17,7 @@ export const CRYPTIC_CLUES: readonly CrypticClue[] = [
   { clue: "Celestial body formed from starts of Sunny Trees And Rivers (4)", answer: "STAR", hints: ["The definition is celestial body.", "Use the first letters of the four capitalised words."], explanation: "Sunny, Trees, And, Rivers supply S T A R." },
   { clue: "Line concealed in tomorrow (3)", answer: "ROW", hints: ["The definition is line.", "Look at consecutive letters near the end of tomorrow."], explanation: "tomor[ROW] contains ROW, meaning a line." },
   { clue: "Part of a flower hidden in carpet alignment (5)", answer: "PETAL", hints: ["The definition is part of a flower.", "Find a word spanning the boundary of carpet and alignment."], explanation: "car[PET AL]ignment hides PETAL." },
-  { clue: "Earth mixed with HEART (5)", answer: "EARTH", hints: ["The definition is earth.", "Rearrange HEART."], explanation: "EARTH means soil or our planet and is an anagram of HEART." },
+  { clue: "Soil from mixed HEART (5)", answer: "EARTH", hints: ["The definition is soil.", "Rearrange HEART."], explanation: "EARTH means soil or our planet and is an anagram of HEART." },
   { clue: "Musical instrument from a pin and O, mixed (5)", answer: "PIANO", hints: ["The definition is musical instrument.", "Rearrange A PIN and O."], explanation: "A PIN and O rearrange to PIANO." },
   { clue: "Beginning hidden in east artist (5)", answer: "START", hints: ["The definition is beginning.", "Read across east artist."], explanation: "ea[ST ART]ist hides START." },
 ] as const;
