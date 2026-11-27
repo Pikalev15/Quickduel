@@ -4829,3 +4829,167 @@ dd,
   from { opacity: 0; transform: translateY(6px) scale(0.96); filter: blur(2px); }
   to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
+
+
+/* Active matches prioritise the playable area, not decorative whitespace.
+ * Do not lock document scrolling: users with zoom, short viewports or large
+ * fonts must still be able to reach every control. Results keep their layout. */
+.active-game {
+  min-height: 100dvh;
+  --game-room: max(170px, calc(100dvh - 255px));
+}
+.active-game.has-match-chat { padding-right: 0; }
+.active-game > header { height: 52px; }
+.active-game.has-match-chat > header { padding-right: 76px; }
+.active-game > .page-shell:not(header):not(section) > div {
+  padding-block: 0.45rem;
+}
+.active-game .match-center,
+.active-game.typing-match .match-center {
+  min-height: 0;
+  justify-content: flex-start;
+  padding-block: clamp(0.6rem, 1.8vh, 1.25rem);
+}
+.active-game .game-title-row,
+.active-game.typing-match .game-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  gap: 0.6rem;
+  padding-bottom: 0.45rem;
+}
+.active-game .game-title-row h1 {
+  font-size: clamp(1.6rem, 4.2vw, 2.65rem);
+  line-height: 1;
+}
+.active-game .game-timer,
+.active-game.typing-match .game-timer {
+  font-size: clamp(1.25rem, 4.5vw, 2.4rem);
+  white-space: nowrap;
+}
+.active-game.typing-match .game-title-row > div:first-child {
+  display: block;
+}
+.active-game.typing-match .game-kicker { margin-top: 0; }
+.active-game .game-instructions {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.active-game .game-time-progress { margin-top: 0.45rem; }
+.active-game .game-stage,
+.active-game.typing-match .game-stage {
+  min-height: 0;
+  margin-top: 0.55rem;
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+  place-items: center;
+}
+.active-game .game-submit { margin-top: 0.55rem; min-height: 44px; font-size: 1rem; }
+.active-game .game-stack,
+.active-game .sequential-recall,
+.active-game .sequential-answer { gap: 0.55rem; }
+.active-game .secure-recall,
+.active-game .frequency-reveal,
+.active-game .colour-round-reveal,
+.active-game .sequential-complete { min-height: 0; }
+.active-game .frequency-controls { width: 100%; }
+.frequency-audio-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.active-game .frequency-audio-actions button,
+.active-game .recall-confirm {
+  min-height: 44px;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+.active-game .game-range {
+  min-height: 44px;
+  grid-template-columns: minmax(62px, 120px) minmax(0, 1fr) minmax(40px, 66px);
+  gap: 0.45rem;
+}
+.active-game .game-range input { width: 100%; min-width: 0; }
+.active-game .game-range strong { white-space: nowrap; }
+.active-game .memory-board,
+.active-game .memory-grid-shell,
+.active-game .odd-grid {
+  width: min(100%, 76vw, 390px, var(--game-room));
+}
+.active-game .memory-grid-shell .memory-board { width: 100%; }
+.active-game .dot-field,
+.active-game .target-field {
+  min-height: 0;
+  height: min(360px, var(--game-room));
+}
+.active-game .reaction-pad { min-height: min(300px, var(--game-room)); }
+.active-game .tap-pad { min-height: clamp(90px, 20dvh, 180px); }
+.active-game .number-field {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0.5rem;
+}
+.active-game .number-field button { width: 44px; max-width: 100%; }
+.active-game .pattern-list { gap: 0.25rem; }
+.active-game .pattern-list section {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.25rem;
+}
+.active-game .pattern-options,
+.active-game .pattern-sequence { gap: 0.25rem; }
+.active-game .pattern-options button { width: 44px; min-height: 44px; }
+.active-game .pattern-sequence span { width: clamp(17px, 5vw, 34px); }
+.active-game .recall-feedback { gap: 0.5rem; }
+.active-game .recall-metrics > div { padding: 0.45rem 0.2rem; }
+.active-game .colour-feedback-swatches i { max-height: 72px; }
+.active-game .colour-round-reveal > span { width: min(48vw, 200px, var(--game-room)); }
+.active-game .typing-sprint { min-height: 0; gap: 0.7rem; }
+.active-game .typing-stats { padding-block: 0.45rem; }
+.active-game .typing-words { max-height: 7rem; line-height: 1.5; }
+.active-game .typing-focus-copy { margin: 0; }
+.active-game .match-chat-collapsed {
+  position: fixed;
+  top: 4px;
+  right: max(12px, calc((100vw - 1240px) / 2));
+  bottom: auto;
+  width: auto;
+  max-height: none;
+  display: block;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.active-game .match-chat-collapsed > button {
+  min-width: 58px;
+  min-height: 44px;
+  padding: 0 0.65rem;
+  color: var(--accent);
+}
+.match-chat > header .match-chat-header-actions { display: flex; gap: 0.65rem; }
+.match-chat-header-actions button { min-height: 44px; }
+.match-chat-log { overscroll-behavior: contain; }
+@media (max-width: 640px) {
+  .active-game > header { height: 48px; }
+  .active-game .game-stage { padding: 0.5rem; }
+  .active-game .shape-game { gap: 0.15rem; }
+  .active-game .shape-canvas { max-height: clamp(90px, 17dvh, 150px); }
+  .active-game .colour-round-answer { gap: 0.2rem; }
+  .active-game .colour-round-answer .colour-preview { min-height: 75px; }
+  .active-game .game-range { font-size: 0.75rem; }
+  .active-game .pattern-options,
+  .active-game .pattern-sequence { gap: 2px; }
+  .active-game .pattern-sequence span { font-size: 0.8rem; }
+  .active-game .pattern-list section { gap: 3px; }
+  .active-game .typing-words { font-size: clamp(1rem, 4.5vw, 1.4rem); }
+}
+@media (max-width: 345px) {
+  .active-game .pattern-list section { grid-template-columns: 1fr; }
+  .active-game .pattern-sequence span { width: 22px; }
+}
+@media (max-height: 500px) and (min-width: 641px) {
+  .active-game .shape-game { grid-template-columns: minmax(120px, 1fr) 1.2fr; }
+  .active-game .shape-canvas { max-height: 180px; }
+}
