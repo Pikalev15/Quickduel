@@ -1,3 +1,4 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
@@ -45,7 +46,7 @@ export async function POST(
     return apiError(400, "INVALID_REQUEST", "That duel code is invalid.", code.error.issues, correlationId);
   }
   try {
-    const { supabase, user } = await requireUser();
+    const { user } = await requireUser();
     await enforceNetworkAbuseBoundary(
       request,
       "private_duel_join",
@@ -53,7 +54,7 @@ export async function POST(
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await supabase.rpc("join_private_duel", {
+    const { data, error } = await serverQueueOrDuel(user.id, "join_private_duel", {
       requested_code: code.data,
     });
     if (error) throw error;
