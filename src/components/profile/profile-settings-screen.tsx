@@ -84,6 +84,7 @@ export function ProfileSettingsScreen() {
   function toggleAnalytics() {
     const next = !analytics;
     window.localStorage.setItem(ANALYTICS_PREFERENCE_KEY, String(next));
+    window.dispatchEvent(new Event("quickduel:analytics-preference"));
     setAnalytics(next);
     setMessage(next ? "Privacy-friendly analytics enabled." : "Analytics disabled on this device.");
   }
@@ -121,7 +122,7 @@ export function ProfileSettingsScreen() {
         </section>
 
         <section className="settings-section">
-          <div className="feature-section-heading"><div><h2>Product analytics</h2><p>Allow coarse first-party usage events. QuickDuel never records keystrokes, pointer traces, challenge answers, or advertising identifiers.</p></div></div>
+          <div className="feature-section-heading"><div><h2>Product analytics</h2><p>Allow gameplay statistics, website traffic and performance measurements. QuickDuel never records keystrokes, pointer traces, challenge answers, or advertising identifiers.</p></div></div>
           <button className="calm-secondary" type="button" aria-pressed={analytics} onClick={toggleAnalytics}>
             {analytics ? "Analytics on" : "Analytics off"}
           </button>

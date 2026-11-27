@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ProductHeader } from "@/components/ui/product-header";
+import { ProductMetricsPanel } from "./product-metrics-panel";
 
 type AdminOverview = {
   flags: Array<{
@@ -148,6 +149,8 @@ export function AdminScreen() {
           <p>Database-backed roles protect every query and action. All enforcement changes are audited.</p>
         </div>
         {message && <p className="profile-message" role="status">{message}</p>}
+
+        <ProductMetricsPanel />
 
         <section className="admin-health">
           <h2>System health</h2>
