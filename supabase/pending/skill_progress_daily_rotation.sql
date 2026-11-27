@@ -133,6 +133,8 @@ begin
       )
       from public.matches m
       where m.status = 'completed'
+        and m.invalidated_at is null
+        and m.completion_reason = 'normal'
         and exists (
           select 1 from public.match_players a
           where a.match_id = m.id and a.user_id = auth.uid()
