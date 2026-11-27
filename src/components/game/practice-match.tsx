@@ -10,6 +10,7 @@ import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import { track } from "@/lib/analytics";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
+import { AudioManager } from "@/lib/audio/audio-manager";
 
 type Phase = "countdown" | "reveal" | "answer" | "waiting" | "result";
 
@@ -26,7 +27,10 @@ export function PracticeMatch({
   const game = getGame(gameId);
   const challenge = useMemo(() => game.generate(seed), [game, seed]);
   const bot = useMemo(() => game.bot(seed, challenge), [challenge, game, seed]);
-  const [startAt] = useState(() => Date.now() + 2_000);
+  const needsAudio = gameId === "frequency_recall_v2" || gameId === "frequency_recall" || gameId === "rhythm_recall";
+  const [audioReady, setAudioReady] = useState(!needsAudio);
+  const [audioError, setAudioError] = useState(false);
+  const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
   const [now, setNow] = useState(() => Date.now());
   const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
@@ -53,18 +57,18 @@ export function PracticeMatch({
   }, [answerEnd, canSubmit, submittedAt]);
 
   useEffect(() => {
-    if (submittedAt !== null) return;
+    if (submittedAt !== null || !audioReady) return;
     const timeout = window.setTimeout(
       () => setSubmittedAt((current) => current ?? answerEnd),
       Math.max(0, answerEnd - Date.now()),
     );
     return () => window.clearTimeout(timeout);
-  }, [answerEnd, submittedAt]);
+  }, [answerEnd, submittedAt, audioReady]);
 
   let phase: Phase;
   if (submittedAt !== null) {
     phase = now >= answerStart + bot.completionTimeMs ? "result" : "waiting";
-  } else if (now < startAt) {
+  } else if (!audioReady || now < startAt) {
     phase = "countdown";
   } else if (now < answerStart) {
     phase = "reveal";
@@ -187,7 +191,16 @@ export function PracticeMatch({
         {phase === "countdown" ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">{game.name} · Get ready</p>
-            <div className="display mt-3 text-[10rem] leading-none text-[var(--accent)]">{countdown}</div>
+            {audioReady ? <div className="display mt-3 text-[clamp(5rem,25vw,10rem)] leading-none text-[var(--accent)]">{countdown}</div> : (
+              <Button className="mt-4" onClick={() => {
+                void AudioManager.shared().unlock().then((ready) => {
+                  if (!ready) { setAudioError(true); return; }
+                  setStartAt(Date.now() + 2_000);
+                  setAudioReady(true);
+                }).catch(() => setAudioError(true));
+              }}>Enable sound and start</Button>
+            )}
+            {audioError && !audioReady && <p role="alert">Audio is unavailable. Check your sound settings and try again.</p>}
             <p className="mt-4 max-w-xl text-[var(--muted)]">{game.instructions}</p>
           </div>
         ) : (
@@ -227,7 +240,7 @@ export function PracticeMatch({
                 key={`${game.id}:${phase === "waiting" ? "answer" : phase}`}
                 gameId={game.id}
                 challenge={publicChallenge}
-                disabled={phase !== "answer"}
+                disabled={phase !== "answer" || remaining <= 0}
                 phaseElapsedMs={phaseElapsedMs}
                 practiceOpponentSubmission={bot.submission}
                 onChange={(next, valid) => {
