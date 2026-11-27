@@ -163,7 +163,10 @@ export const friendActionSchema = z.object({
 
 export const duelInvitationSchema = privateDuelCreateSchema.and(
   z.object({ publicCode: publicCodeSchema }),
-);
+).refine(value => value.workshop === undefined, {
+  path: ["workshop"],
+  message: "Custom rules are not supported in invitations.",
+});
 
 export const invitationResponseSchema = z.object({
   invitationId: z.string().uuid(),
