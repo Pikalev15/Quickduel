@@ -414,6 +414,7 @@ test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline
   page,
 }, testInfo) => {
   await page.goto("/match/practice?game=typing_sprint&seed=typing-sprint-e2e");
+  await page.getByRole("button", { name: "Ready keyboard", exact: true }).click();
   const surface = page.locator(".typing-sprint");
   const input = page.getByLabel("Type the displayed words");
   await expect(surface).toBeVisible({ timeout: 10_000 });
