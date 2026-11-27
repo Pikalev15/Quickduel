@@ -9,6 +9,7 @@ import { getPlacement } from "@/lib/placements";
 import { formatAverageResult, GAME_STAT_LABELS } from "@/lib/game-statistics";
 import type { PublicProfile } from "@/types/database";
 import { ProductHeader } from "@/components/ui/product-header";
+import {SkillProgress} from "./skill-progress";
 
 type Stats = PublicProfile & {
   recent_form: Array<"win" | "loss" | "draw">;
@@ -101,6 +102,7 @@ export function StatsScreen() {
           </div>
         </section>
 
+        <SkillProgress/>
         <section className="stats-games">
           <div className="feature-section-heading"><div><h2>Per game</h2><p>Each game keeps its own meaningful measurement.</p></div></div>
           {playedGames.length === 0 ? (

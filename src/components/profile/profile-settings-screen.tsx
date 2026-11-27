@@ -104,7 +104,8 @@ export function ProfileSettingsScreen() {
         <section className="settings-section"><h2>Appearance</h2><AccentPicker /></section>
 
         <section className="settings-section">
-          <div className="feature-section-heading"><div><h2>Owned cosmetics</h2><p>Free testing items are available now; there is no shop or payment flow.</p></div></div>
+          <div className="feature-section-heading"><div><h2>Earned cosmetics</h2><p>Earn a precision frame by completing five valid ranked public matches in a single game with at least 85% accuracy. No shop or payment flow.</p></div></div>
+          <button className="calm-secondary" type="button" onClick={async()=>{try{const response=await fetch("/api/cosmetics/achievements",{method:"POST"});const body=await response.json();if(!response.ok)throw new Error(body.error?.message??"Rewards unavailable.");setCosmetics(body.data);setMessage("Achievement eligibility checked.");}catch(error){setMessage(error instanceof Error?error.message:"Rewards unavailable.");}}}>Claim earned rewards</button>
           <div className="cosmetic-groups">
             {Object.entries(grouped).map(([type, items]) => (
               <fieldset key={type}>

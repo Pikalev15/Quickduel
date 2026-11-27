@@ -13,6 +13,7 @@ import { GameRenderer } from "@/games/client-registry";
 import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
 import { ResultPanel } from "@/components/results/result-panel";
+import {RankedRecordNotice} from "@/components/stats/skill-progress";
 import { track } from "@/lib/analytics";
 import { MatchChat } from "@/components/match-chat/match-chat";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
@@ -412,6 +413,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             ratingAfter: opponent.rating_after ?? opponent.rating_before,
             details: opponent.result.details,
           }}
+          recordNotice={snapshot.ranked&&snapshot.completion_reason==="normal"?<RankedRecordNotice matchId={snapshot.id}/>:undefined}
           unranked={!snapshot.ranked}
           placementMatches={currentUserId ? placementCounts?.[currentUserId] ?? null : null}
           rematchWaiting={rematchWaiting || Boolean(me.rematch_requested_at && !snapshot.rematch_match_id)}

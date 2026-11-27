@@ -1,5 +1,5 @@
 import {z} from "zod";
-import type {GameId,Challenge} from "./types";
+import type {Challenge} from "./types";
 import {createRandom,shuffle} from "./random";
 
 // These games have server-owned answer deadlines and a compatible client renderer.

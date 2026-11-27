@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics";
 import type { PublicProfile } from "@/types/database";
 import { ProductHeader } from "@/components/ui/product-header";
+import {getGameDisplay} from "@/games/display";
+import type {GameId} from "@/games/types";
 
 type Player = {
   display_name: string;
@@ -15,6 +17,7 @@ type Player = {
 
 type Friend = Player & {
   head_to_head: { matches: number; wins: number; losses: number; draws: number };
+  per_game?:{game:GameId;wins:number;losses:number;draws:number;matches:number}[];
 };
 
 type Request = {
@@ -220,7 +223,7 @@ export function FriendsScreen() {
                   {state.friends.map((friend) => (
                     <article key={friend.public_code}>
                       <span className={`presence presence-${friend.status}`} aria-label={friend.status} />
-                      <div><h3>{friend.display_name}#{friend.public_code}</h3><p>{friend.status === "recent" ? "Recently active" : friend.status} · {friend.rating} Elo</p><small>Head to head: {friend.head_to_head.wins}W · {friend.head_to_head.losses}L · {friend.head_to_head.draws}D</small></div>
+                      <div><h3>{friend.display_name}#{friend.public_code}</h3><p>{friend.status === "recent" ? "Recently active" : friend.status} · {friend.rating} Elo</p><small>Head to head: {friend.head_to_head.wins}W · {friend.head_to_head.losses}L · {friend.head_to_head.draws}D</small>{Boolean(friend.per_game?.length)&&<details className="qd-rivalry"><summary>Rivalry by game</summary>{friend.per_game?.map(row=><p key={row.game}>{getGameDisplay(row.game).name}: {row.wins}W · {row.losses}L · {row.draws}D</p>)}</details>}</div>
                       <div><button type="button" onClick={() => void invite(friend.public_code)}>Invite</button><button type="button" onClick={() => void friendAction("remove", friend.public_code)}>Remove</button><button className="danger-link" type="button" onClick={() => void friendAction("block", friend.public_code)}>Block</button></div>
                     </article>
                   ))}

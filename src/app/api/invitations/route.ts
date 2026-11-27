@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const correlationId = requestCorrelationId(request);
   const body = await readJson(request);
   const parsed = body.ok ? duelInvitationSchema.safeParse(body.value) : null;
-  if (!parsed?.success) {
+  if (!parsed?.success || parsed.data.workshop) {
     return apiError(400, "INVALID_REQUEST", "Duel invitation is invalid.", parsed?.error.issues, correlationId);
   }
   try {

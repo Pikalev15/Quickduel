@@ -18,7 +18,7 @@ export function LockAnswerButton({ label = "Lock answer", pending = false, locke
       aria-busy={pending}
       aria-label={busy ? pending ? "Locking answer" : "Answer locked" : label}
       data-state={pending ? "pending" : locked ? "locked" : disabled ? "disabled" : "ready"}
-      onClick={onClick}
+      onClick={event=>{if(typeof navigator.vibrate==="function"&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){try{navigator.vibrate(12);}catch{/* Unsupported device */}}onClick?.(event);}}
     >
       <span className="answer-lock-label">
         <span className="answer-lock-icon" aria-hidden="true">

@@ -209,7 +209,7 @@ export function HomeScreen() {
               onReset={resetPreferences}
             />
             <button type="button" className="profile-chip" aria-label="Player profile" onClick={openProfile}>
-              <span className={`accent-${profile?.accent_colour ?? "volt"}`}>
+              <span data-precision-frame={profile?.equipped_cosmetics?.profile_frame==="frame-precision"} className={`accent-${profile?.accent_colour ?? "volt"}`}>
                 {(profile?.display_name ?? "QD").slice(0, 2).toUpperCase()}
               </span>
               <b>{profile?.display_name ?? "Profile"}</b>
@@ -275,7 +275,8 @@ export function HomeScreen() {
       </section>
 
       <div className="page-shell calm-content qd-long-home">
-        <section className="qd-home-band qd-daily-teaser" data-qd-reveal=""><div><p className="game-kicker">One board. Everyone.</p><h2>Daily Duel</h2><p>Six patterns, 45 seconds, one scored attempt each day. Compare your result even when nobody is online.</p></div><Link className="calm-primary" href="/daily">Today’s challenge <ArrowIcon className="h-4 w-4"/></Link></section>
+        <section className="qd-home-band qd-daily-teaser" data-qd-reveal=""><div><p className="game-kicker">One board. Everyone.</p><h2>Daily Duel</h2><p>Six puzzles, 45 seconds, one scored attempt each day. Compare your result even when nobody is online.</p></div><Link className="calm-primary" href="/daily">Today’s challenge <ArrowIcon className="h-4 w-4"/></Link></section>
+        <section className="qd-home-band qd-daily-teaser" data-qd-reveal=""><div><p className="game-kicker">Weekly competition</p><h2>Weekly season</h2><p>Compete for weekly standings and see your archived results.</p></div><Link className="calm-secondary" href="/seasons">Weekly standings</Link></section>
         <section className="qd-home-band qd-explore" data-qd-reveal="" aria-labelledby="explore-heading">
           <div className="qd-section-intro"><h2 id="explore-heading">Try a challenge</h2></div>
           <div className="qd-feature-grid">
