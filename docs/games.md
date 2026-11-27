@@ -72,7 +72,7 @@ releases one database-owned round at a time: a 0.8-second tone reveal, a
 authoritative deadline, and exactly two seconds of feedback. Future targets are
 never returned by the normal match snapshot or round endpoint. The current
 frequency can be replayed during reveal and answer on the same screen as the
-slider and guess-audio preview. A reconnect can request only the current
+slider. The guessed tone cannot be played. A reconnect can request only the current
 unresolved tone as audio through an authenticated, non-cacheable endpoint;
 this does not disclose a future target or extend the deadline. Audio can still
 be analyzed by a determined client, so replay is a usability feature, not an
