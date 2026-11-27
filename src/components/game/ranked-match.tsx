@@ -83,41 +83,90 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     let active = true;
     let supabase: SupabaseClient | null = null;
     let channel: RealtimeChannel | null = null;
-    void (async () => {
-      supabase = await loadSupabaseBrowserClient();
-      if (!active || !supabase) return;
-      await supabase.realtime.setAuth();
-      channel = supabase
-        .channel(`match:${matchId}`, {
+    let retryTimer: number | undefined;
+    let retryDelay = 750;
+    let outageReported = false;
+
+    function recover(reason: string) {
+      if (!active) return;
+      setConnected(false);
+      setOpponentConnected(null);
+      if (!outageReported) {
+        outageReported = true;
+        void fetch("/api/errors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "realtime_disconnected",
+            message: `Private match channel ${reason}`,
+            route: `/match/${matchId}`,
+            digest: null,
+            stack: null,
+          }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+      if (retryTimer !== undefined) return;
+      const old = channel;
+      channel = null;
+      if (old && supabase) void supabase.removeChannel(old);
+      retryTimer = window.setTimeout(() => {
+        retryTimer = undefined;
+        void connect();
+      }, retryDelay);
+      retryDelay = Math.min(8_000, retryDelay * 2);
+      void reload();
+    }
+
+    async function connect() {
+      try {
+        supabase ??= await loadSupabaseBrowserClient();
+        const client = supabase;
+        if (!active) return;
+        if (!client) {
+          recover("client_unavailable");
+          return;
+        }
+        await client.realtime.setAuth();
+        if (!active) return;
+        const candidate = client.channel(`match:${matchId}`, {
           config: { private: true, presence: { key: currentUserId } },
-        })
-        .on("presence", { event: "sync" }, () => {
-          const state = channel?.presenceState() ?? {};
+        });
+        channel = candidate;
+        candidate.on("presence", { event: "sync" }, () => {
+          if (!active || channel !== candidate) return;
+          const state = candidate.presenceState();
           setOpponentConnected(Object.keys(state).some((key) => key !== currentUserId));
-        })
-        .subscribe(async (status) => {
-          setConnected(status === "SUBSCRIBED");
+        }).subscribe(async (status) => {
+          if (!active || channel !== candidate) return;
           if (status === "SUBSCRIBED") {
-            await channel?.track({ page: "match", ready: true });
-            void reload();
-          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            void fetch("/api/errors", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                event: "realtime_disconnected",
-                message: `Private match channel ${status.toLowerCase()}`,
-                route: `/match/${matchId}`,
-                digest: null,
-                stack: null,
-              }),
-              keepalive: true,
-            }).catch(() => undefined);
+            try {
+              const tracked = await candidate.track({ page: "match", ready: true });
+              if (!active || channel !== candidate) return;
+              if (tracked !== "ok") {
+                recover("presence_track_failed");
+                return;
+              }
+              retryDelay = 750;
+              outageReported = false;
+              setConnected(true);
+              void reload();
+            } catch {
+              if (channel === candidate) recover("presence_track_failed");
+            }
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            recover(status.toLowerCase());
           }
         });
-    })();
+      } catch {
+        recover("subscription_failed");
+      }
+    }
+
+    void connect();
     return () => {
       active = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       if (channel && supabase) void supabase.removeChannel(channel);
     };
   }, [currentUserId, matchId, reload]);
@@ -358,7 +407,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
-    <main className={`has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
+    <main className={`active-game has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader
         player={me?.display_name ?? "Loading…"}
         playerRating={me?.rating_before ?? 1000}
@@ -449,7 +498,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           </>
         )}
       </section>
-      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} />}
+      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} compact />}
       {error && <ErrorToast message={error} />}
     </main>
   );
