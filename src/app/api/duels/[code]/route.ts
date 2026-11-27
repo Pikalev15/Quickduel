@@ -27,7 +27,7 @@ export async function GET(
     if (error) throw error;
     if (!data) return apiError(404, "NOT_FOUND", "Private duel not found.", undefined, correlationId);
     const admin=createSupabaseAdminClient();
-    const {data:settings,error:settingsError}=await admin.from("private_duels").select("*").eq("code",code.data).maybeSingle();
+    const {data:settings,error:settingsError}=await admin.from("private_duels").select("workshop_rules").eq("code",code.data).maybeSingle();
     if(settingsError)throw settingsError;
     return apiSuccess({...data,workshop:settings?.workshop_rules??null}, 200, correlationId);
   } catch (error) {
