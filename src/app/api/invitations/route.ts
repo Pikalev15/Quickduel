@@ -1,3 +1,4 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { readJson, rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     return apiError(400, "INVALID_REQUEST", "Duel invitation is invalid.", parsed?.error.issues, correlationId);
   }
   try {
-    const { supabase, user } = await requireUser();
+    const { user } = await requireUser();
     await enforceNetworkAbuseBoundary(
       request,
       "duel_invitation",
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await supabase.rpc("send_duel_invitation", {
+    const { data, error } = await serverQueueOrDuel(user.id, "send_duel_invitation", {
       requested_public_code: parsed.data.publicCode,
       requested_selection_kind: parsed.data.selectionKind,
       requested_game: parsed.data.game,
@@ -46,8 +47,9 @@ export async function PATCH(request: Request) {
     return apiError(400, "INVALID_REQUEST", "Invitation response is invalid.", parsed?.error.issues, correlationId);
   }
   try {
-    const { supabase } = await requireUser();
-    const { data, error } = await supabase.rpc("respond_duel_invitation", {
+    const { user } = await requireUser();
+    await enforceNetworkAbuseBoundary(request, "duel_invitation_response", 30, 3600, { adaptiveChallenge: false });
+    const { data, error } = await serverQueueOrDuel(user.id, "respond_duel_invitation", {
       requested_invitation_id: parsed.data.invitationId,
       requested_accept: parsed.data.accept,
     });
