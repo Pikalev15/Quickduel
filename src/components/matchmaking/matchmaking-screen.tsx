@@ -288,7 +288,7 @@ export function MatchmakingScreen({
     <main className="queue-page">
       <Header simple />
       <section className="page-shell screen-enter queue-screen">
-        <div className="queue-radar" aria-hidden="true">
+        <div className="queue-radar" data-searching={status === "searching" ? "true" : undefined} aria-hidden="true">
           <span /><span /><span />
           <i className="search-pulse" />
         </div>
