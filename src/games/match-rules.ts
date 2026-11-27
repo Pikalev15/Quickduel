@@ -3,7 +3,6 @@ import type {Challenge} from "./types";
 import {createRandom,shuffle} from "./random";
 import { RHYTHM_REVEAL_DURATION_MS } from "./rhythm-input";
 
-// These games have server-owned answer deadlines and a compatible client renderer.
 // Secure recall keeps its fixed round count, reveal/listen gate and total budget. Reaction schedules remain fixed.
 export const CUSTOM_TIMING_GAMES=["memory_grid","shape_recall","dot_estimate","number_order","odd_one_out","pattern_complete","typing_sprint","rhythm_recall","frequency_recall_v2","colour_recall_v2"] as const;
 export const CUSTOM_REVEAL_GAMES=["memory_grid","shape_recall","dot_estimate"] as const;
