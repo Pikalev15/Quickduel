@@ -11,3 +11,19 @@ export function estimateServerClockOffset(serverTimestamp: string | undefined, s
       receivedAt < sentAt || processing < 0 || networkRoundTrip < 0 || networkRoundTrip > 2000) return null;
   return ((serverReceivedAt - sentAt) + (serverSentAt - receivedAt)) / 2;
 }
+
+export const MATCH_RECEIPT_TOLERANCE_MS = 1000;
+export function submissionWindow(
+  receivedAt: number,
+  answerStartedAt: number,
+  answerDurationMs: number,
+  timedOut: boolean,
+  submitAtDeadline: boolean,
+): "not-open" | "expired" | "too-early" | "invalid" | "open" {
+  if (![receivedAt, answerStartedAt, answerDurationMs].every(Number.isFinite) || answerDurationMs <= 0) return "invalid";
+  const deadline = answerStartedAt + answerDurationMs;
+  if (receivedAt < answerStartedAt) return "not-open";
+  if (receivedAt > deadline + (timedOut ? 5000 : MATCH_RECEIPT_TOLERANCE_MS)) return "expired";
+  if ((timedOut || submitAtDeadline) && receivedAt < deadline - 250) return "too-early";
+  return "open";
+}
