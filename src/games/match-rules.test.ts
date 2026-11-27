@@ -21,6 +21,19 @@ describe("workshop and rank timing",()=>{
   expect(validWorkshop("shape_recall",rhythm)).toBe(false);
   expect(validWorkshop("rhythm_recall",{...rhythm,memory:config.memory})).toBe(false);
  });
+ it("restricts secure recall custom rules to safe per-round answer windows",()=>{
+  const frequency={version:1 as const,revealMs:0,answerMs:60000,roundAnswerMs:6000};
+  const colour={version:1 as const,revealMs:0,answerMs:40000,roundAnswerMs:5200};
+  expect(workshopSchema.safeParse(frequency).success).toBe(true);
+  expect(validWorkshop("frequency_recall_v2",frequency)).toBe(true);
+  expect(validWorkshop("colour_recall_v2",colour)).toBe(true);
+  expect(validWorkshop("frequency_recall_v2",{...frequency,roundAnswerMs:6001})).toBe(false);
+  expect(validWorkshop("colour_recall_v2",{...colour,roundAnswerMs:5400})).toBe(false);
+  expect(validWorkshop("frequency_recall_v2",{...frequency,answerMs:40000})).toBe(false);
+  expect(validWorkshop("frequency_recall_v2",{...frequency,revealMs:500})).toBe(false);
+  expect(validWorkshop("colour_recall_v2",{...colour,roundAnswerMs:undefined})).toBe(false);
+  expect(validWorkshop("typing_sprint",frequency)).toBe(false);
+ });
  it("generates deterministic secret positions and validates submissions",()=>{
   const c=customMemoryChallenge("seed",config),game=getGame("memory_grid");
   expect(c).toEqual(generateMatchChallenge(game,"seed",4000,10000,{kind:"workshop",version:1,rules:config}));
