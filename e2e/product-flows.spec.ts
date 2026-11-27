@@ -36,6 +36,11 @@ async function captureProductScreenshot(
   });
 }
 
+async function openPrimaryMenu(page: Page) {
+  const menu = page.getByRole("button", { name: "Open menu", exact: true });
+  if (await menu.isVisible()) await menu.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/analytics", (route) =>
     route.fulfill({ status: 202, json: { ok: true, data: { accepted: true } } }),
@@ -153,6 +158,7 @@ test("primary navigation coordinates leaderboard and history transitions", async
 
   await page.goto("/leaderboard");
   await expect(page.getByText("YOU", { exact: true })).toBeVisible();
+  await openPrimaryMenu(page);
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "History", exact: true }).click();
   await expect(page).toHaveURL(/\/history$/);
   await expect(page.getByRole("heading", { name: "Match history" })).toBeVisible();
@@ -930,6 +936,7 @@ test("request inbox supports incoming friend and duel requests and rematches", a
     await route.fulfill({ json: { ok: true, data: { status: "declined" } } });
   });
   await page.goto("/");
+  await openPrimaryMenu(page);
   await page.getByRole("button", { name: "Notifications, 3 pending requests" }).click();
   await page.getByRole("button", { name: "Accept friend request from Ari" }).click();
   await expect(page.getByRole("button", { name: "Notifications, 2 pending requests" })).toBeVisible();
@@ -937,12 +944,14 @@ test("request inbox supports incoming friend and duel requests and rematches", a
   await page.getByRole("button", { name: "Dismiss rematch request from Mika" }).click();
   await expect(page.getByText("No pending requests.")).toBeVisible();
   await page.reload();
+  await openPrimaryMenu(page);
   await page.getByRole("button", { name: "Notifications", exact: true }).click();
   await expect(page.getByText("No pending requests.")).toBeVisible();
 });
 
 test("shared navigation and site accents remain consistent across pages", async ({ page }) => {
   await page.goto("/");
+  await openPrimaryMenu(page);
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
   await expect(nav.getByRole("link",{name:"Home",exact:true})).toHaveAttribute("aria-current","page");
@@ -953,27 +962,54 @@ test("shared navigation and site accents remain consistent across pages", async 
   await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
+  await openPrimaryMenu(page);
   await page.getByRole("button",{name:"Player profile",exact:true}).click();
   const drawer=page.getByRole("dialog",{name:"Customize profile"});
   await expect(drawer.getByRole("heading",{name:"Account"})).toBeVisible();
   await drawer.getByRole("button",{name:"Close profile"}).click();
   await nav.getByRole("link",{name:"Leaderboard",exact:true}).click();
+  await expect(page).toHaveURL(/\/leaderboard$/);
+  await openPrimaryMenu(page);
   await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
   await expect(nav.getByRole("link",{name:"Leaderboard",exact:true})).toHaveAttribute("aria-current","page");
   await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
 });
-test("mobile viewport keeps notification bell at right edge", async ({ page }) => {
+test("mobile viewport uses a single menu for navigation and notifications", async ({ page }) => {
   await page.setViewportSize({width:320,height:568});
   await page.route("**/api/notifications",route=>route.fulfill({json:{ok:true,data:{userId:profile.id,requests:[]}}}));
   await page.goto("/");
-  const bell=page.getByRole("button",{name:"Notifications",exact:true});
-  await expect(bell).toBeVisible();
-  const box=await bell.boundingBox();
+  const trigger=page.getByRole("button",{name:"Open menu",exact:true});
+  await expect(trigger).toBeVisible();
+  const box=await trigger.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.width).toBeGreaterThanOrEqual(44);
   expect(320-box!.x-box!.width).toBeLessThanOrEqual(16);
-  await bell.click();
+  await expect(page.getByRole("navigation",{name:"Primary"})).toBeHidden();
+  await trigger.click();
+  const nav=page.getByRole("navigation",{name:"Primary"});
+  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
+  await expect(page.getByRole("button",{name:"Settings",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Player profile",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Notifications",exact:true}).click();
   await expect(page.getByText("No pending requests.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(nav).toBeHidden();
+  await trigger.click();
+  await nav.getByRole("link",{name:"Leaderboard",exact:true}).click();
+  await expect(page).toHaveURL(/\/leaderboard$/);
+  await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeVisible();
+  await expect(nav).toBeHidden();
+});
+
+test("desktop navigation is flush right and not centered", async ({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/");
+  const nav=page.getByRole("navigation",{name:"Primary"});
+  const bounds=await nav.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThan(1440/2-60);
+  await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeHidden();
 });
 
 test("game library uses distinct mechanic icons rather than numeric markers", async ({ page }) => {
