@@ -32,6 +32,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [connected, setConnected] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const [keyboardReady, setKeyboardReady] = useState(false);
+  const typing = snapshot?.game_type === "typing_sprint";
   const requiresAudio = snapshot?.game_type === "frequency_recall_v2" || snapshot?.game_type === "frequency_recall" || snapshot?.game_type === "rhythm_recall";
   const [opponentConnected, setOpponentConnected] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }, [reload]);
 
   useEffect(() => {
-    if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady)) return;
+    if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady) || (typing && !keyboardReady)) return;
     readySent.current = true;
     void request<MatchSnapshot>(`/api/matches/${matchId}/ready`, { method: "POST" })
       .then(() => void reload())
@@ -83,7 +85,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         setError(caught instanceof Error ? caught.message : "Ready failed.");
         readySent.current = false;
       });
-  }, [matchId, reload, snapshot, requiresAudio, audioReady]);
+  }, [matchId, reload, snapshot, requiresAudio, audioReady, typing, keyboardReady]);
 
   const currentUserId = snapshot?.current_user_id;
   useEffect(() => {
@@ -425,7 +427,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         opponentConnected={opponentConnected}
       />
       <section className="page-shell screen-enter match-center">
-        {waiting ? (
+        {waiting && !typing ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">
               {game ? `${game.name} · Get ready` : "Synchronizing duel"}
@@ -451,7 +453,9 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 <h1 className="display">{game?.name}</h1>
               </div>
               <div className="game-timer">
-                {memoryHolding
+                {waiting
+                  ? phase === "countdown" ? `Starts in ${countdown}` : "Ready?"
+                  : memoryHolding
                   ? "HOLD"
                   : secureRecall
                     ? "ROUND"
@@ -489,13 +493,15 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 />
               ) : snapshot ? (
                 <GameRenderer
-                  key={`${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
+                  key={typing ? snapshot.id : `${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
                   gameId={snapshot.game_type}
                   challenge={game?.publicChallenge(
                     snapshot?.challenge ?? {},
                     phase === "reveal" ? "reveal" : "answer",
                   ) ?? {}}
                   disabled={phase !== "answer" || remaining <= 0}
+                  preparing={typing && waiting}
+                  onReady={() => setKeyboardReady(true)}
                   phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {
                     submissionRef.current = next;
