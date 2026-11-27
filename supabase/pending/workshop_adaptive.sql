@@ -12,7 +12,7 @@ begin
  if auth.uid() is null or requested_ranked is distinct from false or requested_selection_kind is distinct from 'game'
  or requested_game is null or requested_game not in ('memory_grid','shape_recall','dot_estimate','number_order','odd_one_out','pattern_complete','typing_sprint','rhythm_recall','frequency_recall_v2','colour_recall_v2')
  or jsonb_typeof(requested_rules) is distinct from 'object' or requested_rules->>'version' is distinct from '1'
- or requested_rules - array['version','answerMs','revealMs','memory','roundAnswerMs'] <> '{}'::jsonb
+ or requested_rules - array['version','answerMs','revealMs','memory','roundAnswerMs','dotDensity','shapeRange'] <> '{}'::jsonb
  or jsonb_typeof(requested_rules->'answerMs') is distinct from 'number' or jsonb_typeof(requested_rules->'revealMs') is distinct from 'number'
  or requested_rules->>'answerMs' !~ '^[0-9]{1,5}$' or requested_rules->>'revealMs' !~ '^[0-9]{1,5}$'
  then raise exception 'Invalid workshop rules'; end if;
@@ -26,6 +26,8 @@ begin
   if jsonb_typeof(requested_rules->'roundAnswerMs') is distinct from 'number' or requested_rules->>'roundAnswerMs' !~ '^[0-9]{4}$' then raise exception 'Invalid round timing'; end if;
   if (requested_rules->>'roundAnswerMs')::integer not between 3000 and (case when requested_game='frequency_recall_v2' then 6000 else 5200 end) or a<>(case when requested_game='frequency_recall_v2' then 60000 else 40000 end) then raise exception 'Invalid round timing'; end if;
  elsif requested_rules ? 'roundAnswerMs' then raise exception 'Round timing is only for secure recall'; end if;
+ if requested_rules ? 'dotDensity' and (requested_game<>'dot_estimate' or jsonb_typeof(requested_rules->'dotDensity') is distinct from 'string' or requested_rules->>'dotDensity' not in ('sparse','standard','dense')) then raise exception 'Invalid dot density'; end if;
+ if requested_rules ? 'shapeRange' and (requested_game<>'shape_recall' or jsonb_typeof(requested_rules->'shapeRange') is distinct from 'string' or requested_rules->>'shapeRange' not in ('gentle','standard','wide')) then raise exception 'Invalid shape variation'; end if;
  if requested_game='memory_grid' then
   m:=requested_rules->'memory';
   if jsonb_typeof(m) is distinct from 'object' or m-array['size','tiles','ordered']<>'{}'::jsonb
