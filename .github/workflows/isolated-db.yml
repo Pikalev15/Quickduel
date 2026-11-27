@@ -1,0 +1,35 @@
+name: Isolated database validation
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/isolated-db.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.79.0
+      - name: Start disposable local Supabase
+        run: supabase start
+      - name: Apply staged migrations in dependency order
+        shell: bash
+        run: |
+          set -euo pipefail
+          db='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          for file in frequency_round_timing workshop_adaptive daily_duel skill_progress_daily_rotation competitive_integrity; do
+            psql "$db" -v ON_ERROR_STOP=1 -f "supabase/pending/$file.sql"
+          done
+      - name: Verify competitive integrity policies
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/tests/competitive_integrity_policy_check.sql
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
