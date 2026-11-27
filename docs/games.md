@@ -70,7 +70,13 @@ Five seeded pitches are reconstructed sequentially. Ranked play creates and
 releases one database-owned round at a time: a 0.8-second tone reveal, a
 3.2-second answer window, resolution after both locked answers or the
 authoritative deadline, and exactly two seconds of feedback. Future targets are
-never returned by the normal match snapshot or round endpoint.
+never returned by the normal match snapshot or round endpoint. The current
+frequency can be replayed during reveal and answer on the same screen as the
+slider and guess-audio preview. A reconnect can request only the current
+unresolved tone as audio through an authenticated, non-cacheable endpoint;
+this does not disclose a future target or extend the deadline. Audio can still
+be analyzed by a determined client, so replay is a usability feature, not an
+anti-cheat guarantee.
 
 The existing log-octave error metric is converted to a bounded 0–10 score per
 round. Resolved feedback shows target and guess Hz, signed Hz and percentage
