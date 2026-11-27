@@ -1,0 +1,21 @@
+name: Resolve analytics dependency lock
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  resolve:
+    if: github.head_ref == 'feat/analytics-node26'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Print verified changed lock entries
+        run: |
+          node -e 'const {execFileSync}=require("node:child_process");const old=JSON.parse(execFileSync("git",["show","HEAD:package-lock.json"],{encoding:"utf8"}));const next=require("./package-lock.json");const changed=Object.fromEntries(Object.entries(next.packages).filter(([k,v])=>JSON.stringify(old.packages[k])!==JSON.stringify(v)));const removed=Object.keys(old.packages).filter(k=>!(k in next.packages));console.log("QD_LOCK "+JSON.stringify({changed,removed}));'
