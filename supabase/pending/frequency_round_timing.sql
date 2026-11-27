@@ -2,6 +2,13 @@
 -- Existing rows retain persisted budgets. New frequency rounds use a bounded listen gate.
 BEGIN;
 
+ALTER TABLE public.matches
+  DROP CONSTRAINT matches_reveal_duration_ms_check,
+  ADD CONSTRAINT matches_reveal_duration_ms_check CHECK (
+    reveal_duration_ms BETWEEN 0 AND 10000
+    OR (game_type = 'rhythm_recall' AND reveal_duration_ms = 13000)
+  );
+
 create or replace function public.game_reveal_duration(requested_game text)
 returns integer
 language sql
