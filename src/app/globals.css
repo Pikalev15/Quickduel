@@ -5038,3 +5038,13 @@ dd,
   .active-game .typing-match .game-stage { padding: 0; }
   .active-game .typing-words { max-height: 4.75rem; }
 }
+
+.active-game .typing-capture-input { top: 0; left: 0; }
+.active-game .typing-ready { justify-self: center; max-width: 22rem; }
+.active-game.typing-match .game-timer { font-size: clamp(1.05rem, 3.7vw, 1.85rem); }
+.active-game .typing-sprint:focus-within { align-content: start; }
+@media (max-width: 640px) {
+  .active-game.typing-match .game-instructions { font-size: 0.72rem; }
+  .active-game.typing-match .game-stage { padding: 0; }
+  .active-game.typing-match .typing-stats > span { padding-inline: 0.25rem; }
+}
