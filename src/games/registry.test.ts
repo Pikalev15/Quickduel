@@ -160,3 +160,20 @@ describe("game registry", () => {
     },
   );
 });
+
+
+describe("active challenge projections", () => {
+  it("keeps Odd One Out's private answer index off the public board", () => {
+    const game = getGame("odd_one_out");
+    const challenge = game.generate("odd-public-projection");
+    const projected = game.publicChallenge(challenge, "answer");
+    expect(projected).not.toHaveProperty("oddIndex");
+    expect(projected).not.toHaveProperty("showAnswer");
+    const tiles = projected.tiles as Array<{ glyph: string; rotation: number }>;
+    expect(tiles).toHaveLength(16);
+    expect(tiles.filter((tile) => tile.rotation !== 0)).toHaveLength(1);
+    expect(tiles.findIndex((tile) => tile.rotation !== 0)).toBe(challenge.oddIndex);
+    expect(game.publicChallenge(projected, "answer")).toEqual(projected);
+    expect(game.calculate(challenge, { selectedIndex: challenge.oddIndex }, 1000).accuracy).toBe(1);
+  });
+});
