@@ -242,7 +242,7 @@ test("Frequency Recall v2 gives per-round feedback before advancing", async ({ p
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
   await expect(page.locator(".recall-comparison").getByText("Target", { exact: true })).toBeVisible();
-  await expect(page.getByText("Your guess", { exact: true })).toBeVisible();
+  await expect(page.locator(".recall-comparison").getByText("Your guess", { exact: true })).toBeVisible();
   await expect(page.getByText("Difference", { exact: true })).toBeVisible();
   await expect(page.getByText("Percent", { exact: true })).toBeVisible();
   await expect(page.getByText("Cents", { exact: true })).toBeVisible();
