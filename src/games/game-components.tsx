@@ -163,6 +163,14 @@ export function FrequencyRecallGame({
   );
 }
 
+function RoundTrack({ completed, active, count = 5 }: { completed: number; active: number; count?: number }) {
+  return (
+    <div className="qd-round-track" aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => <i key={index} data-step={index < completed ? "done" : index === active ? "current" : "upcoming"} />)}
+    </div>
+  );
+}
+
 export function FrequencyRecallV2Game({
   challenge,
   disabled,
@@ -230,6 +238,7 @@ export function FrequencyRecallV2Game({
           ).toFixed(1)}/50 scored
         </strong>
       </div>
+      <RoundTrack completed={guesses.length} active={round} count={frequencies.length || 5} />
       {phase === "reveal" || phase === "answer" ? (
         <div className="sequential-answer frequency-controls">
           <p>Replay the target as needed, then estimate its pitch.</p>
@@ -395,6 +404,7 @@ export function ColourRecallV2Game({
           ).toFixed(1)}/50 scored
         </strong>
       </div>
+      <RoundTrack completed={guesses.length} active={round} count={colors.length || 5} />
       {phase === "reveal" && target ? (
         <div className="colour-round-reveal">
           <span
@@ -460,7 +470,7 @@ function PracticeRecallFeedback({
   opponentTotal: number;
 }) {
   return (
-    <div className="recall-feedback" aria-live="polite">
+    <div className="recall-feedback qd-resolved" aria-live="polite">
       {feedback.kind === "frequency" ? (
         <>
           <div className="recall-comparison">
@@ -488,7 +498,7 @@ function PracticeRecallFeedback({
         </>
       )}
       <div className="recall-score-row">
-        <div><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Running total</span><strong>{total.toFixed(1)}<small>/50</small></strong></div>
         <div><span>Bot round</span><strong>{opponentRoundScore.toFixed(1)}<small>/10</small></strong></div>
         <div><span>Bot total</span><strong>{opponentTotal.toFixed(1)}<small>/50</small></strong></div>
@@ -705,6 +715,7 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
         <button
           type="button"
           disabled={disabled || order.includes(index)}
+          data-picked={order.includes(index) ? "true" : undefined}
           key={index}
           aria-label={`Select ${number.value}`}
           onClick={() => {
@@ -713,7 +724,7 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
             onChange({ order: next }, next.length === numbers.length);
           }}
         >
-          {order.includes(index) ? "✓" : number.value}
+          {order.includes(index) ? <span className="qd-picked-mark" aria-hidden="true">✓</span> : number.value}
         </button>
       ))}
     </div>
@@ -759,6 +770,7 @@ export function PatternCompleteGame({ challenge, disabled, onChange }: GameCompo
                 type="button"
                 disabled={disabled}
                 className={answers[index] === optionIndex ? "is-selected" : ""}
+                aria-pressed={answers[index] === optionIndex}
                 key={optionIndex}
                 onClick={() => {
                   const next = [...answers];
