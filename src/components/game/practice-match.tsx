@@ -32,14 +32,14 @@ export function PracticeMatch({
   const typing = gameId === "typing_sprint";
   const [keyboardReady, setKeyboardReady] = useState(!typing);
   const prepared = audioReady && keyboardReady;
-  const prepareKeyboard = () => {
-    if (keyboardReady) return;
-    setStartAt(Date.now() + 2_000);
-    setKeyboardReady(true);
-  };
   const [audioError, setAudioError] = useState(false);
   const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
   const [now, setNow] = useState(() => Date.now());
+  const prepareKeyboard = useCallback(() => {
+    if (keyboardReady) return;
+    setStartAt(now + 2_000);
+    setKeyboardReady(true);
+  }, [keyboardReady, now]);
   const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
