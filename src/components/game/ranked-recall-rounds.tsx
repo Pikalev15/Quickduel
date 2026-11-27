@@ -1,5 +1,7 @@
 "use client";
 
+import { estimateServerClockOffset } from "@/lib/game-clock";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AudioManager } from "@/lib/audio/audio-manager";
 import type {
@@ -93,6 +95,8 @@ export function RankedRecallRounds({
 }) {
   const [state, setState] = useState<RecallRoundState | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [clockOffset, setClockOffset] = useState(0);
+  const clockOffsetRef = useRef(0);
   const [frequency, setFrequency] = useState(660);
   const [colour, setColour] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [sending, setSending] = useState(false);
@@ -130,8 +134,14 @@ export function RankedRecallRounds({
     if (reloadInFlight.current || submitting.current) return;
     reloadInFlight.current = true;
     try {
+      const requestedAt = Date.now();
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`);
       if (!submitting.current) {
+        const offset = estimateServerClockOffset(next.serverNow, requestedAt, Date.now());
+        if (offset !== null) {
+          clockOffsetRef.current = offset;
+          setClockOffset(offset);
+        }
         applyState(next);
         if (next.phase === "complete") onComplete();
       }
@@ -147,7 +157,7 @@ export function RankedRecallRounds({
     const poll = window.setInterval(() => {
       const current = latestState.current;
       const deadline = current?.phaseEndsAt ? Date.parse(current.phaseEndsAt) : 0;
-      const nearBoundary = !deadline || deadline - Date.now() <= 900;
+      const nearBoundary = !deadline || deadline - (Date.now() + clockOffsetRef.current) <= 900;
       const waiting = current?.phase === "waiting" || current?.phase === "countdown" || current?.phase === "reveal";
       if (nearBoundary || waiting || Date.now() - lastPollAt.current >= 1_000) {
         lastPollAt.current = Date.now();
@@ -216,7 +226,7 @@ export function RankedRecallRounds({
     return <span className="search-pulse h-3 w-3 bg-[var(--accent)]" aria-label="Loading round" />;
   }
   const remainingMs = state.phaseEndsAt
-    ? Math.max(0, Date.parse(state.phaseEndsAt) - now)
+    ? Math.max(0, Date.parse(state.phaseEndsAt) - (now + clockOffset))
     : 0;
 
   return (
