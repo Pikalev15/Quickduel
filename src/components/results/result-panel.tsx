@@ -76,14 +76,15 @@ export function ResultPanel({
   }
 
   return (
-    <section className="page-shell screen-enter flex min-h-[calc(100vh-120px)] flex-col items-center justify-center py-10">
+    <section className="page-shell screen-enter qd-result flex min-h-[calc(100vh-120px)] flex-col items-center justify-center py-10" data-outcome={outcome}>
       <h1
-        className={`display text-center text-[clamp(4.5rem,15vw,9rem)] leading-[0.85] ${
-          outcome === "loss" ? "text-white" : "text-[var(--accent)]"
+        className={`display qd-result-title text-center text-[clamp(4.5rem,15vw,9rem)] leading-[0.85] ${
+          outcome === "loss" ? "text-[var(--text)]" : "text-[var(--accent)]"
         }`}
       >
         {title}
       </h1>
+      <div className="qd-result-signal" aria-hidden="true"><i /><i /><i /><i /><i /></div>
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
       {completionNotice && (
         <p className="result-completion-notice" role="status">{completionNotice}</p>
@@ -94,7 +95,7 @@ export function ResultPanel({
         </p>
       )}
 
-      <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
+      <div className="qd-result-comparison mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
         <ResultColumn label="YOU" side={player} gameName={gameName} accent />
         <div className="display self-center border border-[var(--accent)] px-3 py-2 text-xl text-[var(--accent)]">
           VS
@@ -111,7 +112,7 @@ export function ResultPanel({
           />
         )}
 
-      <div className="mt-6 grid w-full max-w-3xl gap-5 border-b border-[var(--border)] pb-7 text-center sm:grid-cols-2">
+      <div className="qd-result-stats mt-6 grid w-full max-w-3xl gap-5 border-b border-[var(--border)] pb-7 text-center sm:grid-cols-2">
         <div>
           <div className="text-xs tracking-[0.12em] text-[var(--muted)]">
             COMPLETION TIME
@@ -150,7 +151,7 @@ export function ResultPanel({
         </div>
       </div>
 
-      <div className="mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
+      <div className="qd-result-actions mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
         <Button onClick={onRematch} disabled={rematchWaiting}>
           {rematchWaiting ? "Waiting for opponent" : rematchLabel}
         </Button>
