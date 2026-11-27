@@ -202,7 +202,7 @@ export function PracticeMatch({
         {phase === "countdown" && !typing ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">{game.name} · Get ready</p>
-            {audioReady ? <div className="display mt-3 text-[clamp(5rem,25vw,10rem)] leading-none text-[var(--accent)]">{countdown}</div> : (
+            {audioReady ? <div className="display qd-countdown mt-3 text-[clamp(5rem,25vw,10rem)] leading-none text-[var(--accent)]"><span key={countdown}>{countdown}</span></div> : (
               <Button className="mt-4" onClick={() => {
                 void AudioManager.shared().unlock().then((ready) => {
                   if (!ready) { setAudioError(true); return; }
@@ -221,7 +221,7 @@ export function PracticeMatch({
                 <p className="game-kicker">Practice · unranked</p>
                 <h1 className="display">{game.name}</h1>
               </div>
-              <div className="game-timer">
+              <div className="game-timer" data-urgent={phase === "answer" && remaining <= 3000 ? "true" : undefined}>
                 {phase === "countdown"
                   ? keyboardReady ? `Starts in ${countdown}` : "Ready?"
                   : memoryHolding
