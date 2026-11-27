@@ -32,8 +32,8 @@ export function Header({
             <span className="hidden sm:inline">View leaderboard</span>
             <span className="sm:hidden">Ranks</span>
           </Link>
-          <RequestBell />
           {profileSlot}
+          <RequestBell />
         </nav>
       </div>
     </header>

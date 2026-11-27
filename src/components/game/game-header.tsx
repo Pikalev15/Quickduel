@@ -34,13 +34,13 @@ export function GameHeader({
       <header className="page-shell flex h-[70px] items-center justify-between">
         <Wordmark compact />
         <div className="flex items-center gap-2">
-        {showRequests && <RequestBell />}
         <span
           className={`display flex items-center gap-2 text-xs tracking-[0.1em] ${connected ? "text-[var(--accent)]" : "text-[var(--danger)]"}`}
         >
           <SignalIcon className="h-5 w-5" />
           {connected ? "Connected" : "Reconnecting"}
         </span>
+        {showRequests && <RequestBell />}
         </div>
       </header>
       <div className="page-shell grid grid-cols-[1fr_auto_1fr] items-center border-y border-[var(--accent)] text-sm">

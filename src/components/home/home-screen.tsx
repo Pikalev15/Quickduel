@@ -14,7 +14,6 @@ import { ProfileDrawer } from "@/components/profile/profile-drawer";
 import { GameLibrary } from "./game-library";
 import {
   SettingsPopover,
-  type AuthIntent,
   type HomePreferences,
 } from "./settings-popover";
 import { track } from "@/lib/analytics";
@@ -137,50 +136,6 @@ export function HomeScreen() {
     updatePreferences(defaultPreferences);
   }, [updatePreferences]);
 
-  const authenticate = useCallback(async (intent: AuthIntent) => {
-    const supabase = await loadSupabaseBrowserClient();
-    if (!supabase) return "Google authentication is unavailable without Supabase configuration.";
-    const options = {
-      redirectTo: `${location.origin}/auth/callback?next=/`,
-    };
-
-    if (intent === "signup") {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        const { error: guestError } = await supabase.auth.signInAnonymously();
-        if (guestError) return "Could not start account creation. Please try again.";
-      }
-      const { error: signUpError } = await supabase.auth.linkIdentity({
-        provider: "google",
-        options,
-      });
-      if (!signUpError) track("google_account_linked");
-      return signUpError ? "Could not open Google sign-up. Please try again." : null;
-    }
-
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options,
-    });
-    if (!signInError) track("google_account_linked");
-    return signInError ? "Could not open Google sign-in. Please try again." : null;
-  }, []);
-
-  const signOut = useCallback(async () => {
-    const supabase = await loadSupabaseBrowserClient();
-    if (!supabase) return "Sign out is unavailable without Supabase configuration.";
-    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
-    if (signOutError) return "Could not sign out. Please try again.";
-    setUser(null);
-    setProfile(null);
-    setProfileOpen(false);
-    setSettingsOpen(false);
-    router.refresh();
-    return null;
-  }, [router]);
-
   const chooseGame = useCallback(() => {
     shouldFocusLibrary.current = true;
     updatePreferences({ ...preferences, showGameLibrary: true });
@@ -246,16 +201,11 @@ export function HomeScreen() {
             <SettingsPopover
               open={settingsOpen}
               preferences={preferences}
-              profile={profile}
-              user={user}
               onOpenChange={setSettingsOpen}
               onChange={updatePreferences}
-              onOpenProfile={openProfile}
               onReset={resetPreferences}
-              onAuthenticate={authenticate}
-              onSignOut={signOut}
             />
-            <button type="button" className="profile-chip" onClick={openProfile}>
+            <button type="button" className="profile-chip" aria-label="Player profile" onClick={openProfile}>
               <span className={`accent-${profile?.accent_colour ?? "volt"}`}>
                 {(profile?.display_name ?? "QD").slice(0, 2).toUpperCase()}
               </span>
@@ -425,6 +375,7 @@ export function HomeScreen() {
           user={user}
           onClose={() => setProfileOpen(false)}
           onUpdated={setProfile}
+          onSignedOut={() => { setProfile(null); setUser(null); setProfileOpen(false); router.refresh(); }}
         />
       )}
     </main>

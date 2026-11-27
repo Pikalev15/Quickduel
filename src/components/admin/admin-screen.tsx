@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ProductHeader } from "@/components/ui/product-header";
 import { ProductMetricsPanel } from "./product-metrics-panel";
+import { OperationsPanel } from "./operations-panel";
 
 type AdminOverview = {
   flags: Array<{
@@ -150,6 +151,7 @@ export function AdminScreen() {
         </div>
         {message && <p className="profile-message" role="status">{message}</p>}
 
+        <OperationsPanel />
         <ProductMetricsPanel />
 
         <section className="admin-health">

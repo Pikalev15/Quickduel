@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { isSiteAccent, SITE_ACCENT_KEY, type SiteAccent } from "@/lib/site-accent";
+
 export type ThemePreference = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
 
@@ -17,6 +19,8 @@ type ThemeContextValue = {
   preference: ThemePreference;
   resolvedTheme: ResolvedTheme;
   setPreference: (preference: ThemePreference) => void;
+  accent: SiteAccent;
+  setAccent: (accent: SiteAccent) => void;
 };
 
 const storageKey = "quickduel:theme";
@@ -44,6 +48,21 @@ function appliedTheme(): ResolvedTheme {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(storedPreference);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(appliedTheme);
+  const [accent, setAccentState] = useState<SiteAccent>(() => {
+    const value = typeof document === "undefined" ? null : document.documentElement.dataset.accent;
+    return isSiteAccent(value) ? value : "blue";
+  });
+  const setAccent = useCallback((next: SiteAccent) => {
+    if (!isSiteAccent(next)) return;
+    document.documentElement.dataset.accent = next;
+    try { localStorage.setItem(SITE_ACCENT_KEY, next); } catch { /* Storage unavailable. */ }
+    setAccentState(next);
+  }, []);
+  useEffect(() => {
+    const sync = (event: StorageEvent) => { if (event.key === SITE_ACCENT_KEY) setAccent(isSiteAccent(event.newValue) ? event.newValue : "blue"); };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, [setAccent]);
 
   const applyTheme = useCallback((next: ThemePreference) => {
     const resolved = next === "system" ? systemTheme() : next;
@@ -70,8 +89,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ preference, resolvedTheme, setPreference }),
-    [preference, resolvedTheme, setPreference],
+    () => ({ preference, resolvedTheme, setPreference, accent, setAccent }),
+    [preference, resolvedTheme, setPreference, accent, setAccent],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

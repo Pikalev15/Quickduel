@@ -43,6 +43,8 @@ export const viewport: Viewport = {
 const themeScript = `
 (() => {
   try {
+    const accent = localStorage.getItem("quickduel:site-accent");
+    document.documentElement.dataset.accent = ["blue", "mint", "rose", "lavender", "peach"].includes(accent) ? accent : "blue";
     const stored = localStorage.getItem("quickduel:theme");
     const preference = stored === "dark" || stored === "system" ? stored : "light";
     const resolved = preference === "system"
@@ -60,7 +62,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="light" data-accent="blue" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

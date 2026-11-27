@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "./wordmark";
 import { RequestBell } from "@/components/notifications/request-bell";
+import { ProfileControl } from "@/components/profile/profile-control";
 
 export function ProductHeader({
   current,
@@ -28,7 +29,7 @@ export function ProductHeader({
             </Link>
           ))}
         </nav>
-        <div className="product-header-trailing qd-header-requests"><RequestBell />{trailing}</div>
+        <div className="product-header-trailing qd-header-requests">{trailing}<ProfileControl /><RequestBell /></div>
       </div>
     </header>
   );
