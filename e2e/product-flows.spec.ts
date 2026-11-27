@@ -791,12 +791,18 @@ test("shared result has social image and no private payload", async ({ page }) =
 
 test("timed practice controls fit the viewport without page scrolling", async ({ page }) => {
   for (const game of ["shape_recall", "pattern_complete", "number_order", "target_tap"]) {
-    await page.goto(`/match/practice?game=${game}&seed=compact-viewport-regression`);
-    await expect(page.locator(".game-stage")).toBeVisible({ timeout: 12_000 });
-    const stage = page.locator(".game-stage");
-    await expect(stage).toBeInViewport({ ratio: 0.98 });
-    const submit = page.getByRole("button", { name: "Lock answer", exact: true });
-    if (await submit.count()) await expect(submit).toBeInViewport({ ratio: 0.98 });
-    expect(await page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(1);
+    await test.step(game, async () => {
+      await page.goto(`/match/practice?game=${game}&seed=compact-viewport-regression`);
+      const stage = page.locator(".game-stage");
+      await expect(stage).toBeVisible({ timeout: 12_000 });
+      await expect(stage).toBeInViewport({ ratio: 0.98 });
+      const submit = page.getByRole("button", { name: "Lock answer", exact: true });
+      if (game === "shape_recall" || game === "pattern_complete") {
+        await expect(submit).toBeVisible({ timeout: 6_000 });
+        await expect(submit, `${game}: Lock answer must fit without scrolling`).toBeInViewport({ ratio: 0.98 });
+        await expect(stage, `${game}: answer controls must fit`).toBeInViewport({ ratio: 0.98 });
+      }
+      expect(await page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(1);
+    });
   }
 });
