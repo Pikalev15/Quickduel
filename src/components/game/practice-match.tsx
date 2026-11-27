@@ -181,7 +181,7 @@ export function PracticeMatch({
   const publicChallenge = game.publicChallenge(challenge, phase === "reveal" ? "reveal" : "answer");
 
   return (
-    <main className={`min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
+    <main className={`active-game min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader player="You" playerRating={1000} opponent="Practice Bot" connected practice />
       <section className="page-shell screen-enter match-center">
         {phase === "countdown" ? (
