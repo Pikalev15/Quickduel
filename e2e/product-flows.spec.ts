@@ -821,3 +821,33 @@ test("answer lock remains reachable and has an immediate accessible action", asy
   await lock.click();
   await expect(lock).toHaveCount(0);
 });
+
+test("Memory Grid XL displays twenty-five cells and caps selection at eight", async ({ page }) => {
+  await page.goto("/match/practice?game=memory_grid_v2&seed=xl-regression");
+  const cells = page.locator(".memory-board button");
+  await expect(cells).toHaveCount(25);
+  await expect(cells.first()).toBeEnabled({ timeout: 10000 });
+  for (let i = 0; i < 8; i++) await cells.nth(i).click();
+  await expect(page.getByText("8/8 selected", { exact: true })).toBeVisible();
+  await expect(cells.nth(8)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeInViewport();
+});
+
+test("Cryptic Duel viewport and hints remain usable", async ({ page }) => {
+  await page.goto("/match/practice?game=cryptic_duel&seed=cryptic-regression");
+  const answer = page.getByRole("textbox", { name: "Cryptic answer" });
+  await expect(answer).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: /Reveal hint/ }).click();
+  await expect(page.getByText("8 possible points")).toBeVisible();
+  await page.getByRole("button", { name: /Reveal hint/ }).click();
+  await expect(page.getByText("6 possible points")).toBeVisible();
+  await expect(page.getByRole("button", { name: "All hints used" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeDisabled();
+  const length = Number(await answer.getAttribute("maxlength"));
+  await answer.fill("A".repeat(length));
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeEnabled();
+  await expect(lock).toBeInViewport();
+  await lock.click();
+  await expect(page.getByText(/^Answer:/)).toBeVisible({ timeout: 50000 });
+});
