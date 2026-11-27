@@ -14,7 +14,6 @@ const presetSchema = z.object({
 
 export type SharedWorkshopPreset = z.infer<typeof presetSchema>;
 
-// Portable configuration only: no room code, account data, seed, or ranked flag.
 export function encodeWorkshopPreset(value: unknown): string | null {
   const parsed = presetSchema.safeParse(value);
   if (!parsed.success) return null;
