@@ -15,9 +15,9 @@ export default function RouteTemplate({
     <ViewTransition
       name="quickduel-route"
       default="none"
-      enter="route-view"
-      exit="route-view"
-      share="route-view"
+      enter={isFastRoute ? "none" : "route-view"}
+      exit={isFastRoute ? "none" : "route-view"}
+      share={isFastRoute ? "none" : "route-view"}
       update="none"
     >
       <div
