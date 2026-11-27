@@ -779,6 +779,8 @@ export function PatternCompleteGame({ challenge, disabled, onChange }: GameCompo
 export function TypingSprintGame({
   challenge,
   disabled,
+  preparing = false,
+  onReady,
   onChange,
 }: GameComponentProps) {
   const text = String(challenge.text ?? "");
@@ -792,10 +794,10 @@ export function TypingSprintGame({
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (initialized.current) return;
+    if (disabled || initialized.current) return;
     initialized.current = true;
     onChange({ typed: "" }, true);
-  }, [onChange]);
+  }, [disabled, onChange]);
 
   useEffect(() => {
     if (disabled) return;
@@ -813,6 +815,10 @@ export function TypingSprintGame({
   }, [disabled]);
 
   function updateTyped(rawValue: string) {
+    if (disabled || preparing) {
+      if (input.current) input.current.value = "";
+      return;
+    }
     const sanitized = normalizeTypingInput(
       rawValue.toLowerCase().replace(/[^a-z ]/g, ""),
     ).slice(0, text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE);
@@ -844,7 +850,11 @@ export function TypingSprintGame({
     <section
       className="typing-sprint"
       aria-label="Typing Sprint input"
-      onClick={() => input.current?.focus({ preventScroll: true })}
+      onClick={() => {
+        if (disabled && !preparing) return;
+        input.current?.focus({ preventScroll: true });
+        if (preparing) onReady?.();
+      }}
       onDrop={(event) => event.preventDefault()}
     >
       <div className="typing-stats" aria-live="polite">
@@ -855,7 +865,7 @@ export function TypingSprintGame({
       </div>
 
       <div className="typing-words" aria-hidden="true" ref={wordViewport}>
-        {visibleWords.map((word, visibleIndex) => {
+        {!preparing && visibleWords.map((word, visibleIndex) => {
           const wordIndex = windowStart + visibleIndex;
           const attempt = attempts[wordIndex] ?? "";
           const active = wordIndex === currentWord;
@@ -885,9 +895,15 @@ export function TypingSprintGame({
         })}
       </div>
 
-      <p className="typing-focus-copy">
-        {disabled ? "Time is up." : "Focus and keep typing…"}
-      </p>
+      {preparing ? (
+        <button type="button" className="recall-confirm typing-ready" onClick={(event) => {
+          event.stopPropagation();
+          input.current?.focus({ preventScroll: true });
+          onReady?.();
+        }}>Ready keyboard</button>
+      ) : (
+        <p className="typing-focus-copy">{disabled ? "Time is up." : "Focus and keep typing…"}</p>
+      )}
       <input
         ref={input}
         className="typing-capture-input"
@@ -896,7 +912,7 @@ export function TypingSprintGame({
         autoCapitalize="none"
         autoComplete="off"
         autoCorrect="off"
-        disabled={disabled}
+        disabled={disabled && !preparing}
         inputMode="text"
         maxLength={text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE}
         spellCheck={false}
