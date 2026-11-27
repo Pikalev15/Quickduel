@@ -5071,3 +5071,12 @@ dd,
   .active-game .recall-feedback { gap: 0.3rem; }
   .active-game .recall-metrics > div { padding-block: 0.25rem; }
 }
+
+/* Time Recall is an essential stimulus, not decorative animation.
+ * Derive the progress from the game clock. Reduced motion uses a static
+ * indicator that extinguishes at the same instant instead of moving a bar. */
+.time-pulse-row i { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .time-pulse-row i { transform: none !important; }
+  .time-pulse-row i[data-pulse-active="false"] { opacity: 0; }
+}
