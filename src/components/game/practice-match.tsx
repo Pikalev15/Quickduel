@@ -57,8 +57,9 @@ export function PracticeMatch({
     return () => window.clearInterval(timer);
   }, []);
 
+  const answerDurationMs = gameId === "frequency_recall_v2" ? 60_000 : game.answerDurationMs;
   const answerStart = startAt + game.revealDurationMs;
-  const answerEnd = answerStart + game.answerDurationMs;
+  const answerEnd = answerStart + answerDurationMs;
   const submit = useCallback(() => {
     if (submittedAt !== null || !canSubmit) return;
     setSubmittedAt(Math.min(Date.now(), answerEnd));
@@ -85,8 +86,8 @@ export function PracticeMatch({
   }
 
   const playerTime = submittedAt
-    ? Math.max(0, Math.min(game.answerDurationMs, submittedAt - answerStart))
-    : game.answerDurationMs;
+    ? Math.max(0, Math.min(answerDurationMs, submittedAt - answerStart))
+    : answerDurationMs;
   const parsed = game.submissionSchema.safeParse(submission);
   const playerResult = parsed.success
     ? game.calculate(challenge, parsed.data, playerTime)
@@ -240,9 +241,9 @@ export function PracticeMatch({
                 aria-label="Answer time remaining"
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.round((remaining / game.answerDurationMs) * 100)}
+                aria-valuenow={Math.round((remaining / answerDurationMs) * 100)}
               >
-                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / game.answerDurationMs))})` }} />
+                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / answerDurationMs))})` }} />
               </div>
             )}
             <div className="game-stage">
