@@ -418,6 +418,15 @@ const rhythmRecall: GameDefinition = {
   submissionSchema: object({
     tapsMs: z.array(z.array(z.number().finite().min(0).max(10000)).min(RHYTHM_MIN_TAPS).max(RHYTHM_MAX_TAPS)).length(RHYTHM_COUNT),
   }) as z.ZodType<Submission>,
+  validateSubmission(challenge, submission) {
+    const expected = challenge.rhythms as number[][];
+    const taps = submission.tapsMs as number[][];
+    return taps.length === expected.length && taps.every((rhythm, index) =>
+      rhythm.length === expected[index].length &&
+      rhythm[0] === 0 &&
+      rhythm.every((tap, i) => Number.isFinite(tap) && (i === 0 || tap > rhythm[i - 1]))
+    );
+  },
   generate(seed) {
     const random = createRandom(seed);
     return {
@@ -442,6 +451,7 @@ const rhythmRecall: GameDefinition = {
       const guess = rhythmIntervals(taps[index]);
       const targetMean = mean(target);
       const guessMean = mean(guess);
+      if (!Number.isFinite(guessMean) || guessMean <= 0) return 2;
       return mean(target.map((value, cursor) => Math.abs(value / targetMean - (guess[cursor] ?? guessMean) / guessMean)));
     });
     const durationError = mean(expected.map((rhythm, index) =>
@@ -458,7 +468,7 @@ const rhythmRecall: GameDefinition = {
     return {
       submission: {
         tapsMs: (challenge.rhythms as number[][]).map((rhythm) =>
-          rhythm.map((value) => Math.max(0, value + integer(random, -70, 70))),
+          rhythm.map((value, index) => index === 0 ? 0 : Math.max(0, value + integer(random, -70, 70))),
         ),
       },
       completionTimeMs: botTime(random, 20000),
