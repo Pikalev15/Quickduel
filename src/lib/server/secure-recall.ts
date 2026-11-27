@@ -100,3 +100,19 @@ export async function submitSecureRecallRound(
   if (error) throw error;
   return advanceSecureRecallRound(matchId, userId);
 }
+
+/** Authorizes a replay for only the current unresolved Frequency Recall round. */
+export async function getSecureRecallReplayTarget(
+  matchId: string,
+  userId: string,
+  roundIndex: number,
+): Promise<number | null> {
+  const state = await advanceSecureRecallRound(matchId, userId);
+  if (state.gameId !== "frequency_recall_v2" || state.roundIndex !== roundIndex || state.ownSubmitted ||
+      (state.phase !== "reveal" && state.phase !== "answer") || !state.phaseEndsAt || Date.now() >= Date.parse(state.phaseEndsAt)) {
+    return null;
+  }
+  const match = await privateRecallMatch(matchId);
+  const target = recallRoundTarget(match.game_type, getGame(match.game_type).generate(String(match.challenge_seed)), roundIndex);
+  return typeof target === "number" ? target : null;
+}
