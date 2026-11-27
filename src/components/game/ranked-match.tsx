@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
+  const [lockStatus, setLockStatus] = useState<"idle" | "sending" | "locked">("idle");
   const [now, setNow] = useState(() => Date.now());
   const [clockOffset, setClockOffset] = useState(0);
   const clockOffsetRef = useRef(0);
@@ -288,14 +290,17 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   async function submit(timedOut = false) {
     if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
     submissionSent.current = true;
+    setLockStatus("sending");
     try {
       await request(`/api/matches/${matchId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submission: submissionRef.current, timedOut }),
       });
+      setLockStatus("locked");
       await reload();
     } catch (caught) {
+      setLockStatus("idle");
       submissionSent.current = false;
       setError(caught instanceof Error ? caught.message : "Submission failed.");
     }
@@ -526,7 +531,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                     snapshot?.challenge ?? {},
                     phase === "reveal" ? "reveal" : "answer",
                   ) ?? {}}
-                  disabled={phase !== "answer" || remaining <= 0}
+                  disabled={phase !== "answer" || remaining <= 0 || lockStatus !== "idle"}
                   preparing={typing && waiting}
                   onReady={() => setKeyboardReady(true)}
                   phaseElapsedMs={phaseElapsedMs}
@@ -539,9 +544,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               ) : null}
             </div>
             {phase === "answer" && !secureRecall && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
-              <Button className="game-submit" disabled={!canSubmit || remaining <= 0} onClick={() => void submit(false)}>
-                Lock answer
-              </Button>
+              <LockAnswerButton className="game-submit" disabled={!canSubmit || remaining <= 0} pending={lockStatus === "sending"} locked={lockStatus === "locked"} remainingMs={remaining} onClick={() => void submit(false)} />
             )}
             {phase === "submitted" && <span className="search-pulse mt-7 h-3 w-3 bg-[var(--accent)]" />}
           </>
