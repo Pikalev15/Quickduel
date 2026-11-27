@@ -245,7 +245,7 @@ export function HomeScreen() {
           <p className="calm-eyebrow"><span>01</span> Fast multiplayer perception games</p>
           <h1>Notice it.<br /><span>Win it.</span></h1>
           <p className="calm-subtitle">
-            Thirteen short challenges. Accuracy wins; trusted timing settles the closest calls.
+            Thirteen short challenges. Accuracy wins in most games; Typing Sprint ranks net WPM.
           </p>
           <div className="calm-hero-actions">
             <button type="button" className="calm-primary" onClick={play} disabled={starting}>
@@ -262,7 +262,7 @@ export function HomeScreen() {
           <div className="calm-player-line">
             <span><b>{profile?.rating ?? "—"}</b> rating</span>
             <span><SignalIcon className="h-4 w-4" /><b>{online ?? "—"}</b> online</span>
-            <span>Accuracy first · 8s Memory Grid</span>
+            <span>Accuracy first in recall · 8s Memory Grid</span>
           </div>
           {error && (
             <div role="alert" className="calm-error">
@@ -276,11 +276,11 @@ export function HomeScreen() {
 
         <aside className="arena-preview" aria-label="QuickDuel ranked match preview">
           <div className="arena-preview-head">
-            <span>Ranked round</span>
-            <span className="arena-live"><i /> Live arena</span>
+            <span>Example round</span>
+            <span className="arena-live">Game preview</span>
           </div>
           <div className="arena-scoreline">
-            <div><span>You</span><strong>{profile?.rating ?? 1450}</strong></div>
+            <div><span>You</span><strong>{profile?.rating ?? "—"}</strong></div>
             <LogoMark className="arena-mark" />
             <div><span>Opponent</span><strong>?</strong></div>
           </div>
@@ -314,7 +314,7 @@ export function HomeScreen() {
             {[
               ["01", "Match", "Choose a playlist or a specific challenge."],
               ["02", "Play", "Both players receive the same deterministic test."],
-              ["03", "Compare", "Accuracy wins; database time breaks equal results."],
+              ["03", "Compare", "Accuracy decides most games; Typing Sprint ranks net WPM."],
             ].map(([step, title, copy]) => (
               <article key={step}>
                 <span>{step}</span>
