@@ -2,6 +2,8 @@ import type { GameId } from "@/games/types";
 
 export const GAME_STAT_LABELS: Record<GameId, string> = {
   memory_grid: "Average cells score",
+  memory_grid_v2: "Average cells score",
+  cryptic_duel: "Average clue score",
   frequency_recall: "Average proportional pitch error",
   frequency_recall_v2: "Average score out of 50",
   colour_recall: "Average perceptual colour error",
@@ -20,6 +22,9 @@ export const GAME_STAT_LABELS: Record<GameId, string> = {
 
 export function formatAverageResult(gameId: GameId, averageRankScore: number) {
   switch (gameId) {
+    case "cryptic_duel":
+      return `${averageRankScore.toFixed(1)}/10`;
+    case "memory_grid_v2":
     case "memory_grid":
     case "pattern_complete":
       return averageRankScore.toFixed(2);
