@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
@@ -266,9 +267,7 @@ export function PracticeMatch({
               />
             </div>
             {phase === "answer" && !game.autoSubmitOnValid && !game.submitAtDeadline && (
-              <Button className="game-submit" disabled={!canSubmit} onClick={submit}>
-                Lock answer
-              </Button>
+              <LockAnswerButton className="game-submit" disabled={!canSubmit || remaining <= 0} remainingMs={remaining} onClick={submit} />
             )}
           </>
         )}
