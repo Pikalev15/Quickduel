@@ -182,7 +182,7 @@ export function ProfileDrawer({
           <button type="button" onClick={onClose} aria-label="Close profile">×</button>
         </div>
 
-        <div className={`profile-avatar accent-${accent}`} data-precision-frame={profile?.equipped_cosmetics?.profile_frame==="frame-precision"}>
+        <div className={`profile-avatar accent-${accent}`} data-profile-frame={profile?.equipped_cosmetics?.profile_frame ?? undefined}>
           {(name || "QD").slice(0, 2).toUpperCase()}
         </div>
 
