@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/server/route";
 import { matchIdSchema, submitAnswerSchema } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getGame } from "@/games/registry";
+import { isSecureRecallGame } from "@/games/recall-rounds";
 import { isDuplicateSubmission } from "@/lib/server/domain-errors";
 import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
@@ -58,6 +59,9 @@ export async function POST(
       .single();
     if (matchError || !match || !match.starts_at) {
       return apiError(409, "CONFLICT", "Match is not ready for answers.", undefined, correlationId);
+    }
+    if (isSecureRecallGame(match.game_type)) {
+      return apiError(409, "CONFLICT", "This game requires individual round submissions.", undefined, correlationId);
     }
     const game = getGame(match.game_type);
     if (game.version !== match.game_version) {

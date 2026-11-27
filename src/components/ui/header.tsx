@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignalIcon, TrophyIcon } from "./icons";
 import { Wordmark } from "./wordmark";
+import { RequestBell } from "@/components/notifications/request-bell";
 import type { ReactNode } from "react";
 
 export function Header({
@@ -20,7 +21,7 @@ export function Header({
           {!simple && onlineCount !== undefined && (
             <span className="site-online">
               <SignalIcon className="h-5 w-5 text-[var(--accent)]" />
-              {onlineCount ?? "—"} ONLINE
+              {onlineCount ?? "–"} ONLINE
             </span>
           )}
           <Link
@@ -31,6 +32,7 @@ export function Header({
             <span className="hidden sm:inline">View leaderboard</span>
             <span className="sm:hidden">Ranks</span>
           </Link>
+          <RequestBell />
           {profileSlot}
         </nav>
       </div>

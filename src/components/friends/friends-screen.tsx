@@ -82,9 +82,12 @@ export function FriendsScreen() {
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
     const refresh = window.setInterval(() => void reload(), 30_000);
+    const onRequestsChanged = () => void reload();
+    window.addEventListener("quickduel:requests-changed", onRequestsChanged);
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(refresh);
+      window.removeEventListener("quickduel:requests-changed", onRequestsChanged);
     };
   }, [reload]);
 
@@ -110,6 +113,7 @@ export function FriendsScreen() {
       track("friend_request_sent");
       setResults([]);
       await reload();
+      window.dispatchEvent(new Event("quickduel:requests-updated"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
     }
@@ -122,6 +126,7 @@ export function FriendsScreen() {
         body: JSON.stringify({ requestId, accept }),
       });
       await reload();
+      window.dispatchEvent(new Event("quickduel:requests-updated"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Response failed.");
     }
@@ -135,6 +140,7 @@ export function FriendsScreen() {
         body: JSON.stringify({ action, publicCode }),
       });
       await reload();
+      window.dispatchEvent(new Event("quickduel:requests-updated"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Action failed.");
     }
@@ -179,7 +185,7 @@ export function FriendsScreen() {
       <section className="page-shell feature-shell">
         <div className="feature-heading feature-heading-row">
           <div>
-            <p className="calm-eyebrow">Connections without chat</p>
+            <p className="calm-eyebrow">Friends · no private messaging</p>
             <h1>Friends</h1>
             <p>Find a player, keep a head-to-head record, and invite them directly.</p>
           </div>

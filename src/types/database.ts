@@ -95,6 +95,7 @@ export type MatchSnapshot = {
   reveal_duration_ms: number;
   answer_duration_ms: number;
   starts_at: string | null;
+  server_now?: string;
   expires_at: string;
   winner_id: string | null;
   completed_at: string | null;

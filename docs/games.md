@@ -70,7 +70,13 @@ Five seeded pitches are reconstructed sequentially. Ranked play creates and
 releases one database-owned round at a time: a 0.8-second tone reveal, a
 3.2-second answer window, resolution after both locked answers or the
 authoritative deadline, and exactly two seconds of feedback. Future targets are
-never returned by the normal match snapshot or round endpoint.
+never returned by the normal match snapshot or round endpoint. The current
+frequency can be replayed during reveal and answer on the same screen as the
+slider. The guessed tone cannot be played. A reconnect can request only the current
+unresolved tone as audio through an authenticated, non-cacheable endpoint;
+this does not disclose a future target or extend the deadline. Audio can still
+be analyzed by a determined client, so replay is a usability feature, not an
+anti-cheat guarantee.
 
 The existing log-octave error metric is converted to a bounded 0–10 score per
 round. Resolved feedback shows target and guess Hz, signed Hz and percentage
@@ -165,3 +171,7 @@ explicit supported pairs:
 
 Never change a released generator, submission schema, or scoring function in
 place. Add a new ID/version pair so historical matches remain reproducible.
+
+### Gameplay clock and accessibility
+
+Ranked snapshots do not publish the challenge before the server start time. Clients estimate the offset between device and server clocks from timestamped responses; a high-latency sample is discarded rather than moving the countdown unpredictably. All submission deadlines are still enforced on the server. Time Recall's five visual durations are driven by elapsed gameplay time. Reduced-motion mode uses stationary indicators that disappear at their respective deadlines, rather than shortening the stimulus to a decorative animation.

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import Link from "next/link";
 import { getDivision } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { track } from "@/lib/analytics";
 
 const accents = ["volt", "cyan", "coral", "violet", "white"] as const;
@@ -24,6 +25,7 @@ export function ProfileDrawer({
   onClose: () => void;
   onUpdated: (profile: PublicProfile) => void;
 }) {
+  const placement = getPlacement(profile?.matches_played);
   const [name, setName] = useState(profile?.display_name ?? "");
   const [accent, setAccent] = useState<PublicProfile["accent_colour"]>(
     profile?.accent_colour ?? "volt",
@@ -173,11 +175,11 @@ export function ProfileDrawer({
           <>
           <div className="profile-public-code">
             <small>Player code</small>
-            <strong>{profile.display_name}#{profile.public_code ?? "—"}</strong>
+            <strong>{profile.display_name}#{profile.public_code ?? "–"}</strong>
           </div>
           <dl className="profile-stats">
-            <div><dt>Rating</dt><dd>{profile.rating}</dd><small>{getDivision(profile.rating).name}</small></div>
-            <div><dt>Rank</dt><dd>#{profile.rank}</dd></div>
+            <div><dt>Rating</dt><dd>{placement?.placed ? profile.rating : "Unranked"}</dd><small>{placement?.placed ? getDivision(profile.rating).name : placement ? `${placement.completed}/${placement.required} placements` : "Rank pending"}</small></div>
+            <div><dt>Rank</dt><dd>{placement?.placed ? `#${profile.rank}` : "–"}</dd></div>
             <div><dt>Wins</dt><dd>{profile.wins}</dd></div>
             <div><dt>Matches</dt><dd>{profile.matches_played}</dd></div>
           </dl>

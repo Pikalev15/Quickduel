@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import { MatchChat } from "@/components/match-chat/match-chat";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 import { RankedRecallRounds } from "./ranked-recall-rounds";
+import { AudioManager } from "@/lib/audio/audio-manager";
+import { estimateServerClockOffset } from "@/lib/game-clock";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -28,8 +31,16 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
+  const [lockStatus, setLockStatus] = useState<"idle" | "sending" | "locked">("idle");
   const [now, setNow] = useState(() => Date.now());
-  const [connected, setConnected] = useState(true);
+  const [clockOffset, setClockOffset] = useState(0);
+  const clockOffsetRef = useRef(0);
+  const serverNow = now + clockOffset;
+  const [connected, setConnected] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const [keyboardReady, setKeyboardReady] = useState(false);
+  const typing = snapshot?.game_type === "typing_sprint";
+  const requiresAudio = snapshot?.game_type === "frequency_recall_v2" || snapshot?.game_type === "frequency_recall" || snapshot?.game_type === "rhythm_recall";
   const [opponentConnected, setOpponentConnected] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rematchWaiting, setRematchWaiting] = useState(false);
@@ -39,12 +50,21 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const canSubmitRef = useRef(false);
   const trackedStatuses = useRef(new Set<string>());
   const reloadInFlight = useRef(false);
+  const latestSnapshot = useRef<MatchSnapshot | null>(null);
+  const lastPollAt = useRef(0);
 
   const reload = useCallback(async () => {
     if (reloadInFlight.current) return;
     reloadInFlight.current = true;
     try {
+      const requestedAt = Date.now();
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
+      const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now());
+      if (offset !== null) {
+        clockOffsetRef.current = offset;
+        setClockOffset(offset);
+      }
+      latestSnapshot.current = next;
       setSnapshot(next);
       setError(null);
       if (next.rematch_match_id) router.replace(`/match/${next.rematch_match_id}`);
@@ -58,16 +78,32 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
     const clock = window.setInterval(() => setNow(Date.now()), 50);
-    const poll = window.setInterval(() => void reload(), 600);
+    const poll = window.setInterval(() => {
+      const current = latestSnapshot.current;
+      const at = Date.now() + clockOffsetRef.current;
+      const startAt = current?.starts_at ? Date.parse(current.starts_at) : null;
+      const revealEnd = startAt !== null && current ? startAt + current.reveal_duration_ms : null;
+      const transition = !current || current.status === "waiting" || current.phase === "countdown"
+        || (revealEnd !== null && current.phase === "reveal" && revealEnd - at <= 750);
+      if (transition || at - lastPollAt.current >= 1_500) {
+        lastPollAt.current = at;
+        void reload();
+      }
+    }, 250);
+    const refresh = () => void reload();
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(clock);
       window.clearInterval(poll);
       window.clearTimeout(initial);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [reload]);
 
   useEffect(() => {
-    if (!snapshot || readySent.current || snapshot.status !== "waiting") return;
+    if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady) || (typing && !keyboardReady)) return;
     readySent.current = true;
     void request<MatchSnapshot>(`/api/matches/${matchId}/ready`, { method: "POST" })
       .then(() => void reload())
@@ -75,49 +111,110 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         setError(caught instanceof Error ? caught.message : "Ready failed.");
         readySent.current = false;
       });
-  }, [matchId, reload, snapshot]);
+  }, [matchId, reload, snapshot, requiresAudio, audioReady, typing, keyboardReady]);
 
   const currentUserId = snapshot?.current_user_id;
+  const placementPhase = snapshot?.status === "completed" ? "result" : "playing";
+  const [placementState, setPlacementState] = useState<{ phase: string; counts: Record<string, number> } | null>(null);
+  useEffect(() => {
+    if (!currentUserId) return;
+    let active = true;
+    const controller = new AbortController();
+    void request<Record<string, number>>(`/api/matches/${matchId}/placements`, { signal: controller.signal })
+      .then((counts) => { if (active) setPlacementState({ phase: placementPhase, counts }); })
+      .catch(() => { /* Missing progress never implies an established rank. */ });
+    return () => { active = false; controller.abort(); };
+  }, [currentUserId, matchId, placementPhase]);
+  const placementCounts = placementState?.phase === placementPhase ? placementState.counts : undefined;
   useEffect(() => {
     if (!currentUserId) return;
     let active = true;
     let supabase: SupabaseClient | null = null;
     let channel: RealtimeChannel | null = null;
-    void (async () => {
-      supabase = await loadSupabaseBrowserClient();
-      if (!active || !supabase) return;
-      await supabase.realtime.setAuth();
-      channel = supabase
-        .channel(`match:${matchId}`, {
+    let retryTimer: number | undefined;
+    let retryDelay = 750;
+    let outageReported = false;
+
+    function recover(reason: string) {
+      if (!active) return;
+      setConnected(false);
+      setOpponentConnected(null);
+      if (!outageReported) {
+        outageReported = true;
+        void fetch("/api/errors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "realtime_disconnected",
+            message: `Private match channel ${reason}`,
+            route: `/match/${matchId}`,
+            digest: null,
+            stack: null,
+          }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+      if (retryTimer !== undefined) return;
+      const old = channel;
+      channel = null;
+      if (old && supabase) void supabase.removeChannel(old);
+      retryTimer = window.setTimeout(() => {
+        retryTimer = undefined;
+        void connect();
+      }, retryDelay);
+      retryDelay = Math.min(8_000, retryDelay * 2);
+      void reload();
+    }
+
+    async function connect() {
+      try {
+        supabase ??= await loadSupabaseBrowserClient();
+        const client = supabase;
+        if (!active) return;
+        if (!client) {
+          recover("client_unavailable");
+          return;
+        }
+        await client.realtime.setAuth();
+        if (!active) return;
+        const candidate = client.channel(`match:${matchId}`, {
           config: { private: true, presence: { key: currentUserId } },
-        })
-        .on("presence", { event: "sync" }, () => {
-          const state = channel?.presenceState() ?? {};
+        });
+        channel = candidate;
+        candidate.on("presence", { event: "sync" }, () => {
+          if (!active || channel !== candidate) return;
+          const state = candidate.presenceState();
           setOpponentConnected(Object.keys(state).some((key) => key !== currentUserId));
-        })
-        .subscribe(async (status) => {
-          setConnected(status === "SUBSCRIBED");
+        }).subscribe(async (status) => {
+          if (!active || channel !== candidate) return;
           if (status === "SUBSCRIBED") {
-            await channel?.track({ page: "match", ready: true });
-            void reload();
-          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            void fetch("/api/errors", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                event: "realtime_disconnected",
-                message: `Private match channel ${status.toLowerCase()}`,
-                route: `/match/${matchId}`,
-                digest: null,
-                stack: null,
-              }),
-              keepalive: true,
-            }).catch(() => undefined);
+            try {
+              const tracked = await candidate.track({ page: "match", ready: true });
+              if (!active || channel !== candidate) return;
+              if (tracked !== "ok") {
+                recover("presence_track_failed");
+                return;
+              }
+              retryDelay = 750;
+              outageReported = false;
+              setConnected(true);
+              void reload();
+            } catch {
+              if (channel === candidate) recover("presence_track_failed");
+            }
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            recover(status.toLowerCase());
           }
         });
-    })();
+      } catch {
+        recover("subscription_failed");
+      }
+    }
+
+    void connect();
     return () => {
       active = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       if (channel && supabase) void supabase.removeChannel(channel);
     };
   }, [currentUserId, matchId, reload]);
@@ -129,7 +226,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const start = snapshot?.starts_at ? Date.parse(snapshot.starts_at) : null;
   const answerStart = start !== null && snapshot ? start + snapshot.reveal_duration_ms : null;
   const answerEnd = answerStart !== null && snapshot ? answerStart + snapshot.answer_duration_ms : null;
-  const remaining = answerEnd === null ? 0 : Math.max(0, answerEnd - now);
+  const remaining = answerEnd === null ? 0 : Math.max(0, answerEnd - serverNow);
   const phase =
     snapshot?.status === "completed"
       ? "result"
@@ -139,13 +236,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           ? "submitted"
           : start === null
             ? snapshot?.phase ?? "waiting"
-            : now < start
+            : serverNow < start
               ? "countdown"
-              : answerStart !== null && now < answerStart
+              : answerStart !== null && serverNow < answerStart
                 ? "reveal"
                 : "answer";
   const phaseElapsedMs =
-    phase === "reveal" && start !== null ? Math.max(0, now - start) : 0;
+    phase === "reveal" && start !== null ? Math.max(0, serverNow - start) : 0;
   const memoryHolding =
     game?.id === "memory_grid" &&
     phase === "reveal" &&
@@ -180,12 +277,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     }
     const timer = window.setTimeout(() => {
       void submit(!game?.submitAtDeadline);
-    }, Math.max(0, answerEnd - Date.now()));
+    }, Math.max(0, answerEnd - (Date.now() + clockOffsetRef.current)));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     answerEnd,
+    clockOffset,
     canSubmit,
     game?.autoSubmitOnValid,
     game?.submitAtDeadline,
@@ -204,14 +302,17 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   async function submit(timedOut = false) {
     if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
     submissionSent.current = true;
+    setLockStatus("sending");
     try {
       await request(`/api/matches/${matchId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submission: submissionRef.current, timedOut }),
       });
+      setLockStatus("locked");
       await reload();
     } catch (caught) {
+      setLockStatus("idle");
       submissionSent.current = false;
       setError(caught instanceof Error ? caught.message : "Submission failed.");
     }
@@ -274,11 +375,14 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     return (
       <main className="has-match-chat min-h-screen">
         <GameHeader
+          showRequests
           player={me.display_name}
           playerRating={me.rating_after ?? me.rating_before}
           opponent={opponent.display_name}
           opponentRating={opponent.rating_after ?? opponent.rating_before}
           connected={connected}
+          playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+          opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
           opponentConnected={opponentConnected}
         />
         <ResultPanel
@@ -307,7 +411,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             details: opponent.result.details,
           }}
           unranked={!snapshot.ranked}
-          rematchWaiting={rematchWaiting}
+          placementMatches={currentUserId ? placementCounts?.[currentUserId] ?? null : null}
+          rematchWaiting={rematchWaiting || Boolean(me.rematch_requested_at && !snapshot.rematch_match_id)}
           onRematch={() =>
             snapshot.private_duel_code
               ? router.push(`/duel/${snapshot.private_duel_code}`)
@@ -319,7 +424,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               : router.push("/play")
           }
           onHome={() => router.push("/")}
-          rematchLabel={snapshot.private_duel_code ? "Return to series" : "Rematch"}
+          rematchLabel={snapshot.private_duel_code ? "Return to series" : opponent.rematch_requested_at && !me.rematch_requested_at ? "Accept rematch" : "Request rematch"}
           nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
           onCreateShare={createShareUrl}
           completionNotice={completionNotice}
@@ -339,6 +444,8 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           opponent={opponent?.display_name ?? "Opponent"}
           opponentRating={opponent?.rating_before}
           connected={connected}
+          playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+          opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
           opponentConnected={opponentConnected}
         />
         <section className="page-shell match-center text-center">
@@ -354,29 +461,39 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     );
   }
 
-  const countdown = start ? Math.max(1, Math.ceil((start - now) / 1000)) : 3;
+  const countdown = start ? Math.max(1, Math.ceil((start - serverNow) / 1000)) : 3;
   const waiting = phase === "waiting" || phase === "countdown";
 
   return (
-    <main className={`has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
+    <main className={`active-game has-match-chat min-h-screen${game?.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader
         player={me?.display_name ?? "Loading…"}
         playerRating={me?.rating_before ?? 1000}
         opponent={opponent?.display_name ?? "Opponent"}
         opponentRating={opponent?.rating_before}
         connected={connected}
+        playerMatches={currentUserId ? placementCounts?.[currentUserId] : undefined}
+        opponentMatches={opponent ? placementCounts?.[opponent.user_id] : undefined}
         opponentConnected={opponentConnected}
       />
       <section className="page-shell screen-enter match-center">
-        {waiting ? (
+        {waiting && !typing ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">
               {game ? `${game.name} · Get ready` : "Synchronizing duel"}
             </p>
-            <div className="display mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
-              {phase === "countdown" ? countdown : "…"}
+            <div className="display qd-countdown mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
+              <span key={phase === "countdown" ? countdown : "waiting"}>{phase === "countdown" ? countdown : "…"}</span>
             </div>
             <p className="mt-4 text-sm text-[var(--muted)]">{game?.instructions}</p>
+            {requiresAudio && !audioReady && snapshot?.status === "waiting" && (
+              <Button className="mt-4" onClick={() => {
+                void AudioManager.shared().unlock().then((ready) => {
+                  if (ready) setAudioReady(true);
+                  else setError("Enable sound and try again before starting.");
+                }).catch(() => setError("Audio is unavailable. Check your browser sound settings."));
+              }}>Enable sound and ready up</Button>
+            )}
           </div>
         ) : (
           <>
@@ -385,8 +502,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                 <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : "Experimental · unranked"}</p>
                 <h1 className="display">{game?.name}</h1>
               </div>
-              <div className="game-timer">
-                {memoryHolding
+              <div className="game-timer" data-urgent={!secureRecall && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
+                {waiting
+                  ? phase === "countdown" ? `Starts in ${countdown}` : "Ready?"
+                  : memoryHolding
                   ? "HOLD"
                   : secureRecall
                     ? "ROUND"
@@ -422,15 +541,19 @@ export function RankedMatch({ matchId }: { matchId: string }) {
                   onComplete={handleRecallComplete}
                   onError={handleRecallError}
                 />
+              ) : snapshot && (phase === "reveal" || phase === "answer") && snapshot.phase !== phase ? (
+                <span className="search-pulse h-3 w-3 bg-[var(--accent)]" aria-label="Synchronizing game" />
               ) : snapshot ? (
                 <GameRenderer
-                  key={`${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
+                  key={typing ? snapshot.id : `${snapshot.id}:${phase === "submitted" ? "answer" : phase}`}
                   gameId={snapshot.game_type}
                   challenge={game?.publicChallenge(
                     snapshot?.challenge ?? {},
                     phase === "reveal" ? "reveal" : "answer",
                   ) ?? {}}
-                  disabled={phase !== "answer"}
+                  disabled={phase !== "answer" || remaining <= 0 || lockStatus !== "idle"}
+                  preparing={typing && waiting}
+                  onReady={() => setKeyboardReady(true)}
                   phaseElapsedMs={phaseElapsedMs}
                   onChange={(next, valid) => {
                     submissionRef.current = next;
@@ -441,15 +564,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
               ) : null}
             </div>
             {phase === "answer" && !secureRecall && !game?.autoSubmitOnValid && !game?.submitAtDeadline && (
-              <Button className="game-submit" disabled={!canSubmit} onClick={() => void submit(false)}>
-                Lock answer
-              </Button>
+              <LockAnswerButton className="game-submit" disabled={!canSubmit || remaining <= 0} pending={lockStatus === "sending"} locked={lockStatus === "locked"} remainingMs={remaining} onClick={() => void submit(false)} />
             )}
             {phase === "submitted" && <span className="search-pulse mt-7 h-3 w-3 bg-[var(--accent)]" />}
           </>
         )}
       </section>
-      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} />}
+      {currentUserId && <MatchChat matchId={matchId} currentUserId={currentUserId} compact />}
       {error && <ErrorToast message={error} />}
     </main>
   );

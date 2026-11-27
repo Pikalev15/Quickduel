@@ -85,11 +85,11 @@ export function LeaderboardScreen() {
         </div>
         {eligibility && !eligibility.eligible && (
           <div className="provisional-rank-notice" role="status">
-            <strong>Your rating is provisional.</strong>
+            <strong>{eligibility.remaining_ranked_matches > 0 ? "Complete your placements" : "Public rank not yet eligible"}</strong>
             <span>
               {!eligibility.linked_identity
-                ? "Link your account and complete five ranked human matches to appear publicly."
-                : `Complete ${eligibility.remaining_ranked_matches} more ranked human ${eligibility.remaining_ranked_matches === 1 ? "match" : "matches"} to appear publicly.`}
+                ? eligibility.remaining_ranked_matches > 0 ? `Link your account and complete ${eligibility.remaining_ranked_matches} more placement matches to appear publicly.` : "Placements complete. Link your account to appear publicly."
+                : eligibility.remaining_ranked_matches > 0 ? `Complete ${eligibility.remaining_ranked_matches} more ranked human ${eligibility.remaining_ranked_matches === 1 ? "match" : "matches"} to establish your division.` : "Your account must be eligible for public ranking."}
             </span>
           </div>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CrypticDuelGame,
   ColourRecallGame,
   ColourRecallV2Game,
   DotEstimateGame,
@@ -24,6 +25,9 @@ export function GameRenderer({
   ...props
 }: GameComponentProps & { gameId: GameId }) {
   switch (gameId) {
+    case "cryptic_duel":
+      return <CrypticDuelGame {...props} />;
+    case "memory_grid_v2":
     case "memory_grid":
       return <MemoryGridGame {...props} />;
     case "frequency_recall":

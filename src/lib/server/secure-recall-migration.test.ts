@@ -95,3 +95,15 @@ describe("secure recall round migration", () => {
     expect(migration).toContain("then mp.result_json -> 'details'");
   });
 });
+
+
+describe("match API route boundaries", () => {
+  it("does not allow secure recall games through the bulk submission route", () => {
+    const submitRoute = readFileSync(resolve(process.cwd(), "src/app/api/matches/[matchId]/submit/route.ts"), "utf8");
+    expect(submitRoute).toContain("isSecureRecallGame(match.game_type)");
+    expect(submitRoute.indexOf("isSecureRecallGame(match.game_type)")).toBeLessThan(submitRoute.indexOf('admin.rpc("submit_game_result"'));
+  });
+  it("does not expose countdown challenge content", () => {
+    expect(matchRoute).toContain('phase === "countdown" || privateMatch.status === "cancelled"');
+  });
+});

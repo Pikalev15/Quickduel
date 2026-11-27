@@ -15,16 +15,19 @@ type ChatMessage = {
 export function MatchChat({
   matchId,
   currentUserId,
+  compact = false,
 }: {
   matchId: string;
   currentUserId: string;
+  compact?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [body, setBody] = useState("");
   const [muted, setMuted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(compact);
+  const logRef = useRef<HTMLDivElement>(null);
 
   const reload = useCallback(async () => {
     const response = await fetch(`/api/matches/${matchId}/chat`, {
@@ -36,7 +39,7 @@ export function MatchChat({
   }, [matchId]);
 
   useEffect(() => {
-    if (muted) return;
+    if (muted || (compact && collapsed)) return;
     let active = true;
     let supabase: SupabaseClient | null = null;
     let channel: RealtimeChannel | null = null;
@@ -71,11 +74,12 @@ export function MatchChat({
       window.clearInterval(poll);
       if (channel && supabase) void supabase.removeChannel(channel);
     };
-  }, [matchId, muted, reload]);
+  }, [matchId, muted, compact, collapsed, reload]);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "nearest" });
-  }, [messages]);
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [messages, compact, collapsed]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -114,11 +118,20 @@ export function MatchChat({
     setError("Message reported for review.");
   }
 
+  if (compact && collapsed) {
+    return (
+      <aside className="match-chat match-chat-collapsed" aria-label="Match chat collapsed">
+        <button type="button" onClick={() => setCollapsed(false)}>Chat</button>
+      </aside>
+    );
+  }
+
   if (muted) {
     return (
       <aside className="match-chat match-chat-muted" aria-label="Match chat muted">
         <span>Match chat muted</span>
         <button type="button" onClick={() => setMuted(false)}>Unmute</button>
+        {compact && <button type="button" onClick={() => setCollapsed(true)}>Close</button>}
       </aside>
     );
   }
@@ -127,9 +140,9 @@ export function MatchChat({
     <aside className="match-chat" aria-label="Live match chat">
       <header>
         <div><strong>Match chat</strong><small>Only this 1v1 · kept 7 days</small></div>
-        <button type="button" onClick={() => setMuted(true)}>Mute</button>
+        <div className="match-chat-header-actions"><button type="button" onClick={() => setMuted(true)}>Mute</button>{compact && <button type="button" onClick={() => setCollapsed(true)}>Close</button>}</div>
       </header>
-      <div className="match-chat-log" aria-live="polite">
+      <div className="match-chat-log" aria-live="polite" ref={logRef}>
         {messages.length === 0 && <p>No messages yet. Keep it sporting.</p>}
         {messages.map((message) => (
           <article
@@ -143,7 +156,6 @@ export function MatchChat({
             )}
           </article>
         ))}
-        <div ref={bottom} />
       </div>
       <form onSubmit={(event) => void send(event)}>
         <label className="sr-only" htmlFor={`chat-${matchId}`}>Message opponent</label>

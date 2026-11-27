@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
@@ -10,6 +11,7 @@ import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import { track } from "@/lib/analytics";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
+import { AudioManager } from "@/lib/audio/audio-manager";
 
 type Phase = "countdown" | "reveal" | "answer" | "waiting" | "result";
 
@@ -26,8 +28,19 @@ export function PracticeMatch({
   const game = getGame(gameId);
   const challenge = useMemo(() => game.generate(seed), [game, seed]);
   const bot = useMemo(() => game.bot(seed, challenge), [challenge, game, seed]);
-  const [startAt] = useState(() => Date.now() + 2_000);
+  const needsAudio = gameId === "frequency_recall_v2" || gameId === "frequency_recall" || gameId === "rhythm_recall";
+  const [audioReady, setAudioReady] = useState(!needsAudio);
+  const typing = gameId === "typing_sprint";
+  const [keyboardReady, setKeyboardReady] = useState(!typing);
+  const prepared = audioReady && keyboardReady;
+  const [audioError, setAudioError] = useState(false);
+  const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
   const [now, setNow] = useState(() => Date.now());
+  const prepareKeyboard = useCallback(() => {
+    if (keyboardReady) return;
+    setStartAt(now + 2_000);
+    setKeyboardReady(true);
+  }, [keyboardReady, now]);
   const [submission, setSubmission] = useState<Submission>({});
   const [canSubmit, setCanSubmit] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
@@ -45,26 +58,27 @@ export function PracticeMatch({
     return () => window.clearInterval(timer);
   }, []);
 
+  const answerDurationMs = gameId === "frequency_recall_v2" ? 60_000 : game.answerDurationMs;
   const answerStart = startAt + game.revealDurationMs;
-  const answerEnd = answerStart + game.answerDurationMs;
+  const answerEnd = answerStart + answerDurationMs;
   const submit = useCallback(() => {
     if (submittedAt !== null || !canSubmit) return;
     setSubmittedAt(Math.min(Date.now(), answerEnd));
   }, [answerEnd, canSubmit, submittedAt]);
 
   useEffect(() => {
-    if (submittedAt !== null) return;
+    if (submittedAt !== null || !prepared) return;
     const timeout = window.setTimeout(
       () => setSubmittedAt((current) => current ?? answerEnd),
       Math.max(0, answerEnd - Date.now()),
     );
     return () => window.clearTimeout(timeout);
-  }, [answerEnd, submittedAt]);
+  }, [answerEnd, submittedAt, prepared]);
 
   let phase: Phase;
   if (submittedAt !== null) {
     phase = now >= answerStart + bot.completionTimeMs ? "result" : "waiting";
-  } else if (now < startAt) {
+  } else if (!prepared || now < startAt) {
     phase = "countdown";
   } else if (now < answerStart) {
     phase = "reveal";
@@ -73,8 +87,8 @@ export function PracticeMatch({
   }
 
   const playerTime = submittedAt
-    ? Math.max(0, Math.min(game.answerDurationMs, submittedAt - answerStart))
-    : game.answerDurationMs;
+    ? Math.max(0, Math.min(answerDurationMs, submittedAt - answerStart))
+    : answerDurationMs;
   const parsed = game.submissionSchema.safeParse(submission);
   const playerResult = parsed.success
     ? game.calculate(challenge, parsed.data, playerTime)
@@ -135,6 +149,7 @@ export function PracticeMatch({
         <ResultPanel
           outcome={outcome}
           gameName={game.name}
+          completionNotice={gameId === "cryptic_duel" ? `Answer: ${String(challenge.answer)}. ${String(challenge.explanation)}` : undefined}
           unranked
           player={{
             name: "You",
@@ -175,19 +190,28 @@ export function PracticeMatch({
   const remaining = Math.max(0, answerEnd - now);
   const phaseElapsedMs = phase === "reveal" ? Math.max(0, now - startAt) : 0;
   const memoryHolding =
-    game.id === "memory_grid" &&
+    (game.id === "memory_grid" || game.id === "memory_grid_v2") &&
     phase === "reveal" &&
-    phaseElapsedMs >= MEMORY_GRID_FLASH_MS;
+    phaseElapsedMs >= Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
   const publicChallenge = game.publicChallenge(challenge, phase === "reveal" ? "reveal" : "answer");
 
   return (
-    <main className={`min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
+    <main className={`active-game min-h-screen${game.id === "typing_sprint" ? " typing-match" : ""}`}>
       <GameHeader player="You" playerRating={1000} opponent="Practice Bot" connected practice />
       <section className="page-shell screen-enter match-center">
-        {phase === "countdown" ? (
+        {phase === "countdown" && !typing ? (
           <div className="text-center">
             <p className="display text-lg tracking-[0.12em] text-[var(--muted)]">{game.name} · Get ready</p>
-            <div className="display mt-3 text-[10rem] leading-none text-[var(--accent)]">{countdown}</div>
+            {audioReady ? <div className="display qd-countdown mt-3 text-[clamp(5rem,25vw,10rem)] leading-none text-[var(--accent)]"><span key={countdown}>{countdown}</span></div> : (
+              <Button className="mt-4" onClick={() => {
+                void AudioManager.shared().unlock().then((ready) => {
+                  if (!ready) { setAudioError(true); return; }
+                  setStartAt(Date.now() + 2_000);
+                  setAudioReady(true);
+                }).catch(() => setAudioError(true));
+              }}>Enable sound and start</Button>
+            )}
+            {audioError && !audioReady && <p role="alert">Audio is unavailable. Check your sound settings and try again.</p>}
             <p className="mt-4 max-w-xl text-[var(--muted)]">{game.instructions}</p>
           </div>
         ) : (
@@ -197,8 +221,10 @@ export function PracticeMatch({
                 <p className="game-kicker">Practice · unranked</p>
                 <h1 className="display">{game.name}</h1>
               </div>
-              <div className="game-timer">
-                {memoryHolding
+              <div className="game-timer" data-urgent={phase === "answer" && remaining <= 3000 ? "true" : undefined}>
+                {phase === "countdown"
+                  ? keyboardReady ? `Starts in ${countdown}` : "Ready?"
+                  : memoryHolding
                   ? "HOLD"
                   : phase === "reveal"
                     ? "OBSERVE"
@@ -217,17 +243,19 @@ export function PracticeMatch({
                 aria-label="Answer time remaining"
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.round((remaining / game.answerDurationMs) * 100)}
+                aria-valuenow={Math.round((remaining / answerDurationMs) * 100)}
               >
-                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / game.answerDurationMs))})` }} />
+                <span style={{ transform: `scaleX(${Math.max(0, Math.min(1, remaining / answerDurationMs))})` }} />
               </div>
             )}
             <div className="game-stage">
               <GameRenderer
-                key={`${game.id}:${phase === "waiting" ? "answer" : phase}`}
+                key={typing ? `${game.id}:${seed}` : `${game.id}:${phase === "waiting" ? "answer" : phase}`}
                 gameId={game.id}
                 challenge={publicChallenge}
-                disabled={phase !== "answer"}
+                disabled={phase !== "answer" || remaining <= 0}
+                preparing={typing && phase === "countdown"}
+                onReady={prepareKeyboard}
                 phaseElapsedMs={phaseElapsedMs}
                 practiceOpponentSubmission={bot.submission}
                 onChange={(next, valid) => {
@@ -240,9 +268,7 @@ export function PracticeMatch({
               />
             </div>
             {phase === "answer" && !game.autoSubmitOnValid && !game.submitAtDeadline && (
-              <Button className="game-submit" disabled={!canSubmit} onClick={submit}>
-                Lock answer
-              </Button>
+              <LockAnswerButton className="game-submit" disabled={!canSubmit || remaining <= 0} remainingMs={remaining} onClick={submit} />
             )}
           </>
         )}

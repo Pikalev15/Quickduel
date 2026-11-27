@@ -190,6 +190,7 @@ test("Memory Grid flashes briefly, holds the blank board, then unlocks", async (
 
 test("Rhythm Recall accepts every required beat after the reveal and resets on rematch", async ({ page }) => {
   await page.goto("/match/practice?game=rhythm_recall&seed=rhythm-fixed");
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   const pad = page.locator(".tap-pad");
   await expect(pad).toBeEnabled({ timeout: 20_000 });
 
@@ -219,13 +220,24 @@ test("Rhythm Recall accepts every required beat after the reveal and resets on r
   await expect(pad.filter({ hasText: "Rhythm captured" }).or(rematch)).toBeVisible();
   await expect(rematch).toBeVisible({ timeout: 20_000 });
   await rematch.click();
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Rhythm 1 · 0\// })).toBeVisible();
 });
 
 test("Frequency Recall v2 gives per-round feedback before advancing", async ({ page }) => {
   await page.goto("/match/practice?game=frequency_recall_v2&seed=frequency-feedback");
+  await page.getByRole("button", { name: "Enable sound and start", exact: true }).click();
   const confirm = page.getByRole("button", { name: "Confirm round" });
   await expect(confirm).toBeVisible({ timeout: 8_000 });
+  const replay = page.getByRole("button", { name: "Replay target", exact: true });
+  await expect(page.getByRole("button", { name: "Play my guess", exact: true })).toHaveCount(0);
+  const slider = page.getByRole("slider", { name: /round 1 frequency/i });
+  await expect(replay).toBeInViewport();
+  await expect(slider).toBeInViewport();
+  await expect(confirm).toBeInViewport();
+  await replay.click();
+  await replay.click();
+  await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
   await expect(page.getByText("Target", { exact: true })).toBeVisible();
@@ -402,6 +414,7 @@ test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline
   page,
 }, testInfo) => {
   await page.goto("/match/practice?game=typing_sprint&seed=typing-sprint-e2e");
+  await page.getByRole("button", { name: "Ready keyboard", exact: true }).click();
   const surface = page.locator(".typing-sprint");
   const input = page.getByLabel("Type the displayed words");
   await expect(surface).toBeVisible({ timeout: 10_000 });
@@ -746,7 +759,7 @@ test("account deletion requires deliberate typed confirmation", async ({ page })
 
 test("logged-out users cannot render the admin surface", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: /This round does not exist/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missed that one." })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Operations/i })).toHaveCount(0);
 });
 
@@ -774,4 +787,156 @@ test("shared result has social image and no private payload", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible();
   await expect(page.getByRole("img", { name: /QuickDuel Memory Grid result card/i })).toBeVisible();
   await expect(page.getByText(/challenge_seed|submission_json/)).toHaveCount(0);
+});
+
+test("timed practice controls fit the viewport without page scrolling", async ({ page }) => {
+  for (const game of ["shape_recall", "pattern_complete", "number_order", "target_tap"]) {
+    await test.step(game, async () => {
+      await page.goto(`/match/practice?game=${game}&seed=compact-viewport-regression`);
+      const stage = page.locator(".game-stage");
+      await expect(stage).toBeVisible({ timeout: 12_000 });
+      await expect(stage).toBeInViewport({ ratio: 0.98 });
+      const submit = page.getByRole("button", { name: "Lock answer", exact: true });
+      if (game === "shape_recall" || game === "pattern_complete") {
+        await expect(submit).toBeVisible({ timeout: 6_000 });
+        await expect(submit, `${game}: Lock answer must fit without scrolling`).toBeInViewport({ ratio: 0.98 });
+        await expect(stage, `${game}: answer controls must fit`).toBeInViewport({ ratio: 0.98 });
+      }
+      expect(await page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(1);
+    });
+  }
+});
+
+
+test("answer lock remains reachable and has an immediate accessible action", async ({ page }) => {
+  await page.goto("/match/practice?game=odd_one_out&seed=lock-button-regression");
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeVisible({ timeout: 10_000 });
+  await expect(lock).toBeDisabled();
+  await page.getByRole("button", { name: "Tile 1", exact: true }).click();
+  await expect(lock).toBeEnabled();
+  await expect(lock).toBeInViewport({ ratio: 0.98 });
+  const bounds = await lock.boundingBox();
+  expect(bounds?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await lock.click();
+  await expect(lock).toHaveCount(0);
+});
+
+test("Memory Grid XL displays twenty-five cells and caps selection at eight", async ({ page }) => {
+  await page.goto("/match/practice?game=memory_grid_v2&seed=xl-regression");
+  const cells = page.locator(".memory-board button");
+  await expect(cells).toHaveCount(25);
+  await expect(cells.first()).toBeEnabled({ timeout: 10000 });
+  for (let i = 0; i < 8; i++) await cells.nth(i).click();
+  await expect(page.getByText("8/8 selected", { exact: true })).toBeVisible();
+  await expect(cells.nth(8)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeInViewport();
+});
+
+test("Cryptic Duel viewport and hints remain usable", async ({ page }) => {
+  await page.goto("/match/practice?game=cryptic_duel&seed=cryptic-regression");
+  const answer = page.getByRole("textbox", { name: "Cryptic answer" });
+  await expect(answer).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: /Reveal hint/ }).click();
+  await expect(page.getByText("8 possible points")).toBeVisible();
+  await page.getByRole("button", { name: /Reveal hint/ }).click();
+  await expect(page.getByText("6 possible points")).toBeVisible();
+  await expect(page.getByRole("button", { name: "All hints used" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeDisabled();
+  const length = Number(await answer.getAttribute("maxlength"));
+  await answer.fill("A".repeat(length));
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeEnabled();
+  await expect(lock).toBeInViewport();
+  await lock.click();
+  await expect(page.getByText(/^Answer:/)).toBeVisible({ timeout: 50000 });
+});
+
+test("motion keeps the timed viewport and selection hitboxes stable", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/match/practice?game=memory_grid_v2&seed=motion-viewport");
+  const route = page.locator(".route-transition--fast");
+  await expect(route).toHaveCSS("animation-name", "none");
+  const tile = page.getByRole("button", { name: "Cell 1", exact: true });
+  await expect(tile).toBeEnabled({ timeout: 12_000 });
+  const before = await tile.boundingBox();
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  const after = await tile.boundingBox();
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(Math.abs((before?.x ?? 0) - (after?.x ?? 0))).toBeLessThan(1);
+  expect(Math.abs((before?.y ?? 0) - (after?.y ?? 0))).toBeLessThan(1);
+  expect(Math.abs((before?.width ?? 0) - (after?.width ?? 0))).toBeLessThan(1);
+  await expect(page.getByRole("button", { name: "Lock answer", exact: true })).toBeInViewport();
+});
+
+test("reduced motion preserves answer feedback and readable results", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/match/practice?game=odd_one_out&seed=reduced-motion-feedback");
+  const tile = page.getByRole("button", { name: "Tile 1", exact: true });
+  await expect(tile).toBeEnabled({ timeout: 10_000 });
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  const lock = page.getByRole("button", { name: "Lock answer", exact: true });
+  await expect(lock).toBeEnabled();
+  await lock.click();
+  const result = page.locator(".qd-result");
+  await expect(result).toBeVisible({ timeout: 15_000 });
+  await expect(result.locator(".qd-result-title")).toHaveCSS("animation-name", "none");
+  await expect(result.locator(".qd-result-title")).toHaveCSS("opacity", "1");
+});
+
+test("landing sections reveal progressively and remain visible with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  expect(await page.locator(".qd-long-home [data-qd-reveal]").count()).toBeGreaterThanOrEqual(4);
+  const rank = page.locator(".qd-rank-story");
+  await rank.scrollIntoViewIfNeeded();
+  await expect(rank).toHaveAttribute("data-qd-reveal", "entered");
+  await expect(rank).toHaveCSS("opacity", "1");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(rank).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("heading", { name: "Ready to play?" })).toBeVisible();
+});
+
+test("statistics withhold starting division until five placements", async ({ page }) => {
+  await page.route("**/api/stats", (route) => route.fulfill({ json: { ok: true, data: {
+    ...profile, rating: 1000, matches_played: 2, recent_form: ["win", "loss"], game_stats: {},
+  } } }));
+  await page.goto("/profile/stats");
+  await expect(page.getByRole("heading", { name: "Unranked", exact: true })).toBeVisible();
+  await expect(page.getByText("2/5 complete", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gold", { exact: true })).toHaveCount(0);
+});
+
+test("request inbox supports incoming friend and duel requests and rematches", async ({ page }) => {
+  let requests = [
+    { id: "friend-1", kind: "friend", sender: "Ari", detail: "Wants to add you as a friend.", createdAt: new Date().toISOString(), expiresAt: null },
+    { id: "duel-1", kind: "duel", sender: "Sam", detail: "Best of 3 · Unranked", createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+60_000).toISOString() },
+    { id: "00000000-0000-4000-8000-000000000013", kind: "rematch", sender: "Mika", detail: "Wants another round.", createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+60_000).toISOString(), matchId: "00000000-0000-4000-8000-000000000013" },
+  ];
+  await page.route("**/api/notifications", route => route.fulfill({ json: { ok: true, data: { userId: profile.id, requests } } }));
+  await page.route("**/api/friends", async route => {
+    expect(route.request().method()).toBe("PATCH");
+    expect(route.request().postDataJSON()).toEqual({ requestId: "friend-1", accept: true });
+    requests = requests.filter(item => item.id !== "friend-1");
+    await route.fulfill({ json: { ok: true, data: {} } });
+  });
+  await page.route("**/api/invitations", async route => {
+    expect(route.request().postDataJSON()).toEqual({ invitationId: "duel-1", accept: false });
+    requests = requests.filter(item => item.id !== "duel-1");
+    await route.fulfill({ json: { ok: true, data: { status: "declined" } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Notifications, 3 pending requests" }).click();
+  await page.getByRole("button", { name: "Accept friend request from Ari" }).click();
+  await expect(page.getByRole("button", { name: "Notifications, 2 pending requests" })).toBeVisible();
+  await page.getByRole("button", { name: "Decline private duel invitation from Sam" }).click();
+  await page.getByRole("button", { name: "Dismiss rematch request from Mika" }).click();
+  await expect(page.getByText("No pending requests.")).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Notifications", exact: true }).click();
+  await expect(page.getByText("No pending requests.")).toBeVisible();
 });

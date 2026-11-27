@@ -16,6 +16,8 @@ export const GAME_IDS = [
   "typing_sprint",
   "reaction_test",
   "target_tap",
+  "memory_grid_v2",
+  "cryptic_duel",
 ] as const;
 
 export type GameId = (typeof GAME_IDS)[number];
@@ -35,6 +37,7 @@ export const ACTIVE_GAME_IDS = [
   "target_tap",
 ] as const satisfies readonly GameId[];
 export type ActiveGameId = (typeof ACTIVE_GAME_IDS)[number];
+export const PRACTICE_ONLY_GAME_IDS = ["memory_grid_v2", "cryptic_duel"] as const satisfies readonly GameId[];
 export type GameCategory = "sensory" | "mind" | "experimental";
 export type PlaylistId = "quick" | GameCategory;
 export type Challenge = Record<string, unknown>;
@@ -51,6 +54,8 @@ export type GameResult = {
 export type GameComponentProps = {
   challenge: Challenge;
   disabled?: boolean;
+  preparing?: boolean;
+  onReady?: () => void;
   phaseElapsedMs?: number;
   practiceOpponentSubmission?: Submission;
   onChange: (submission: Submission, canSubmit: boolean) => void;

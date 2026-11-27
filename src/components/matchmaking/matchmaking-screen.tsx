@@ -10,6 +10,7 @@ import type { GameId, PlaylistId } from "@/games/types";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
 type QueueResult = { queued: boolean; match_id: string | null };
@@ -61,6 +62,7 @@ export function MatchmakingScreen({
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const placement = getPlacement(profile?.matches_played);
   const [seconds, setSeconds] = useState(0);
   const [status, setStatus] = useState<"connecting" | "searching" | "offline" | "error">(
     "connecting",
@@ -288,7 +290,7 @@ export function MatchmakingScreen({
     <main className="queue-page">
       <Header simple />
       <section className="page-shell screen-enter queue-screen">
-        <div className="queue-radar" aria-hidden="true">
+        <div className="queue-radar" data-searching={status === "searching" ? "true" : undefined} aria-hidden="true">
           <span /><span /><span />
           <i className="search-pulse" />
         </div>
@@ -319,15 +321,15 @@ export function MatchmakingScreen({
             </strong>
           </span>
           <span>
-            Rating <strong>{profile?.rating ?? "—"}</strong>
+            Rating <strong>{placement?.placed ? profile?.rating : "–"}</strong>
           </span>
           <span>
-            Division <strong>{profile ? getDivision(profile.rating).name : "—"}</strong>
+            Division <strong>{placement?.placed && profile ? getDivision(profile.rating).name : placement ? `Placement ${placement.completed}/${placement.required}` : "–"}</strong>
           </span>
           <span>
             Rank{" "}
             <strong>
-              {profile?.rank ? `#${profile.rank}` : "—"}
+              {placement?.placed && profile?.rank ? `#${profile.rank}` : "–"}
             </strong>
           </span>
           <span className="queue-connection">
@@ -341,14 +343,14 @@ export function MatchmakingScreen({
 
         {duplicateTab && (
           <div className="queue-notice">
-            <p className="text-[var(--muted)]">Close the other queue tab or wait a few seconds, then retry here. This prevents duplicate queue slots.</p>
+            <p className="text-[var(--muted)]">Close the other matchmaking tab, then try again.</p>
           </div>
         )}
 
         {!duplicateTab && status === "searching" && activeGame && seconds >= 12 && (
           <div className="queue-broaden">
             <p>No player found for {getGameDisplay(activeGame).name}. Search the full {activePlaylist === "quick" ? getGameDisplay(activeGame).category : activePlaylist} playlist?</p>
-            <button type="button" onClick={() => void broaden((activePlaylist === "quick" ? getGameDisplay(activeGame).category : activePlaylist) as PlaylistId, null)}>Broaden with consent</button>
+            <button type="button" onClick={() => void broaden((activePlaylist === "quick" ? getGameDisplay(activeGame).category : activePlaylist) as PlaylistId, null)}>Search playlist</button>
           </div>
         )}
 

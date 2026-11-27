@@ -64,7 +64,10 @@ export async function GET(
       phase,
       challenge: isSecureRecallGame(privateMatch.game_type)
         ? {}
-        : game.publicChallenge(completeChallenge, phase),
+        : phase === "countdown" || privateMatch.status === "cancelled" || privateMatch.status === "abandoned"
+          ? {}
+          : game.publicChallenge(completeChallenge, phase),
+      server_now: new Date().toISOString(),
       source: privateMatch.source,
       private_duel_code: privateDuelCode,
       series_round: privateMatch.series_round,

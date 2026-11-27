@@ -3,7 +3,7 @@ import { HomeScreen } from "@/components/home/home-screen";
 
 export const metadata: Metadata = {
   title: "QuickDuel - fast multiplayer perception games",
-  description: "Choose from thirteen short perception games, enter ranked matchmaking, or challenge a friend to a private duel.",
+  description: "Play short memory, perception and word games. Find a ranked opponent, practice, or challenge a friend.",
   alternates: { canonical: "/" },
 };
 

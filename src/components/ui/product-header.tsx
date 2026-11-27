@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "./wordmark";
+import { RequestBell } from "@/components/notifications/request-bell";
 
 export function ProductHeader({
   current,
@@ -27,7 +28,7 @@ export function ProductHeader({
             </Link>
           ))}
         </nav>
-        {trailing && <div className="product-header-trailing">{trailing}</div>}
+        <div className="product-header-trailing qd-header-requests"><RequestBell />{trailing}</div>
       </div>
     </header>
   );

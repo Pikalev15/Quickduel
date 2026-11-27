@@ -27,7 +27,7 @@ export async function GET(
   try {
     const { user } = await requireUser();
     const state = await advanceSecureRecallRound(matchId.data, user.id);
-    return apiSuccess(state, 200, correlationId);
+    return apiSuccess({ ...state, serverNow: new Date().toISOString() }, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]/round");
   }
@@ -78,7 +78,7 @@ export async function POST(
       parsed.data.roundIndex,
       parsed.data.answer,
     );
-    return apiSuccess(state, 200, correlationId);
+    return apiSuccess({ ...state, serverNow: new Date().toISOString() }, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]/round");
   }

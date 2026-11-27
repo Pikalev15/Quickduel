@@ -42,6 +42,7 @@ export type RecallRoundState = {
   roundCount: 5;
   phase: "countdown" | "reveal" | "answer" | "waiting" | "feedback" | "complete";
   phaseEndsAt: string | null;
+  serverNow?: string;
   target: number | RecallColour | null;
   ownAnswer: number | RecallColour | null;
   feedback: RecallRoundFeedback | null;

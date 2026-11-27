@@ -160,3 +160,47 @@ describe("game registry", () => {
     },
   );
 });
+
+
+describe("active challenge projections", () => {
+  it("keeps Odd One Out's private answer index off the public board", () => {
+    const game = getGame("odd_one_out");
+    const challenge = game.generate("odd-public-projection");
+    const projected = game.publicChallenge(challenge, "answer");
+    expect(projected).not.toHaveProperty("oddIndex");
+    expect(projected).not.toHaveProperty("showAnswer");
+    const tiles = projected.tiles as Array<{ glyph: string; rotation: number }>;
+    expect(tiles).toHaveLength(16);
+    expect(tiles.filter((tile) => tile.rotation !== 0)).toHaveLength(1);
+    expect(tiles.findIndex((tile) => tile.rotation !== 0)).toBe(challenge.oddIndex);
+    expect(game.publicChallenge(projected, "answer")).toEqual(projected);
+    expect(game.calculate(challenge, { selectedIndex: challenge.oddIndex }, 1000).accuracy).toBe(1);
+  });
+});
+
+describe("practice previews", () => {
+  it("keeps legacy Memory Grid unchanged while XL has eight unique targets", () => {
+    const original = getGame("memory_grid").generate("xl-test");
+    const game = getGame("memory_grid_v2");
+    const challenge = game.generate("xl-test");
+    expect(original.size).toBe(4);
+    expect(original.highlightedCells).toHaveLength(6);
+    expect(challenge.size).toBe(5);
+    expect(new Set(challenge.highlightedCells as number[]).size).toBe(8);
+    expect(game.calculate(challenge, { selectedCells: challenge.highlightedCells }, 5000).summary).toBe("8/8 cells");
+    expect(game.submissionSchema.safeParse({ selectedCells: [25] }).success).toBe(false);
+    expect(game.submissionSchema.safeParse({ selectedCells: [1, 1] }).success).toBe(false);
+    expect(game.publicChallenge(challenge, "answer")).not.toHaveProperty("highlightedCells");
+    expect(ACTIVE_GAME_IDS).not.toContain(game.id);
+  });
+  it("scores cryptic clues and hides explicit answer fields during play", () => {
+    const game = getGame("cryptic_duel");
+    const challenge = game.generate("cryptic-test");
+    expect(game.publicChallenge(challenge, "answer")).not.toHaveProperty("answer");
+    expect(game.publicChallenge(challenge, "answer")).not.toHaveProperty("explanation");
+    expect(game.calculate(challenge, { answer: String(challenge.answer).toLowerCase(), hintsUsed: 0 }, 1000).rankScore).toBe(10);
+    expect(game.calculate(challenge, { answer: challenge.answer, hintsUsed: 2 }, 1000).rankScore).toBe(6);
+    expect(game.calculate(challenge, { answer: "ZZZZ", hintsUsed: 0 }, 1000).rankScore).toBe(0);
+    expect(ACTIVE_GAME_IDS).not.toContain(game.id);
+  });
+});

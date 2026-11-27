@@ -1,6 +1,9 @@
 "use client";
 
+import { estimateServerClockOffset } from "@/lib/game-clock";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { AudioManager } from "@/lib/audio/audio-manager";
 import type {
   RecallColour,
@@ -17,7 +20,7 @@ async function recallRequest<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function SignedMetric({ value, suffix = "" }: { value: number | null; suffix?: string }) {
-  return <strong>{value === null ? "—" : `${value > 0 ? "+" : ""}${value}${suffix}`}</strong>;
+  return <strong>{value === null ? "–" : `${value > 0 ? "+" : ""}${value}${suffix}`}</strong>;
 }
 
 function Feedback({
@@ -28,7 +31,7 @@ function Feedback({
   remainingMs: number;
 }) {
   return (
-    <div className="recall-feedback" aria-live="polite">
+    <div className="recall-feedback qd-resolved" aria-live="polite">
       {feedback.kind === "frequency" ? (
         <>
           <div className="recall-comparison">
@@ -57,7 +60,7 @@ function Feedback({
             </div>
           </div>
           <div className="recall-metrics recall-metrics-four">
-            <div><span>Distance</span><strong>{feedback.distance ?? "—"}</strong></div>
+            <div><span>Distance</span><strong>{feedback.distance ?? "–"}</strong></div>
             <div><span>Lightness</span><SignedMetric value={feedback.lightnessDifference} /></div>
             <div><span>Chroma</span><SignedMetric value={feedback.chromaDifference} /></div>
             <div><span>Hue · wrapped</span><SignedMetric value={feedback.hueDifference} suffix="°" /></div>
@@ -65,7 +68,7 @@ function Feedback({
         </>
       )}
       <div className="recall-score-row">
-        <div><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Result</span><strong>{feedback.label}</strong></div>
       </div>
       <div className="recall-next">
@@ -93,30 +96,56 @@ export function RankedRecallRounds({
 }) {
   const [state, setState] = useState<RecallRoundState | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [clockOffset, setClockOffset] = useState(0);
+  const clockOffsetRef = useRef(0);
   const [frequency, setFrequency] = useState(660);
   const [colour, setColour] = useState<RecallColour>({ l: 65, c: 18, h: 180 });
   const [sending, setSending] = useState(false);
   const playedRound = useRef<number | null>(null);
+  const heardTarget = useRef<{ round: number; hz: number } | null>(null);
   const inputRound = useRef<number | null>(null);
   const reloadInFlight = useRef(false);
+  const latestState = useRef<RecallRoundState | null>(null);
+  const submitting = useRef(false);
+  const lastPollAt = useRef(0);
   const audio = useMemo(() => AudioManager.shared(), []);
 
   const applyState = useCallback((next: RecallRoundState) => {
+    const previous = latestState.current;
+    const order: Record<RecallRoundState["phase"], number> = {
+      countdown: 0, reveal: 1, answer: 2, waiting: 3, feedback: 4, complete: 5,
+    };
+    if (previous && (next.roundIndex < previous.roundIndex ||
+      (next.roundIndex === previous.roundIndex &&
+        (order[next.phase] < order[previous.phase] || (previous.ownSubmitted && !next.ownSubmitted))))) return;
+    latestState.current = next;
     if (inputRound.current !== next.roundIndex) {
       inputRound.current = next.roundIndex;
+      heardTarget.current = null;
       setFrequency(660);
       setColour({ l: 65, c: 18, h: 180 });
+    }
+    if (next.gameId === "frequency_recall_v2" && next.phase === "reveal" && typeof next.target === "number") {
+      heardTarget.current = { round: next.roundIndex, hz: next.target };
     }
     setState(next);
   }, []);
 
   const reload = useCallback(async () => {
-    if (reloadInFlight.current) return;
+    if (reloadInFlight.current || submitting.current) return;
     reloadInFlight.current = true;
     try {
+      const requestedAt = Date.now();
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`);
-      applyState(next);
-      if (next.phase === "complete") onComplete();
+      if (!submitting.current) {
+        const offset = estimateServerClockOffset(next.serverNow, requestedAt, Date.now());
+        if (offset !== null) {
+          clockOffsetRef.current = offset;
+          setClockOffset(offset);
+        }
+        applyState(next);
+        if (next.phase === "complete") onComplete();
+      }
     } catch (error) {
       onError(error instanceof Error ? error.message : "Could not load the round.");
     } finally {
@@ -126,7 +155,16 @@ export function RankedRecallRounds({
 
   useEffect(() => {
     const initial = window.setTimeout(() => void reload(), 0);
-    const poll = window.setInterval(() => void reload(), 250);
+    const poll = window.setInterval(() => {
+      const current = latestState.current;
+      const deadline = current?.phaseEndsAt ? Date.parse(current.phaseEndsAt) : 0;
+      const nearBoundary = !deadline || deadline - (Date.now() + clockOffsetRef.current) <= 900;
+      const waiting = current?.phase === "waiting" || current?.phase === "countdown" || current?.phase === "reveal";
+      if (nearBoundary || waiting || Date.now() - lastPollAt.current >= 1_000) {
+        lastPollAt.current = Date.now();
+        void reload();
+      }
+    }, 300);
     const clock = window.setInterval(() => setNow(Date.now()), 50);
     return () => {
       window.clearTimeout(initial);
@@ -142,8 +180,29 @@ export function RankedRecallRounds({
     void audio.playToneSequence([state.target]);
   }, [audio, gameId, state]);
 
+  useEffect(() => {
+    if (state?.phase !== "answer" && state?.phase !== "reveal") audio.stopPlayback();
+  }, [audio, state?.phase]);
+  useEffect(() => () => audio.stopPlayback(), [audio]);
+
+  async function replayTarget() {
+    if (!state || (state.phase !== "reveal" && state.phase !== "answer")) return;
+    const cached = heardTarget.current;
+    if (cached?.round === state.roundIndex) {
+      await audio.playToneSequence([cached.hz]);
+      return;
+    }
+    try {
+      await audio.playRemoteTone(`/api/matches/${matchId}/round/audio?roundIndex=${state.roundIndex}`);
+    } catch {
+      onError("Could not replay the target. Try again before the round closes.");
+    }
+  }
+
   async function submit() {
-    if (!state || state.phase !== "answer" || sending) return;
+    if (!state || state.phase !== "answer" || submitting.current || state.ownSubmitted) return;
+    submitting.current = true;
+    audio.stopPlayback();
     setSending(true);
     try {
       const next = await recallRequest<RecallRoundState>(`/api/matches/${matchId}/round`, {
@@ -157,9 +216,10 @@ export function RankedRecallRounds({
       applyState(next);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Could not lock the round.");
-      await reload();
     } finally {
+      submitting.current = false;
       setSending(false);
+      void reload();
     }
   }
 
@@ -167,7 +227,7 @@ export function RankedRecallRounds({
     return <span className="search-pulse h-3 w-3 bg-[var(--accent)]" aria-label="Loading round" />;
   }
   const remainingMs = state.phaseEndsAt
-    ? Math.max(0, Date.parse(state.phaseEndsAt) - now)
+    ? Math.max(0, Date.parse(state.phaseEndsAt) - (now + clockOffset))
     : 0;
 
   return (
@@ -176,60 +236,50 @@ export function RankedRecallRounds({
         <span>Round {state.roundIndex + 1} of 5</span>
         <strong>You {state.ownScore.toFixed(1)} · Opponent {state.opponentScore.toFixed(1)}</strong>
       </div>
-      {state.phase === "reveal" ? (
-        gameId === "frequency_recall_v2" ? (
-          <div className="frequency-reveal">
-            <span className="frequency-wave" aria-hidden="true">∿</span>
-            <strong>Listen</strong>
-            <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
-            <button
-              type="button"
-              className="recall-replay"
-              disabled={sending || typeof state.target !== "number"}
-              onClick={() => typeof state.target === "number" && void audio.playToneSequence([state.target])}
-            >
-              Play tone again
+      <div className="qd-round-track" aria-hidden="true">
+        {Array.from({ length: 5 }, (_, index) => <i key={index} data-step={index < state.roundIndex || (index === state.roundIndex && (state.phase === "feedback" || state.phase === "complete")) ? "done" : index === state.roundIndex ? "current" : "upcoming"} />)}
+      </div>
+      {gameId === "frequency_recall_v2" && (state.phase === "reveal" || state.phase === "answer") ? (
+        <div className="sequential-answer frequency-controls">
+          <p>Replay the target as needed, then estimate its pitch.</p>
+          <div className="frequency-audio-actions">
+            <button type="button" className="recall-replay" disabled={sending || remainingMs <= 0} onClick={() => void replayTarget()}>
+              Replay target
             </button>
           </div>
-        ) : (
-          <div className="colour-round-reveal">
-            <span style={{ background: colourCss(state.target as RecallColour) }} />
-            <strong>Remember this colour</strong>
-            <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
-          </div>
-        )
+          <label className="game-range">
+            <span>Frequency</span>
+            <input type="range" min={120} max={2000} value={frequency} disabled={sending || remainingMs <= 0} onChange={(event) => setFrequency(Number(event.target.value))} />
+            <strong>{frequency} Hz</strong>
+          </label>
+          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={state.phase !== "answer" || remainingMs <= 0} pending={sending} remainingMs={remainingMs} onClick={() => void submit()} />
+        </div>
+      ) : state.phase === "reveal" ? (
+        <div className="colour-round-reveal">
+          <span style={{ background: colourCss(state.target as RecallColour) }} />
+          <strong>Remember this colour</strong>
+          <span className="recall-phase-time">{(remainingMs / 1000).toFixed(1)}s</span>
+        </div>
       ) : state.phase === "answer" ? (
         <div className="sequential-answer">
-          {gameId === "frequency_recall_v2" ? (
-            <>
-              <p>Tune the pitch you just heard.</p>
-              <label className="game-range">
-                <span>Frequency</span>
-                <input type="range" min={120} max={2000} value={frequency} onChange={(event) => setFrequency(Number(event.target.value))} />
-                <strong>{frequency}</strong>
+          <div className="colour-round-answer">
+            <div className="colour-preview" aria-label="Your reconstructed colour" style={{ background: colourCss(colour) }} />
+            {(["l", "c", "h"] as const).map((key) => (
+              <label className="game-range" key={key}>
+                <span>{key === "l" ? "Lightness" : key === "c" ? "Chroma" : "Hue"}</span>
+                <input
+                  type="range"
+                  min={key === "l" ? 35 : key === "c" ? 4 : 0}
+                  max={key === "l" ? 90 : key === "c" ? 32 : 359}
+                  value={colour[key]}
+                  disabled={sending || remainingMs <= 0}
+                  onChange={(event) => setColour((current) => ({ ...current, [key]: Number(event.target.value) }))}
+                />
+                <strong>{colour[key]}</strong>
               </label>
-            </>
-          ) : (
-            <div className="colour-round-answer">
-              <div className="colour-preview" aria-label="Your reconstructed colour" style={{ background: colourCss(colour) }} />
-              {(["l", "c", "h"] as const).map((key) => (
-                <label className="game-range" key={key}>
-                  <span>{key === "l" ? "Lightness" : key === "c" ? "Chroma" : "Hue"}</span>
-                  <input
-                    type="range"
-                    min={key === "l" ? 35 : key === "c" ? 4 : 0}
-                    max={key === "l" ? 90 : key === "c" ? 32 : 359}
-                    value={colour[key]}
-                    onChange={(event) => setColour((current) => ({ ...current, [key]: Number(event.target.value) }))}
-                  />
-                  <strong>{colour[key]}</strong>
-                </label>
-              ))}
-            </div>
-          )}
-          <button type="button" className="recall-confirm" disabled={sending} onClick={() => void submit()}>
-            {sending ? "Locking…" : `Lock round · ${(remainingMs / 1000).toFixed(1)}s`}
-          </button>
+            ))}
+          </div>
+          <LockAnswerButton label="Lock round" className="recall-confirm" disabled={remainingMs <= 0} pending={sending} remainingMs={remainingMs} onClick={() => void submit()} />
         </div>
       ) : state.phase === "waiting" ? (
         <div className="sequential-complete">

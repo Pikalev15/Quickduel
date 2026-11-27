@@ -47,5 +47,5 @@ export function MatchEntry(props: MatchEntryProps) {
       />
     );
   }
-  return <RankedMatch matchId={props.matchId} />;
+  return <RankedMatch key={props.matchId} matchId={props.matchId} />;
 }

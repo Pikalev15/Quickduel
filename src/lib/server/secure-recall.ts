@@ -58,16 +58,19 @@ export async function advanceSecureRecallRound(
   userId: string,
 ): Promise<RecallRoundState> {
   const match = await privateRecallMatch(matchId);
-  const candidate = await targetCandidate(matchId, match);
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.rpc("advance_recall_round", {
-    requested_match_id: matchId,
-    requested_user_id: userId,
-    requested_target_round_index: candidate.targetRoundIndex,
-    requested_target: candidate.target,
-  });
-  if (error) throw error;
-  return data as RecallRoundState;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const candidate = await targetCandidate(matchId, match);
+    const { data, error } = await admin.rpc("advance_recall_round", {
+      requested_match_id: matchId,
+      requested_user_id: userId,
+      requested_target_round_index: candidate.targetRoundIndex,
+      requested_target: candidate.target,
+    });
+    if (!error) return data as RecallRoundState;
+    if (error.message !== "QD_ROUND_TARGET_MISMATCH" || attempt === 1) throw error;
+  }
+  throw new Error("QD_ROUND_TARGET_MISMATCH");
 }
 
 export async function submitSecureRecallRound(
@@ -99,4 +102,20 @@ export async function submitSecureRecallRound(
   });
   if (error) throw error;
   return advanceSecureRecallRound(matchId, userId);
+}
+
+/** Authorizes a replay for only the current unresolved Frequency Recall round. */
+export async function getSecureRecallReplayTarget(
+  matchId: string,
+  userId: string,
+  roundIndex: number,
+): Promise<number | null> {
+  const state = await advanceSecureRecallRound(matchId, userId);
+  if (state.gameId !== "frequency_recall_v2" || state.roundIndex !== roundIndex || state.ownSubmitted ||
+      (state.phase !== "reveal" && state.phase !== "answer") || !state.phaseEndsAt || Date.now() >= Date.parse(state.phaseEndsAt)) {
+    return null;
+  }
+  const match = await privateRecallMatch(matchId);
+  const target = recallRoundTarget(match.game_type, getGame(match.game_type).generate(String(match.challenge_seed)), roundIndex);
+  return typeof target === "number" ? target : null;
 }

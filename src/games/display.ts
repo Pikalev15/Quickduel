@@ -1,4 +1,4 @@
-import { gameCatalog, type GameCatalogEntry } from "./catalog";
+import { gameCatalog, practiceGameCatalog, type GameCatalogEntry } from "./catalog";
 import type { GameId } from "./types";
 
 type GameDisplay = Pick<GameCatalogEntry, "name" | "shortName" | "category">;
@@ -9,7 +9,7 @@ const legacyGames: Record<"frequency_recall" | "colour_recall", GameDisplay> = {
 };
 
 const gameDisplay = new Map<GameId, GameDisplay>([
-  ...gameCatalog.map((game) => [game.id, game] as const),
+  ...[...gameCatalog, ...practiceGameCatalog].map((game) => [game.id, game] as const),
   ...Object.entries(legacyGames) as Array<[GameId, GameDisplay]>,
 ]);
 

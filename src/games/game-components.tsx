@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import type { GameComponentProps, Submission } from "./types";
 import { AudioManager } from "../lib/audio/audio-manager";
 import {
@@ -79,13 +80,16 @@ export function MemoryGridGame({
   const revealed = (challenge.highlightedCells as number[] | undefined) ?? [];
   const [selected, setSelected] = useState<number[]>([]);
   const revealing = revealed.length > 0;
-  const showingPattern = revealing && phaseElapsedMs < MEMORY_GRID_FLASH_MS;
+  const targetCount = Number(challenge.targetCount ?? 0);
+  const flashMs = Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
+  const showingPattern = revealing && phaseElapsedMs < flashMs;
   const retentionRemainingMs = Math.max(
     0,
-    MEMORY_GRID_REVEAL_DURATION_MS - phaseElapsedMs,
+    Number(challenge.revealMs ?? MEMORY_GRID_REVEAL_DURATION_MS) - phaseElapsedMs,
   );
   return (
-    <div className="memory-grid-shell">
+    <div className={`memory-grid-shell${targetCount ? " memory-grid-xl" : ""}`}>
+      {!revealing && targetCount > 0 && <p className="memory-phase-status">{selected.length}/{targetCount} selected</p>}
       <div
         className={`memory-board${revealing && !showingPattern ? " is-retaining" : ""}`}
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
@@ -99,7 +103,7 @@ export function MemoryGridGame({
               type="button"
               aria-label={`Cell ${cell + 1}`}
               aria-pressed={selected.includes(cell)}
-              disabled={disabled || revealing}
+              disabled={disabled || revealing || (targetCount > 0 && selected.length >= targetCount && !selected.includes(cell))}
               className={active ? "is-active" : ""}
               key={cell}
               onClick={() => {
@@ -159,6 +163,14 @@ export function FrequencyRecallGame({
   );
 }
 
+function RoundTrack({ completed, active, count = 5 }: { completed: number; active: number; count?: number }) {
+  return (
+    <div className="qd-round-track" aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => <i key={index} data-step={index < completed ? "done" : index === active ? "current" : "upcoming"} />)}
+    </div>
+  );
+}
+
 export function FrequencyRecallV2Game({
   challenge,
   disabled,
@@ -190,6 +202,7 @@ export function FrequencyRecallV2Game({
 
   function confirmRound() {
     if (disabled || phase !== "answer") return;
+    audio.stopPlayback();
     const next = [...guesses, guess];
     setGuesses(next);
     setFeedback(frequencyRoundFeedback(frequencies[round], guess));
@@ -225,22 +238,15 @@ export function FrequencyRecallV2Game({
           ).toFixed(1)}/50 scored
         </strong>
       </div>
-      {phase === "reveal" ? (
-        <div className="frequency-reveal">
-          <span className="frequency-wave" aria-hidden="true">∿</span>
-          <strong>Listen</strong>
-          <button
-            type="button"
-            className="recall-replay"
-            disabled={disabled}
-            onClick={() => void audio.playToneSequence([frequencies[round]])}
-          >
-            Play tone again
-          </button>
-        </div>
-      ) : phase === "answer" ? (
-        <div className="sequential-answer">
-          <p>Tune the pitch you just heard.</p>
+      <RoundTrack completed={guesses.length} active={round} count={frequencies.length || 5} />
+      {phase === "reveal" || phase === "answer" ? (
+        <div className="sequential-answer frequency-controls">
+          <p>Replay the target as needed, then estimate its pitch.</p>
+          <div className="frequency-audio-actions">
+            <button type="button" className="recall-replay" disabled={disabled} onClick={() => void audio.playToneSequence([frequencies[round]])}>
+              Replay target
+            </button>
+          </div>
           <Range
             label={`Round ${round + 1} frequency`}
             value={guess}
@@ -249,9 +255,7 @@ export function FrequencyRecallV2Game({
             disabled={disabled}
             onChange={setGuess}
           />
-          <button type="button" className="recall-confirm" onClick={confirmRound}>
-            Confirm round
-          </button>
+          <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled || phase !== "answer"} onClick={confirmRound} />
         </div>
       ) : phase === "feedback" && feedback ? (
         <PracticeRecallFeedback
@@ -400,6 +404,7 @@ export function ColourRecallV2Game({
           ).toFixed(1)}/50 scored
         </strong>
       </div>
+      <RoundTrack completed={guesses.length} active={round} count={colors.length || 5} />
       {phase === "reveal" && target ? (
         <div className="colour-round-reveal">
           <span
@@ -418,9 +423,7 @@ export function ColourRecallV2Game({
           <Range label="Lightness" value={guess.l} min={35} max={90} disabled={disabled} onChange={(value) => update("l", value)} />
           <Range label="Chroma" value={guess.c} min={4} max={32} disabled={disabled} onChange={(value) => update("c", value)} />
           <Range label="Hue" value={guess.h} min={0} max={359} disabled={disabled} onChange={(value) => update("h", value)} />
-          <button type="button" className="recall-confirm" onClick={confirmRound}>
-            Confirm round
-          </button>
+          <LockAnswerButton label="Confirm round" className="recall-confirm" disabled={disabled} onClick={confirmRound} />
         </div>
       ) : phase === "feedback" && feedback ? (
         <PracticeRecallFeedback
@@ -467,7 +470,7 @@ function PracticeRecallFeedback({
   opponentTotal: number;
 }) {
   return (
-    <div className="recall-feedback" aria-live="polite">
+    <div className="recall-feedback qd-resolved" aria-live="polite">
       {feedback.kind === "frequency" ? (
         <>
           <div className="recall-comparison">
@@ -495,7 +498,7 @@ function PracticeRecallFeedback({
         </>
       )}
       <div className="recall-score-row">
-        <div><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong></div>
+        <div className="qd-round-score"><span>Round score</span><strong>{feedback.score.toFixed(1)}<small>/10</small></strong><span className="qd-score-meter" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, feedback.score / 10))})` }} /></span></div>
         <div><span>Running total</span><strong>{total.toFixed(1)}<small>/50</small></strong></div>
         <div><span>Bot round</span><strong>{opponentRoundScore.toFixed(1)}<small>/10</small></strong></div>
         <div><span>Bot total</span><strong>{opponentTotal.toFixed(1)}<small>/50</small></strong></div>
@@ -507,21 +510,21 @@ function PracticeRecallFeedback({
 }
 
 function signed(value: number | null, suffix = "") {
-  return value === null ? "—" : `${value > 0 ? "+" : ""}${value}${suffix}`;
+  return value === null ? "–" : `${value > 0 ? "+" : ""}${value}${suffix}`;
 }
 
 function colourStyle(colour: RecallColour) {
   return `oklch(${colour.l}% ${colour.c / 100} ${colour.h})`;
 }
 
-export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
+export function TimeRecallGame({ challenge, disabled, phaseElapsedMs = 0, onChange }: GameComponentProps) {
   const durations = (challenge.durations as number[] | undefined) ?? [];
   const [guesses, setGuesses] = useState([1200, 1500, 1800, 2100, 2400]);
   useSubmitInitialValidAnswer(disabled, onChange, { durationsMs: guesses });
   return (
-    <div className="game-stack">
-      {durations.length > 0 && <PulseSequence durations={durations} />}
-      {guesses.map((guess, index) => (
+    <div className="game-stack time-recall-controls">
+      {durations.length > 0 && <PulseSequence durations={durations} elapsedMs={phaseElapsedMs} />}
+      {durations.length === 0 && guesses.map((guess, index) => (
         <Range
           key={index}
           label={`Pulse ${index + 1}`}
@@ -541,13 +544,16 @@ export function TimeRecallGame({ challenge, disabled, onChange }: GameComponentP
   );
 }
 
-function PulseSequence({ durations }: { durations: number[] }) {
+function PulseSequence({ durations, elapsedMs }: { durations: number[]; elapsedMs: number }) {
   return (
     <div className="time-pulse-list" aria-label="Five pulse durations">
       {durations.map((duration, index) => (
         <div className="time-pulse-row" key={index}>
           <span>Pulse {index + 1}</span>
-          <i style={{ animationDuration: `${duration}ms` }} />
+          <i
+            data-pulse-active={elapsedMs < duration}
+            style={{ transform: `scaleX(${Math.max(0, Math.min(1, elapsedMs / duration))})` }}
+          />
         </div>
       ))}
     </div>
@@ -709,6 +715,7 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
         <button
           type="button"
           disabled={disabled || order.includes(index)}
+          data-picked={order.includes(index) ? "true" : undefined}
           key={index}
           aria-label={`Select ${number.value}`}
           onClick={() => {
@@ -717,7 +724,7 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
             onChange({ order: next }, next.length === numbers.length);
           }}
         >
-          {order.includes(index) ? "✓" : number.value}
+          {order.includes(index) ? <span className="qd-picked-mark" aria-hidden="true">✓</span> : number.value}
         </button>
       ))}
     </div>
@@ -725,13 +732,11 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
 }
 
 export function OddOneOutGame({ challenge, disabled, onChange }: GameComponentProps) {
-  const tiles = Number(challenge.tileCount ?? 16);
-  const oddIndex = challenge.showAnswer ? Number(challenge.oddIndex) : -1;
-  const glyph = String(challenge.glyph ?? "◆");
+  const tiles = (challenge.tiles as Array<{ glyph: string; rotation: number }> | undefined) ?? [];
   const [selected, setSelected] = useState(-1);
   return (
     <div className="odd-grid">
-      {Array.from({ length: tiles }, (_, index) => (
+      {tiles.map((tile, index) => (
         <button
           type="button"
           disabled={disabled}
@@ -744,7 +749,7 @@ export function OddOneOutGame({ challenge, disabled, onChange }: GameComponentPr
             onChange({ selectedIndex: index }, true);
           }}
         >
-          <span style={{ transform: `rotate(${index === oddIndex ? 18 : 0}deg)` }}>{glyph}</span>
+          <span style={{ transform: `rotate(${tile.rotation}deg)` }}>{tile.glyph}</span>
         </button>
       ))}
     </div>
@@ -765,6 +770,7 @@ export function PatternCompleteGame({ challenge, disabled, onChange }: GameCompo
                 type="button"
                 disabled={disabled}
                 className={answers[index] === optionIndex ? "is-selected" : ""}
+                aria-pressed={answers[index] === optionIndex}
                 key={optionIndex}
                 onClick={() => {
                   const next = [...answers];
@@ -786,11 +792,14 @@ export function PatternCompleteGame({ challenge, disabled, onChange }: GameCompo
 export function TypingSprintGame({
   challenge,
   disabled,
+  preparing = false,
+  onReady,
   onChange,
 }: GameComponentProps) {
   const text = String(challenge.text ?? "");
   const words = (challenge.words as string[] | undefined) ?? text.split(" ");
   const input = useRef<HTMLInputElement>(null);
+  const wordViewport = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
   const initialized = useRef(false);
   const startedAt = useRef<number | null>(null);
@@ -798,10 +807,10 @@ export function TypingSprintGame({
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (initialized.current) return;
+    if (disabled || initialized.current) return;
     initialized.current = true;
     onChange({ typed: "" }, true);
-  }, [onChange]);
+  }, [disabled, onChange]);
 
   useEffect(() => {
     if (disabled) return;
@@ -819,6 +828,10 @@ export function TypingSprintGame({
   }, [disabled]);
 
   function updateTyped(rawValue: string) {
+    if (disabled || preparing) {
+      if (input.current) input.current.value = "";
+      return;
+    }
     const sanitized = normalizeTypingInput(
       rawValue.toLowerCase().replace(/[^a-z ]/g, ""),
     ).slice(0, text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE);
@@ -834,6 +847,15 @@ export function TypingSprintGame({
   );
   const windowStart = Math.max(0, currentWord - 10);
   const visibleWords = words.slice(windowStart, windowStart + 42);
+  useEffect(() => {
+    const viewport = wordViewport.current;
+    const current = viewport?.querySelector<HTMLElement>(".typing-word.is-current");
+    if (!viewport || !current) return;
+    const bounds = viewport.getBoundingClientRect();
+    const wordBounds = current.getBoundingClientRect();
+    if (wordBounds.top < bounds.top) viewport.scrollTop += wordBounds.top - bounds.top;
+    else if (wordBounds.bottom > bounds.bottom) viewport.scrollTop += wordBounds.bottom - bounds.bottom;
+  }, [currentWord, windowStart]);
   const statistics = typingSprintStatistics(text, typed, elapsedMs);
   const remainingSeconds = Math.max(0, TYPING_SPRINT_DURATION_MS - elapsedMs) / 1000;
 
@@ -841,7 +863,11 @@ export function TypingSprintGame({
     <section
       className="typing-sprint"
       aria-label="Typing Sprint input"
-      onClick={() => input.current?.focus({ preventScroll: true })}
+      onClick={() => {
+        if (disabled && !preparing) return;
+        input.current?.focus({ preventScroll: true });
+        if (preparing) onReady?.();
+      }}
       onDrop={(event) => event.preventDefault()}
     >
       <div className="typing-stats" aria-live="polite">
@@ -851,8 +877,8 @@ export function TypingSprintGame({
         <span><small>Time</small><strong>{remainingSeconds.toFixed(1)}</strong></span>
       </div>
 
-      <div className="typing-words" aria-hidden="true">
-        {visibleWords.map((word, visibleIndex) => {
+      <div className="typing-words" aria-hidden="true" ref={wordViewport}>
+        {!preparing && visibleWords.map((word, visibleIndex) => {
           const wordIndex = windowStart + visibleIndex;
           const attempt = attempts[wordIndex] ?? "";
           const active = wordIndex === currentWord;
@@ -882,9 +908,15 @@ export function TypingSprintGame({
         })}
       </div>
 
-      <p className="typing-focus-copy">
-        {disabled ? "Time is up." : "Focus and keep typing…"}
-      </p>
+      {preparing ? (
+        <button type="button" className="recall-confirm typing-ready" onClick={(event) => {
+          event.stopPropagation();
+          input.current?.focus({ preventScroll: true });
+          onReady?.();
+        }}>Ready keyboard</button>
+      ) : (
+        <p className="typing-focus-copy">{disabled ? "Time is up." : "Focus and keep typing…"}</p>
+      )}
       <input
         ref={input}
         className="typing-capture-input"
@@ -893,7 +925,7 @@ export function TypingSprintGame({
         autoCapitalize="none"
         autoComplete="off"
         autoCorrect="off"
-        disabled={disabled}
+        disabled={disabled && !preparing}
         inputMode="text"
         maxLength={text.length + TYPING_SPRINT_SUBMISSION_ALLOWANCE}
         spellCheck={false}
@@ -925,29 +957,30 @@ export function TypingSprintGame({
 }
 
 export function ReactionTestGame({ challenge, disabled, onChange }: GameComponentProps) {
-  const waits = useMemo(
-    () => (challenge.waits as number[] | undefined) ?? [900, 1200, 1600, 1100, 1400],
-    [challenge.waits],
-  );
+  const waits = (challenge.waits as number[] | undefined) ?? [];
+  const waitCount = waits.length;
   const [trial, setTrial] = useState(0);
   const [go, setGo] = useState(false);
   const [times, setTimes] = useState<number[]>([]);
   const shownAt = useRef(0);
+  const falseStarts = useRef(0);
+  const trialWait = waits[trial];
   useEffect(() => {
-    if (trial >= waits.length) return;
+    if (disabled || trial >= waitCount || trialWait === undefined) return;
     const timer = window.setTimeout(() => {
       shownAt.current = performance.now();
       setGo(true);
-    }, waits[trial]);
+    }, trialWait);
     return () => window.clearTimeout(timer);
-  }, [trial, waits]);
+  }, [disabled, trial, waitCount, trialWait]);
   const click = () => {
     if (disabled || trial >= waits.length) return;
-    const next = [...times, go ? Math.round(performance.now() - shownAt.current) : 1000];
+    if (!go) falseStarts.current += 1;
+    const next = [...times, go ? Math.min(2000, Math.max(0, Math.round(performance.now() - shownAt.current))) : 1000];
     setGo(false);
     setTimes(next);
     setTrial((value) => value + 1);
-    onChange({ reactionTimesMs: next, falseStarts: next.filter((value) => value === 1000).length }, next.length === waits.length);
+    onChange({ reactionTimesMs: next, falseStarts: falseStarts.current }, next.length === waits.length);
   };
   return (
     <button
@@ -1001,7 +1034,7 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
           aria-label={`Target ${index + 1}`}
           type="button"
           disabled={disabled}
-          style={{ left: `${target.x}%`, top: `${target.y}%` }}
+          style={{ left: `clamp(28px, ${target.x}%, calc(100% - 28px))`, top: `clamp(28px, ${target.y}%, calc(100% - 28px))` }}
           onClick={(event) => {
             event.stopPropagation();
             if (!startedAt.current) startedAt.current = performance.now();
@@ -1019,4 +1052,38 @@ export function TargetTapGame({ challenge, disabled, onChange }: GameComponentPr
 export function EmptyGame({ onChange }: GameComponentProps) {
   useEffect(() => onChange({} as Submission, false), [onChange]);
   return null;
+}
+
+
+export function CrypticDuelGame({ challenge, disabled, onChange }: GameComponentProps) {
+  const [answer, setAnswer] = useState("");
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const length = Number(challenge.length ?? 0);
+  const hints = (challenge.hints as string[] | undefined) ?? [];
+  const update = (value: string, count: number) => {
+    onChange({ answer: value, hintsUsed: count }, value.length === length && length > 0);
+  };
+  return (
+    <div className="cryptic-game">
+      <p className="game-kicker">Definition + wordplay</p>
+      <h2>{String(challenge.clue ?? "")}</h2>
+      <label className="cryptic-input-label">
+        <span>Your answer · {length} letters</span>
+        <input type="text" aria-label="Cryptic answer" value={answer} maxLength={length} disabled={disabled}
+          autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false}
+          placeholder={Array.from({ length }, () => "_").join(" ")}
+          onChange={(event) => { const next = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, length); setAnswer(next); update(next, hintsUsed); }} />
+      </label>
+      <div className="cryptic-hint-row">
+        <span>{10 - hintsUsed * 2} possible points</span>
+        <button type="button" className="recall-replay" disabled={disabled || hintsUsed >= hints.length}
+          onClick={() => { const next = hintsUsed + 1; setHintsUsed(next); update(answer, next); }}>
+          {hintsUsed >= hints.length ? "All hints used" : "Reveal hint · −2"}
+        </button>
+      </div>
+      <div aria-live="polite" className="cryptic-hints">
+        {hints.slice(0, hintsUsed).map((hint, index) => <p key={index}><b>Hint {index + 1}</b> {hint}</p>)}
+      </div>
+    </div>
+  );
 }

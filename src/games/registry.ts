@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import { ACTIVE_GAME_IDS } from "./types";
 import { TYPING_SPRINT_WORDS } from "./word-lists";
+import { CRYPTIC_CLUES, normalizeCrypticAnswer } from "./cryptic-clues";
 import { MEMORY_GRID_REVEAL_DURATION_MS } from "./memory-grid-timing";
 import {
   RHYTHM_COUNT,
@@ -57,7 +58,7 @@ const memoryGrid: GameDefinition = {
   name: "Memory Grid",
   shortName: "Grid",
   category: "mind",
-  description: "Memorize six charged cells, then recall them before the clock closes.",
+  description: "Remember six highlighted tiles, then select them.",
   instructions: "Memorize the lit cells. Select every remembered cell; accuracy wins, speed breaks ties.",
   ranked: true,
   revealDurationMs: MEMORY_GRID_REVEAL_DURATION_MS,
@@ -106,7 +107,7 @@ const frequencyRecall: GameDefinition = {
   name: "Frequency Recall",
   shortName: "Frequency",
   category: "sensory",
-  description: "Hear three clean tones and rebuild their pitch contour.",
+  description: "Listen to three tones and estimate their pitches.",
   instructions: "Listen to all three tones, then tune the three sliders. Lower proportional pitch error wins.",
   ranked: true,
   revealDurationMs: 2400,
@@ -147,7 +148,7 @@ const colourRecall: GameDefinition = {
   name: "Colour Recall",
   shortName: "Colour",
   category: "sensory",
-  description: "Reconstruct three briefly shown colours in perceptual OKLCH space.",
+  description: "Remember three colours and match them with sliders.",
   instructions: "Study the swatches, then match lightness, chroma, and hue. Lowest perceptual error wins.",
   ranked: true,
   revealDurationMs: 2600,
@@ -198,7 +199,7 @@ const frequencyRecallV2: GameDefinition = {
   shortName: "Frequency",
   category: "sensory",
   description: "Reconstruct five tones one at a time for a score out of 50.",
-  instructions: "Five rounds. Hear one tone, rebuild it, then continue. Each round scores 0–10.",
+  instructions: "Five rounds. Replay the target, estimate its pitch, then lock it. Each round scores 0–10.",
   ranked: true,
   revealDurationMs: 0,
   answerDurationMs: 30_000,
@@ -332,8 +333,8 @@ const timeRecall: GameDefinition = {
   name: "Time Recall",
   shortName: "Time",
   category: "sensory",
-  description: "Internalize five visual pulse durations and reproduce their timing.",
-  instructions: "Watch five pulses, then estimate each duration. Lowest log-ratio error wins.",
+  description: "Watch five pulses and estimate how long each lasts.",
+  instructions: "Watch five pulses, then estimate each duration. The closest duration estimates win.",
   ranked: true,
   revealDurationMs: 6500,
   answerDurationMs: 14000,
@@ -368,8 +369,8 @@ const shapeRecall: GameDefinition = {
   name: "Shape Recall",
   shortName: "Shape",
   category: "sensory",
-  description: "Rebuild a six-point radial silhouette from memory.",
-  instructions: "Study the shape, then tune its six points. Lowest mean radial error wins.",
+  description: "Remember a six-point shape and rebuild it.",
+  instructions: "Study the shape, then tune its six points. The closest shape wins.",
   ranked: true,
   revealDurationMs: 2600,
   answerDurationMs: 14000,
@@ -467,8 +468,8 @@ const dotEstimate: GameDefinition = {
   name: "Dot Estimate",
   shortName: "Dots",
   category: "mind",
-  description: "Estimate a dense field without counting every dot.",
-  instructions: "Study the field, then estimate the count. Smallest absolute error wins.",
+  description: "Estimate how many dots appeared.",
+  instructions: "Study the field, then estimate the count. The closest count wins.",
   ranked: true,
   revealDurationMs: 2200,
   answerDurationMs: 7000,
@@ -506,7 +507,7 @@ const numberOrder: GameDefinition = {
   name: "Number Order",
   shortName: "Order",
   category: "mind",
-  description: "Clear ten scattered numbers from lowest to highest.",
+  description: "Tap ten numbers in ascending order.",
   instructions: "Tap all numbers in ascending order. Errors add a 750ms penalty.",
   ranked: true,
   revealDurationMs: 0,
@@ -548,8 +549,8 @@ const oddOneOut: GameDefinition = {
   name: "Odd One Out",
   shortName: "Odd",
   category: "mind",
-  description: "Spot the single rotated symbol in a packed field.",
-  instructions: "Find the odd tile. Correctness wins; trusted completion time breaks correct ties.",
+  description: "Find the rotated symbol.",
+  instructions: "Find the odd tile. A correct answer wins. If both are correct, the faster player wins.",
   ranked: true,
   revealDurationMs: 0,
   answerDurationMs: 6000,
@@ -559,7 +560,18 @@ const oddOneOut: GameDefinition = {
     const glyphs = ["◆", "▲", "✚", "⬢"];
     return { tileCount: 16, oddIndex: integer(random, 0, 15), glyph: glyphs[integer(random, 0, glyphs.length - 1)], showAnswer: true };
   },
-  publicChallenge: alwaysPublic,
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
+    if (Array.isArray(challenge.tiles)) return { tiles: challenge.tiles };
+    if (typeof challenge.oddIndex !== "number") return {};
+    const glyph = String(challenge.glyph);
+    return {
+      tiles: Array.from({ length: Number(challenge.tileCount) }, (_, index) => ({
+        glyph,
+        rotation: index === challenge.oddIndex ? 18 : 0,
+      })),
+    };
+  },
   calculate(challenge, submission) {
     const correct = Number(submission.selectedIndex) === Number(challenge.oddIndex);
     return result(correct ? 1 : 0, correct ? 1 : 0, correct ? "Correct target" : "Wrong target", { correct });
@@ -576,7 +588,7 @@ const patternComplete: GameDefinition = {
   name: "Pattern Complete",
   shortName: "Pattern",
   category: "mind",
-  description: "Resolve six compact symbol sequences under pressure.",
+  description: "Complete six symbol patterns.",
   instructions: "Choose the missing item in each sequence. Correct count wins, then time.",
   ranked: true,
   revealDurationMs: 0,
@@ -636,7 +648,7 @@ const typingSprint: GameDefinition = {
   name: "Typing Sprint",
   shortName: "Typing",
   category: "mind",
-  description: "Type a deterministic word stream for fifteen seconds.",
+  description: "Type as many words as you can in 15 seconds.",
   instructions: "Type quickly and accurately. Errors reduce your WPM.",
   ranked: true,
   revealDurationMs: 0,
@@ -730,7 +742,7 @@ const reactionTest: GameDefinition = {
   name: "Reaction Test",
   shortName: "Reaction",
   category: "experimental",
-  description: "Five randomized go-signals test raw response latency.",
+  description: "Wait for green, then tap as quickly as you can.",
   instructions: "Wait for green, then click. False starts receive a 1000ms trial.",
   ranked: false,
   revealDurationMs: 0,
@@ -762,7 +774,7 @@ const targetTap: GameDefinition = {
   name: "Target Tap",
   shortName: "Targets",
   category: "experimental",
-  description: "Strike twelve deterministic targets with minimal misses.",
+  description: "Tap 12 targets as quickly and accurately as possible.",
   instructions: "Tap each target as it appears. Misses add a 350ms penalty.",
   ranked: false,
   revealDurationMs: 0,
@@ -791,6 +803,78 @@ const targetTap: GameDefinition = {
   },
 };
 
+const memoryGridV2: GameDefinition = {
+  ...memoryGrid,
+  id: "memory_grid_v2",
+  version: 2,
+  name: "Memory Grid XL",
+  description: "Recall eight lit cells on a 5×5 board.",
+  instructions: "Memorize eight lit cells, then select up to eight. Correct selections score +1; mistakes cost 0.5.",
+  ranked: false,
+  revealDurationMs: 3350,
+  answerDurationMs: 10_000,
+  submissionSchema: object({
+    selectedCells: z.array(z.number().int().min(0).max(24)).min(1).max(8),
+  }).refine(({ selectedCells }) => new Set(selectedCells).size === selectedCells.length, "Cells must be unique.") as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    return { size: 5, targetCount: 8, flashMs: 1600, revealMs: 3350,
+      highlightedCells: shuffle(random, Array.from({ length: 25 }, (_, index) => index)).slice(0, 8) };
+  },
+  calculate(challenge, submission, completionTimeMs) {
+    const scored = memoryGrid.calculate(challenge, submission, completionTimeMs);
+    return { ...scored, summary: `${scored.details.correct}/8 cells` };
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const expected = challenge.highlightedCells as number[];
+    const selected = expected.filter(() => random() > 0.17);
+    if (!selected.length) selected.push(expected[0]);
+    if (selected.length < 8 && random() < 0.24) {
+      const remaining = Array.from({ length: 25 }, (_, index) => index).filter((cell) => !expected.includes(cell));
+      selected.push(remaining[integer(random, 0, remaining.length - 1)]);
+    }
+    return { submission: { selectedCells: selected }, completionTimeMs: botTime(random, 10_000) };
+  },
+};
+
+const crypticDuel: GameDefinition = {
+  id: "cryptic_duel",
+  version: 1,
+  name: "Cryptic Duel",
+  shortName: "Cryptic",
+  category: "mind",
+  description: "Decode one cryptic clue using definition and wordplay.",
+  instructions: "Solve the clue in 60 seconds. Hints cost two points each; a correct answer scores up to 10.",
+  ranked: false,
+  revealDurationMs: 0,
+  answerDurationMs: 60_000,
+  submissionSchema: object({
+    answer: z.string().regex(/^[A-Za-z]{1,16}$/),
+    hintsUsed: z.number().int().min(0).max(2),
+  }) as z.ZodType<Submission>,
+  generate(seed) {
+    const random = createRandom(seed);
+    const clue = CRYPTIC_CLUES[integer(random, 0, CRYPTIC_CLUES.length - 1)];
+    return { ...clue, length: clue.answer.length };
+  },
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
+    return { clue: challenge.clue, length: challenge.length, hints: challenge.hints };
+  },
+  calculate(challenge, submission) {
+    const correct = normalizeCrypticAnswer(String(submission.answer)) === challenge.answer;
+    const hints = Number(submission.hintsUsed);
+    const score = correct ? 10 - hints * 2 : 0;
+    return result(score, correct ? 1 : 0, correct ? `${score}/10 · Solved` : "Not solved", { correct: correct ? 1 : 0, incorrect: correct ? 0 : 1, hintsUsed: hints });
+  },
+  bot(seed, challenge) {
+    const random = createRandom(`${seed}:bot`);
+    const solved = random() < 0.7;
+    return { submission: { answer: solved ? String(challenge.answer) : "UNKNOWN", hintsUsed: integer(random, 0, 2) }, completionTimeMs: botTime(random, 60_000) };
+  },
+};
+
 export const gameRegistry = new Map<GameId, GameDefinition>(
   [
     memoryGrid,
@@ -808,6 +892,8 @@ export const gameRegistry = new Map<GameId, GameDefinition>(
     typingSprint,
     reactionTest,
     targetTap,
+    memoryGridV2,
+    crypticDuel,
   ].map((game) => [game.id, game]),
 );
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShareIcon } from "@/components/ui/icons";
 import type { DuelOutcome } from "@/games/types";
 import { getDivision, getDivisionChange } from "@/lib/divisions";
+import { getPlacement } from "@/lib/placements";
 import { getGameResultMetric } from "./result-metrics";
 
 export type ResultSide = {
@@ -25,6 +26,7 @@ export function ResultPanel({
   player,
   opponent,
   unranked = false,
+  placementMatches = null,
   rematchWaiting = false,
   onRematch,
   onNext,
@@ -41,6 +43,7 @@ export function ResultPanel({
   player: ResultSide;
   opponent: ResultSide;
   unranked?: boolean;
+  placementMatches?: number | null;
   rematchWaiting?: boolean;
   onRematch: () => void;
   onNext: () => void;
@@ -56,11 +59,12 @@ export function ResultPanel({
   const title = resultTitle ?? (
     outcome === "win" ? "Victory" : outcome === "loss" ? "Defeat" : "Draw"
   );
+  const placement = getPlacement(placementMatches);
   const division = getDivision(player.ratingAfter);
   const divisionChange = getDivisionChange(player.ratingBefore, player.ratingAfter);
 
   async function share() {
-    const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""} — ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
+    const text = `${title} in QuickDuel${gameName ? ` ${gameName}` : ""}: ${player.summary ?? player.score.toFixed(1)} vs ${opponent.summary ?? opponent.score.toFixed(1)}.`;
     try {
       const url = onCreateShare ? await onCreateShare() : location.origin;
       if (navigator.share) {
@@ -76,14 +80,15 @@ export function ResultPanel({
   }
 
   return (
-    <section className="page-shell screen-enter flex min-h-[calc(100vh-120px)] flex-col items-center justify-center py-10">
+    <section className="page-shell screen-enter qd-result flex min-h-[calc(100vh-120px)] flex-col items-center justify-center py-10" data-outcome={outcome}>
       <h1
-        className={`display text-center text-[clamp(4.5rem,15vw,9rem)] leading-[0.85] ${
-          outcome === "loss" ? "text-white" : "text-[var(--accent)]"
+        className={`display qd-result-title text-center text-[clamp(4.5rem,15vw,9rem)] leading-[0.85] ${
+          outcome === "loss" ? "text-[var(--text)]" : "text-[var(--accent)]"
         }`}
       >
         {title}
       </h1>
+      <div className="qd-result-signal" aria-hidden="true"><i /><i /><i /><i /><i /></div>
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
       {completionNotice && (
         <p className="result-completion-notice" role="status">{completionNotice}</p>
@@ -94,7 +99,7 @@ export function ResultPanel({
         </p>
       )}
 
-      <div className="mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
+      <div className="qd-result-comparison mt-9 grid w-full max-w-3xl grid-cols-[1fr_auto_1fr] border-y border-[var(--border)] py-7 text-center">
         <ResultColumn label="YOU" side={player} gameName={gameName} accent />
         <div className="display self-center border border-[var(--accent)] px-3 py-2 text-xl text-[var(--accent)]">
           VS
@@ -111,7 +116,7 @@ export function ResultPanel({
           />
         )}
 
-      <div className="mt-6 grid w-full max-w-3xl gap-5 border-b border-[var(--border)] pb-7 text-center sm:grid-cols-2">
+      <div className="qd-result-stats mt-6 grid w-full max-w-3xl gap-5 border-b border-[var(--border)] pb-7 text-center sm:grid-cols-2">
         <div>
           <div className="text-xs tracking-[0.12em] text-[var(--muted)]">
             COMPLETION TIME
@@ -122,11 +127,16 @@ export function ResultPanel({
         </div>
         <div>
           <div className="text-xs tracking-[0.12em] text-[var(--muted)]">
-            {unranked ? "PRACTICE MATCH" : "RATING CHANGE"}
+            {unranked ? "PRACTICE MATCH" : placement?.placed ? "RATING CHANGE" : "PLACEMENT"}
           </div>
           {unranked ? (
             <div className="display mt-1 text-3xl text-[var(--muted)]">
               Unranked
+            </div>
+          ) : !placement?.placed ? (
+            <div className="display mt-1 text-3xl" role="status">
+              {placement ? `${placement.completed}/${placement.required} complete` : "Rank pending"}
+              {placement && <p className="mt-2 text-sm font-normal text-[var(--muted)]">Unranked · {placement.remaining} remaining</p>}
             </div>
           ) : (
             <div className="display mt-1 text-3xl">
@@ -138,7 +148,7 @@ export function ResultPanel({
               </span>
             </div>
           )}
-          {!unranked && (
+          {!unranked && placement?.placed && (
             <p className={`mt-2 text-sm ${divisionChange === "promotion" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}>
               {divisionChange === "promotion"
                 ? `Promoted to ${division.name}`
@@ -150,7 +160,7 @@ export function ResultPanel({
         </div>
       </div>
 
-      <div className="mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
+      <div className="qd-result-actions mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
         <Button onClick={onRematch} disabled={rematchWaiting}>
           {rematchWaiting ? "Waiting for opponent" : rematchLabel}
         </Button>
