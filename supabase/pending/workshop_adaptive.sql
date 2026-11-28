@@ -44,7 +44,6 @@ begin
 end;
 $$;
 revoke all on function public.create_private_duel_workshop(text,text,text,smallint,boolean,jsonb) from public,anon,authenticated;
-grant execute on function public.create_private_duel_workshop(text,text,text,smallint,boolean,jsonb) to authenticated;
 
 -- Match creation copies immutable workshop rules from the room. Adapt only at the
 -- first authoritative start, when both players exist. Use lower rating bracket.
@@ -67,6 +66,7 @@ begin
  if NEW.match_rules->>'kind'='workshop' then
   NEW.expires_at:=NEW.starts_at+make_interval(secs=>(NEW.reveal_duration_ms+NEW.answer_duration_ms+5000)::double precision/1000);return NEW;
  end if;
+ if not coalesce((select activated from public.workshop_release_control where singleton),false) then return NEW;end if;
  if not NEW.ranked or NEW.source<>'public_queue' or NEW.game_type not in ('memory_grid','shape_recall','dot_estimate','number_order','odd_one_out','pattern_complete','typing_sprint') then return NEW;end if;
  select count(*),count(*) filter(where p.matches_played>=5),min(mp.rating_before) into player_count,placed_count,minimum_rating
  from public.match_players mp join public.profiles p on p.id=mp.user_id where mp.match_id=NEW.id;

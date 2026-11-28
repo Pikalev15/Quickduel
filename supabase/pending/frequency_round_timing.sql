@@ -9,30 +9,13 @@ ALTER TABLE public.matches
     OR (game_type = 'rhythm_recall' AND reveal_duration_ms = 13000)
   );
 
-create or replace function public.game_reveal_duration(requested_game text)
-returns integer
-language sql
-immutable
-security definer
-set search_path = ''
-as $function$
-  select case requested_game
-    when 'memory_grid' then 2500
-    when 'frequency_recall' then 2400
-    when 'frequency_recall_v2' then 0
-    when 'colour_recall' then 2600
-    when 'colour_recall_v2' then 0
-    when 'time_recall' then 6500
-    when 'shape_recall' then 2600
-    when 'rhythm_recall' then 13000
-    when 'dot_estimate' then 2200
-    else 0
-  end;
-$function$;
-
-revoke all on function public.game_reveal_duration(text)
-  from public, anon, authenticated;
-
+create table public.workshop_release_control (
+  singleton boolean primary key default true check (singleton),
+  activated boolean not null default false
+);
+alter table public.workshop_release_control enable row level security;
+revoke all on public.workshop_release_control from public, anon, authenticated, service_role;
+insert into public.workshop_release_control(singleton) values (true);
 
 -- Service-only acknowledgments for new 60-second frequency matches.
 CREATE TABLE public.frequency_listen_acks (
@@ -79,32 +62,6 @@ END;
 $ack$;
 REVOKE ALL ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) TO service_role;
-
-CREATE OR REPLACE FUNCTION public.game_answer_duration(requested_game text)
- RETURNS integer
- LANGUAGE sql
- IMMUTABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select case requested_game
-    when 'memory_grid' then 7000
-    when 'frequency_recall' then 12000
-    when 'frequency_recall_v2' then 60000
-    when 'colour_recall' then 16000
-    when 'colour_recall_v2' then 40000
-    when 'time_recall' then 14000
-    when 'shape_recall' then 14000
-    when 'rhythm_recall' then 20000
-    when 'dot_estimate' then 7000
-    when 'number_order' then 8000
-    when 'odd_one_out' then 6000
-    when 'pattern_complete' then 18000
-    when 'typing_sprint' then 30000
-    when 'reaction_test' then 26000
-    when 'target_tap' then 16000
-    else 8000
-  end;
-$function$;
 
 CREATE OR REPLACE FUNCTION public.advance_recall_round(requested_match_id uuid, requested_user_id uuid, requested_target_round_index smallint, requested_target jsonb)
  RETURNS jsonb

@@ -141,6 +141,9 @@ begin
         (requested_payload->>'requested_ranked')::boolean
       );
     when 'create_private_duel_workshop' then
+      if not coalesce((select activated from public.workshop_release_control where singleton),false) then
+        raise exception 'Workshop release is not available yet';
+      end if;
       return public.create_private_duel_workshop(
         requested_payload->>'requested_selection_kind', requested_payload->>'requested_game',
         requested_payload->>'requested_playlist', (requested_payload->>'requested_best_of')::smallint,
@@ -169,12 +172,27 @@ $redeem$;
 revoke all on function public.server_queue_or_duel(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.server_queue_or_duel(uuid) to authenticated;
 
-revoke all on function public.join_matchmaking(text, text) from public, anon, authenticated;
-revoke all on function public.heartbeat_matchmaking(text, text) from public, anon, authenticated;
-revoke all on function public.create_private_duel(text, text, text, smallint, boolean) from public, anon, authenticated;
-revoke all on function public.create_private_duel_workshop(text, text, text, smallint, boolean, jsonb) from public, anon, authenticated;
-revoke all on function public.join_private_duel(text) from public, anon, authenticated;
-revoke all on function public.send_duel_invitation(text, text, text, text, smallint, boolean) from public, anon, authenticated;
-revoke all on function public.respond_duel_invitation(uuid, boolean) from public, anon, authenticated;
+create or replace function public.get_workshop_release_status()
+returns jsonb language sql stable security definer set search_path=''
+as $status$
+ select jsonb_build_object(
+   'schemaVersion',1,
+   'prepared',
+     to_regclass('public.queue_duel_tickets') is not null
+     and to_regclass('public.daily_duel_challenges') is not null
+     and to_regclass('public.daily_duel_attempts') is not null
+     and to_regclass('public.frequency_listen_acks') is not null
+     and exists(select 1 from information_schema.columns where table_schema='public' and table_name='matches' and column_name='match_rules')
+     and exists(select 1 from information_schema.columns where table_schema='public' and table_name='private_duels' and column_name='workshop_rules')
+     and to_regprocedure('public.issue_queue_duel_ticket(uuid,text,jsonb)') is not null
+     and to_regprocedure('public.server_queue_or_duel(uuid)') is not null
+     and to_regprocedure('public.claim_skill_rewards()') is not null
+     and to_regprocedure('public.get_daily_weekly_board(date)') is not null
+     and to_regprocedure('public.ack_frequency_listened(uuid,uuid,smallint)') is not null,
+   'activated',coalesce((select activated from public.workshop_release_control where singleton),false)
+ );
+$status$;
+revoke all on function public.get_workshop_release_status() from public, anon, authenticated;
+grant execute on function public.get_workshop_release_status() to service_role;
 
 commit;

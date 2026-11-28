@@ -1,6 +1,16 @@
 # Workshop and progression candidate
 
-Draft only. Do not merge, deploy or run live SQL without isolated validation. Apply pending frequency timing and daily migrations to a disposable database first, then workshop_adaptive.sql, then skill_progress_daily_rotation.sql. Verify constraints, RLS, grants, atomic host creation, locked configuration, match-start trigger, ranked completion, and old matches. Use two real clients with delayed snapshots and a physical iPhone. No production changes.
+## Coordinated production release
+
+The expansion files are deliberately distinct from the cutover. Do not apply all six to production in a single uncoordinated push.
+
+1. Confirm the deployed commit, live database target, backups and rollback artifact. Rehearse on a disposable database.
+2. Apply only the five expansion files in order: frequency_round_timing.sql, workshop_adaptive.sql, daily_duel.sql, skill_progress_daily_rotation.sql, competitive_integrity.sql. Existing queue/duel RPC grants and legacy default timings remain intact; adaptive ranked timing and new Workshop room creation are gated off. The ticket path is available to the new app. The release-status RPC must report schemaVersion=1, prepared=true, activated=false.
+3. Deploy the new app. The production build fails closed if the readiness RPC is absent or expansion is incomplete. Verify /api/health, anonymous authentication, matchmaking and private duels. Retain the previous app artifact. A production build failure is not permission to bypass the schema check.
+4. Drain existing matches and old app clients before cutover. Apply release_cutover.sql separately; it refuses to run if active matches remain and atomically activates new timings, adaptive behavior and direct RPC revocations. Verify /api/health releaseActivated=true and real two-client gameplay.
+5. If rollback is required after cutover, first stop/drain new matches, restore the pre-cutover timing function definitions and authenticated grants for the six legacy RPCs from the captured backup, and set workshop_release_control.activated=false in one reviewed transaction. Then restore the previous app artifact. Do not drop additive tables or existing match history. Rehearse rollback before production.
+
+The compatibility window deliberately retains the old authenticated RPC permissions until the application is switched. Do not leave it open indefinitely. No production SQL has been executed by this PR.
 
 ## Candidate features
 
