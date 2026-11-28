@@ -74,7 +74,7 @@ set "request.jwt.claim.sub" = ''
 set "request.jwt.claim.role" = ''
 set "request.jwt.claim" = '{}'
 set "request.jwt.claims" = '{}'
-as $
+as $$
 declare
   anonymous_user boolean;
   claims jsonb;
@@ -147,7 +147,7 @@ begin
       raise exception 'Invalid server action';
   end case;
 end;
-$;
+$$;
 
 revoke all on function public.server_queue_or_duel(uuid, text, jsonb) from public, anon, authenticated;
 grant execute on function public.server_queue_or_duel(uuid, text, jsonb) to service_role;
