@@ -38,6 +38,6 @@ export function CorrectAnswer({ gameId, challenge }: { gameId: string; challenge
   else if (gameId === "number_order" && Array.isArray(challenge.numbers)) answer = (challenge.numbers as {value: number}[]).map(n => n.value).sort((a,b) => a-b).join(" → ");
   else if (gameId === "odd_one_out" && typeof challenge.oddIndex === "number") answer = `Tile ${challenge.oddIndex + 1}`;
   else if (gameId === "pattern_complete" && Array.isArray(challenge.puzzles)) answer = (challenge.puzzles as {answer?: string}[]).map((p, i) => `${i + 1}: ${p.answer}`).join(" · ");
-  else if (gameId === "cryptic_duel" && typeof challenge.answer === "string") answer = `${challenge.answer}. ${String(challenge.explanation ?? "")}`;
+  else if (gameId === "cryptic_duel" && typeof challenge.answer === "string") answer = `Answer: ${challenge.answer}. ${String(challenge.explanation ?? "")}`;
   return answer ? <p>{answer}</p> : null;
 }
