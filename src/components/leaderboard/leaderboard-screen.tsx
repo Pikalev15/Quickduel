@@ -20,7 +20,7 @@ type Leader = {
 
 export function LeaderboardScreen() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [currentCode, setCurrentCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [eligibility, setEligibility] = useState<{
@@ -42,7 +42,7 @@ export function LeaderboardScreen() {
       setLeaders(body.data ?? []);
       if (profileResponse.ok) {
         const profileBody = await profileResponse.json();
-        setCurrentId(profileBody.data?.id ?? null);
+        setCurrentCode(profileBody.data?.public_code ?? null);
         const eligibilityResponse = await fetch("/api/profile/rank-eligibility", {
           cache: "no-store",
         });
@@ -137,7 +137,7 @@ export function LeaderboardScreen() {
                   <tr
                     key={leader.id}
                     className={`border-t border-[var(--border)] transition hover:bg-[var(--surface)] ${
-                      leader.id === currentId
+                      leader.public_code === currentCode
                         ? "bg-[var(--surface)]"
                         : ""
                     }`}
@@ -147,7 +147,7 @@ export function LeaderboardScreen() {
                     </td>
                     <td className="px-5 py-4 font-bold">
                       {leader.display_name}
-                      {leader.id === currentId && (
+                      {leader.public_code === currentCode && (
                         <span className="ml-3 text-xs text-[var(--accent)]">
                           YOU
                         </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AccentPicker } from "@/components/theme/accent-picker";
@@ -11,7 +11,6 @@ import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import Link from "next/link";
 import { getDivision } from "@/lib/divisions";
 import { getPlacement } from "@/lib/placements";
-import { track } from "@/lib/analytics";
 
 const accents = ["volt", "cyan", "coral", "violet", "white"] as const;
 
@@ -31,6 +30,9 @@ export function ProfileDrawer({
   onSignedOut: () => void;
 }) {
   const router = useRouter();
+  const drawer = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
   const [authBusy, setAuthBusy] = useState(false);
   const [confirm, setConfirm] = useState<"signin" | "signout" | null>(null);
   const placement = getPlacement(profile?.matches_played);
@@ -58,18 +60,44 @@ export function ProfileDrawer({
   }, []);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !drawer.current) return;
+      const focusable = Array.from(drawer.current.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const frame = window.requestAnimationFrame(() => closeButton.current?.focus());
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", trapFocus);
     return () => {
+      window.cancelAnimationFrame(frame);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", trapFocus);
+      previousFocus?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
   const googleConnected = user?.identities?.some((identity) => identity.provider === "google");
@@ -141,7 +169,6 @@ export function ProfileDrawer({
         const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options });
         if (error) throw error;
       }
-      track("google_account_linked");
     } catch {
       setMessage("Could not open Google sign-in. Please try again.");
     } finally { setAuthBusy(false); }
@@ -168,6 +195,7 @@ export function ProfileDrawer({
   return createPortal(
     <div className="profile-overlay" role="presentation" onMouseDown={onClose}>
       <aside
+        ref={drawer}
         className="profile-drawer"
         role="dialog"
         aria-modal="true"
@@ -179,7 +207,7 @@ export function ProfileDrawer({
             <p className="game-kicker">Player identity</p>
             <h2 className="display">Profile</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close profile">×</button>
+          <button ref={closeButton} type="button" onClick={onClose} aria-label="Close profile">×</button>
         </div>
 
         <div className={`profile-avatar accent-${accent}`} data-profile-frame={profile?.equipped_cosmetics?.profile_frame ?? undefined}>

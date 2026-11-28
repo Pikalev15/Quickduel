@@ -1,4 +1,4 @@
-import { getGame } from "@/games/registry";
+import { getGame, generateMatchChallenge } from "@/games/registry";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -26,7 +26,7 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,game_version")
+      .select("challenge_seed,game_type,game_version,match_rules,reveal_duration_ms,answer_duration_ms")
       .eq("id", matchId.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing");
@@ -40,7 +40,13 @@ export async function GET(
         correlationId,
       );
     }
-    const challenge = game.generate(String(privateMatch.challenge_seed));
+    const challenge = generateMatchChallenge(
+      game,
+      String(privateMatch.challenge_seed),
+      privateMatch.reveal_duration_ms,
+      privateMatch.answer_duration_ms,
+      privateMatch.match_rules,
+    );
     return apiSuccess({ ...data, challenge }, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/history/[matchId]");

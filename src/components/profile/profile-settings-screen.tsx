@@ -65,19 +65,21 @@ export function ProfileSettingsScreen() {
   async function deleteAccount() {
     if (confirmation !== "DELETE") return;
     setDeleting(true);
-    const response = await fetch("/api/account/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ confirmation }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setMessage(body.error?.message ?? "Account deletion failed.");
+    setMessage(null);
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message ?? "Account deletion failed.");
+      router.replace("/");
+      router.refresh();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Account deletion failed. Please try again.");
       setDeleting(false);
-      return;
     }
-    router.replace("/");
-    router.refresh();
   }
 
   const grouped = Object.groupBy(cosmetics, (cosmetic) => cosmetic.type);

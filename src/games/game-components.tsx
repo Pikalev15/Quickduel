@@ -335,8 +335,9 @@ export function ColourRecallV2Game({
     if (disabled || phase !== "answer") return;
     const next = [...guesses, guess];
     setGuesses(next);
+    const padded = Array.from({ length: 5 }, (_, index) => next[index] ?? null);
     setFeedback(colourRoundFeedback(colors[round], guess));
-    onChange({ colors: next }, false);
+    onChange({ colors: padded }, next.length === 5);
     setPhase("feedback");
   }
 
@@ -739,6 +740,7 @@ export function NumberOrderGame({ challenge, disabled, onChange }: GameComponent
           data-picked={order.includes(index) ? "true" : undefined}
           key={index}
           aria-label={`Select ${number.value}`}
+          style={{ left: `clamp(22px, ${number.x}%, calc(100% - 22px))`, top: `clamp(22px, ${number.y}%, calc(100% - 22px))` }}
           onClick={() => {
             const next = [...order, index];
             setOrder(next);
@@ -877,7 +879,7 @@ export function TypingSprintGame({
       }}
       onDrop={(event) => event.preventDefault()}
     >
-      <div className="typing-stats" aria-live="polite">
+      <div className="typing-stats">
         <span><small>WPM</small><strong>{Math.round(statistics.netWpm)}</strong></span>
         <span><small>Accuracy</small><strong>{Math.round(statistics.accuracy * 100)}%</strong></span>
         <span><small>Errors</small><strong>{statistics.incorrectChars}</strong></span>
@@ -959,6 +961,11 @@ export function TypingSprintGame({
       <span className="sr-only" id="typing-sprint-instructions">
         Type lowercase words separated by one space. Paste and drag-and-drop are disabled.
       </span>
+      {!preparing && (
+        <span className="sr-only" aria-live="polite">
+          Word {currentWord + 1}: {words[currentWord] ?? "Complete"}
+        </span>
+      )}
     </section>
   );
 }

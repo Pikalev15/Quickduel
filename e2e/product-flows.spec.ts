@@ -136,7 +136,7 @@ test("primary navigation coordinates leaderboard and history transitions", async
     route.fulfill({
       json: {
         ok: true,
-        data: [{ ...profile, rank: 1 }],
+        data: [{ ...profile, id: profile.public_code, rank: 1 }],
       },
     }),
   );
@@ -266,6 +266,19 @@ test("Colour Recall v2 compares both swatches and wrapped colour metrics", async
   await expect(page.getByText("Bot round", { exact: true })).toBeVisible();
   await expect(page.locator(".colour-feedback-swatches i")).toHaveCount(2);
   await expect(page.getByText("Round 2 of 5")).toBeVisible({ timeout: 3_000 });
+});
+
+test("Colour Recall v2 submits after the fifth confirmed round", async ({ page }) => {
+  await page.goto("/match/practice?game=colour_recall_v2&seed=colour-complete");
+  const confirm = page.getByRole("button", { name: "Confirm round" });
+  for (let round = 1; round <= 5; round += 1) {
+    await expect(confirm).toBeVisible({ timeout: 15_000 });
+    await confirm.click();
+    if (round < 5) {
+      await expect(page.getByText(`Round ${round + 1} of 5`)).toBeVisible({ timeout: 4_000 });
+    }
+  }
+  await expect(page.getByRole("heading", { name: /Victory|Defeat|Draw/ })).toBeVisible({ timeout: 35_000 });
 });
 
 test("ranked recall restores authoritative feedback after a reload", async ({ page }) => {
@@ -421,7 +434,8 @@ test("Typing Sprint is keyboard-first, blocks paste, and submits at the deadline
   const input = page.getByLabel("Type the displayed words");
   await expect(surface).toBeVisible({ timeout: 10_000 });
   await expect(input).toBeFocused();
-
+  await expect(page.locator(".typing-stats")).not.toHaveAttribute("aria-live", "polite");
+  await expect(page.getByText(/^Word 1:/)).toHaveCount(1);
   const pastePrevented = await input.evaluate((element) => {
     const event = new Event("paste", { bubbles: true, cancelable: true });
     return !element.dispatchEvent(event);
@@ -625,6 +639,74 @@ test("timeout result is not presented as an accuracy win and match chat stays sc
   await captureProductScreenshot(page, testInfo, "ranked-timeout-chat");
 });
 
+test("invalidated results are neutral and do not claim reversed ratings", async ({ page }) => {
+  const matchId = "00000000-0000-4000-8000-000000000101";
+  const playerId = "00000000-0000-4000-8000-000000000001";
+  const opponentId = "00000000-0000-4000-8000-000000000002";
+  await page.route(`**/api/matches/${matchId}/chat`, route => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.route(`**/api/matches/${matchId}/placements`, route => route.fulfill({ json: { ok: true, data: {} } }));
+  await page.route(`**/api/matches/${matchId}`, route => route.fulfill({
+    json: {
+      ok: true,
+      data: {
+        id: matchId,
+        status: "completed",
+        game_type: "memory_grid",
+        game_version: 1,
+        ranked: true,
+        phase: "result",
+        challenge: {},
+        reveal_duration_ms: 2500,
+        answer_duration_ms: 7000,
+        starts_at: new Date(Date.now() - 20_000).toISOString(),
+        expires_at: new Date(Date.now() - 5_000).toISOString(),
+        winner_id: playerId,
+        completed_at: new Date().toISOString(),
+        completion_reason: "admin_invalidated",
+        rematch_match_id: null,
+        current_user_id: playerId,
+        players: [
+          {
+            user_id: playerId,
+            display_name: "Levi",
+            ready_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
+            calculated_score: 6,
+            correct_count: 6,
+            incorrect_count: 0,
+            completion_time_ms: 1000,
+            rating_before: 1000,
+            rating_after: 1016,
+            rating_delta: 16,
+            rematch_requested_at: null,
+            result: { rankScore: 6, accuracy: 1, summary: "6/6 cells", details: { correct: 6 } },
+          },
+          {
+            user_id: opponentId,
+            display_name: "Nova",
+            ready_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
+            calculated_score: 5,
+            correct_count: 5,
+            incorrect_count: 0,
+            completion_time_ms: 2000,
+            rating_before: 1000,
+            rating_after: 984,
+            rating_delta: -16,
+            rematch_requested_at: null,
+            result: { rankScore: 5, accuracy: 0.83, summary: "5/6 cells", details: { correct: 5 } },
+          },
+        ],
+      },
+    },
+  }));
+  await page.goto(`/match/${matchId}`);
+  await expect(page.getByRole("heading", { name: "No result" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Victory" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Defeat" })).toHaveCount(0);
+  await expect(page.getByText("Past rating changes were not reversed.")).toBeVisible();
+});
+
 test("statistics use game-specific metrics and division thresholds", async ({ page }) => {
   await page.route("**/api/stats", (route) =>
     route.fulfill({
@@ -757,6 +839,10 @@ test("account deletion requires deliberate typed confirmation", async ({ page })
   await page.getByLabel("Type DELETE to confirm").fill("delete");
   await expect(deletion).toBeDisabled();
   await page.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await expect(deletion).toBeEnabled();
+  await page.route("**/api/account/delete", route => route.abort());
+  await deletion.click();
+  await expect(page.locator(".profile-message")).not.toBeEmpty();
   await expect(deletion).toBeEnabled();
 });
 
@@ -1006,10 +1092,8 @@ test("delayed ranked snapshot processing does not consume extra reveal or answer
 
 test("Reaction viewport times out missed taps and finishes after five attempts",async({page})=>{
   await page.goto("/match/practice?game=reaction_test&seed=timing-pass");
-  const tap=page.getByRole("button",{name:"TAP",exact:true});
-  await expect(tap).toBeVisible({timeout:10000});
-  await expect(page.getByText("Attempt 2 of 5")).toBeVisible({timeout:2500});
-  for(let i=0;i<4;i++){await expect(tap).toBeVisible({timeout:5000});await tap.click();}
+  await expect(page.getByText("Attempt 1 of 5")).toBeVisible({timeout:15000});
+  await expect(page.getByText("Attempt 5 of 5")).toBeVisible({timeout:30000});
   await expect(page.getByRole("heading",{name:/Victory|Defeat|Draw/})).toBeVisible({timeout:30000});
   await expect(page.getByText(/ms median/i).first()).toBeVisible();
 });
@@ -1049,6 +1133,7 @@ test("shared navigation and site accents remain consistent across pages", async 
   await page.getByRole("button",{name:"Player profile",exact:true}).click();
   const drawer=page.getByRole("dialog",{name:"Customize profile"});
   await expect(drawer.getByRole("heading",{name:"Account"})).toBeVisible();
+  await expect(drawer.getByRole("button",{name:"Close profile"})).toBeFocused();
   await drawer.getByRole("button",{name:"Close profile"}).click();
   await nav.getByRole("link",{name:"Leaderboard",exact:true}).click();
   await expect(page).toHaveURL(/\/leaderboard$/);

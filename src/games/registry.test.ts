@@ -145,6 +145,32 @@ describe("game registry", () => {
     expect((colourV2.generate("current").colors as unknown[])).toHaveLength(5);
   });
 
+  it("keeps partial secure-recall credit and averages only answered rounds", () => {
+    const frequency = getGame("frequency_recall_v2");
+    const frequencyChallenge = frequency.generate("partial-frequency");
+    const frequencyResult = frequency.calculate(
+      frequencyChallenge,
+      { guessesHz: [(frequencyChallenge.frequencies as number[])[0], null, null, null, null] },
+      frequency.answerDurationMs,
+    );
+    expect(frequencyResult.rankScore).toBe(10);
+    expect(frequencyResult.details.round1Answered).toBe(true);
+    expect(frequencyResult.details.round2Answered).toBe(false);
+    expect(frequencyResult.details.averageError).toBe(0);
+
+    const colour = getGame("colour_recall_v2");
+    const colourChallenge = colour.generate("partial-colour");
+    const colourResult = colour.calculate(
+      colourChallenge,
+      { colors: [(colourChallenge.colors as Array<{ l: number; c: number; h: number }>)[0], null, null, null, null] },
+      colour.answerDurationMs,
+    );
+    expect(colourResult.rankScore).toBe(10);
+    expect(colourResult.details.round1Answered).toBe(true);
+    expect(colourResult.details.round2Answered).toBe(false);
+    expect(colourResult.details.averageDistance).toBe(0);
+  });
+
   it.each(["frequency_recall_v2", "colour_recall_v2"] as const)(
     "%s scores a perfect five-round run as 50",
     (gameId) => {

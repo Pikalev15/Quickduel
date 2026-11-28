@@ -274,24 +274,20 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     phaseElapsedMs >= Number(snapshot?.challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
 
   useEffect(() => {
-    if (!snapshot || trackedStatuses.current.has(snapshot.status)) return;
-    trackedStatuses.current.add(snapshot.status);
-    if (snapshot.status === "active" || snapshot.status === "countdown") {
-      track("match_started", {
-        matchId,
-        gameType: snapshot.game_type,
-      });
-    } else if (snapshot.status === "completed") {
-      track("match_completed", {
-        matchId,
-        gameType: snapshot.game_type,
-      });
-    } else if (snapshot.status === "abandoned") {
-      track("match_abandoned", {
-        matchId,
-        gameType: snapshot.game_type,
-      });
-    }
+    if (!snapshot) return;
+    const event = snapshot.status === "active" || snapshot.status === "countdown"
+      ? "match_started"
+      : snapshot.status === "completed"
+        ? "match_completed"
+        : snapshot.status === "abandoned"
+          ? "match_abandoned"
+          : null;
+    if (!event || trackedStatuses.current.has(event)) return;
+    trackedStatuses.current.add(event);
+    track(event, {
+      matchId,
+      gameType: snapshot.game_type,
+    });
   }, [matchId, snapshot]);
 
   useEffect(() => {
@@ -379,7 +375,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }
 
   if (phase === "result" && snapshot && me?.result && opponent?.result) {
-    const outcome = snapshot.completion_reason === "timeout_forfeit"
+    const invalidated = snapshot.completion_reason === "admin_invalidated";
+    const outcome = invalidated
+      ? "draw"
+      : snapshot.completion_reason === "timeout_forfeit"
       ? snapshot.winner_id === currentUserId ? "win" : "loss"
       : snapshot.completion_reason === "double_timeout"
         ? "draw"
@@ -396,7 +395,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       : snapshot.completion_reason === "double_timeout"
         ? "Neither player submitted. No rating change."
         : snapshot.completion_reason === "admin_invalidated"
-          ? "This match was invalidated. No rating change."
+          ? "This match was invalidated. Past rating changes were not reversed."
           : undefined;
     return (
       <main className="has-match-chat min-h-screen">
@@ -456,7 +455,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           nextLabel={snapshot.private_duel_code ? "Continue series" : "Next opponent"}
           onCreateShare={createShareUrl}
           completionNotice={completionNotice}
-          resultTitle={snapshot.completion_reason === "double_timeout" ? "No result" : undefined}
+          resultTitle={snapshot.completion_reason === "double_timeout" || invalidated ? "No result" : undefined}
         />
         <MatchChat matchId={matchId} currentUserId={snapshot.current_user_id} />
       </main>
