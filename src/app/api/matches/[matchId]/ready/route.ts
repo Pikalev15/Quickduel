@@ -7,6 +7,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ matchId: string }> },
 ) {
+  const serverReceivedAt = new Date().toISOString();
   const correlationId = requestCorrelationId(request);
   const parsed = matchIdSchema.safeParse((await context.params).matchId);
   if (!parsed.success) {
@@ -20,7 +21,7 @@ export async function POST(
     if (error) {
       return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]/ready");
     }
-    return apiSuccess(data, 200, correlationId);
+    return apiSuccess({ ...data, server_received_at: serverReceivedAt, server_now: new Date().toISOString() }, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/matches/[matchId]/ready");
   }

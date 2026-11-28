@@ -1,3 +1,4 @@
+import {customMemoryChallenge,matchRulesSchema,orderedMemoryScore} from "./match-rules";
 import { z } from "zod";
 import { createRandom, integer, round, shuffle } from "./random";
 import {
@@ -82,11 +83,12 @@ const memoryGrid: GameDefinition = {
   calculate(challenge, submission) {
     const expected = new Set(challenge.highlightedCells as number[]);
     const selected = submission.selectedCells as number[];
+    if(challenge.ordered===true){const s=orderedMemoryScore([...expected],selected);return result(s.rankScore,s.accuracy,`${s.correct}/${expected.size} in order`,{correct:s.correct,incorrect:s.incorrect,missed:s.missed,ordered:true});}
     const correct = selected.filter((cell) => expected.has(cell)).length;
     const incorrect = selected.length - correct;
     const missed = expected.size - correct;
     const score = correct - incorrect * 0.5;
-    return result(score, correct / (correct + incorrect + missed), `${correct}/6 cells`, {
+    return result(score, correct / (correct + incorrect + missed), `${correct}/${expected.size} cells`, {
       correct,
       incorrect,
       missed,
@@ -416,6 +418,15 @@ const rhythmRecall: GameDefinition = {
   submissionSchema: object({
     tapsMs: z.array(z.array(z.number().finite().min(0).max(10000)).min(RHYTHM_MIN_TAPS).max(RHYTHM_MAX_TAPS)).length(RHYTHM_COUNT),
   }) as z.ZodType<Submission>,
+  validateSubmission(challenge, submission) {
+    const expected = challenge.rhythms as number[][];
+    const taps = submission.tapsMs as number[][];
+    return taps.length === expected.length && taps.every((rhythm, index) =>
+      rhythm.length === expected[index].length &&
+      rhythm[0] === 0 &&
+      rhythm.every((tap, i) => Number.isFinite(tap) && (i === 0 || tap > rhythm[i - 1]))
+    );
+  },
   generate(seed) {
     const random = createRandom(seed);
     return {
@@ -440,6 +451,7 @@ const rhythmRecall: GameDefinition = {
       const guess = rhythmIntervals(taps[index]);
       const targetMean = mean(target);
       const guessMean = mean(guess);
+      if (!Number.isFinite(guessMean) || guessMean <= 0) return 2;
       return mean(target.map((value, cursor) => Math.abs(value / targetMean - (guess[cursor] ?? guessMean) / guessMean)));
     });
     const durationError = mean(expected.map((rhythm, index) =>
@@ -456,7 +468,7 @@ const rhythmRecall: GameDefinition = {
     return {
       submission: {
         tapsMs: (challenge.rhythms as number[][]).map((rhythm) =>
-          rhythm.map((value) => Math.max(0, value + integer(random, -70, 70))),
+          rhythm.map((value, index) => index === 0 ? 0 : Math.max(0, value + integer(random, -70, 70))),
         ),
       },
       completionTimeMs: botTime(random, 20000),
@@ -621,7 +633,8 @@ const patternComplete: GameDefinition = {
       }),
     };
   },
-  publicChallenge(challenge) {
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
     return {
       puzzles: (challenge.puzzles as Array<Record<string, unknown>>).map((puzzle) =>
         Object.fromEntries(Object.entries(puzzle).filter(([key]) => key !== "answer")),
@@ -926,10 +939,23 @@ export function pickGame(seed: string, playlist: PlaylistId, preferredGame?: Gam
 }
 
 /** Persisted match budgets identify old versus new timing without changing historical seeds. */
-export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number): Challenge {
+export function generateMatchChallenge(game: GameDefinition, seed: string, revealMs: number, answerMs: number, persistedRules?:unknown): Challenge {
+  const rules=matchRulesSchema.safeParse(persistedRules);
+  if(game.id==="memory_grid"&&rules.success&&rules.data.kind==="workshop")return customMemoryChallenge(seed,rules.data.rules);
+  if(rules.success&&rules.data.kind==="workshop"){
+    const config=rules.data.rules;
+    if(game.id==="dot_estimate"&&config.dotDensity&&config.dotDensity!=="standard"){
+      const random=createRandom(seed),count=config.dotDensity==="sparse"?integer(random,20,55):integer(random,90,150);
+      return {count,dots:Array.from({length:count},()=>({x:round(3+random()*94,2),y:round(3+random()*94,2),r:integer(random,3,7)}))};
+    }
+    if(game.id==="shape_recall"&&config.shapeRange&&config.shapeRange!=="standard"){
+      const random=createRandom(seed),[min,max]=config.shapeRange==="gentle"?[35,70]:[10,90];
+      return {radii:Array.from({length:6},()=>integer(random,min,max))};
+    }
+  }
   const challenge = game.generate(seed);
   if (game.id === "typing_sprint") return { ...challenge, durationMs: answerMs };
-  if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
+  if (game.id === "memory_grid") return { ...challenge, revealMs, flashMs: rules.success&&rules.data.kind==="adaptive" ? revealMs : revealMs === 2500 ? 2500 : Math.min(1200, revealMs) };
   if (game.id === "reaction_test" && answerMs === 18000) {
     const random = createRandom(seed);
     return { waits: Array.from({ length: 5 }, () => integer(random, 800, 2200)) };

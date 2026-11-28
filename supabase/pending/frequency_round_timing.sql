@@ -2,30 +2,20 @@
 -- Existing rows retain persisted budgets. New frequency rounds use a bounded listen gate.
 BEGIN;
 
-create or replace function public.game_reveal_duration(requested_game text)
-returns integer
-language sql
-immutable
-security definer
-set search_path = ''
-as $
-  select case requested_game
-    when 'memory_grid' then 2500
-    when 'frequency_recall' then 2400
-    when 'frequency_recall_v2' then 0
-    when 'colour_recall' then 2600
-    when 'colour_recall_v2' then 0
-    when 'time_recall' then 6500
-    when 'shape_recall' then 2600
-    when 'rhythm_recall' then 13000
-    when 'dot_estimate' then 2200
-    else 0
-  end;
-$;
+ALTER TABLE public.matches
+  DROP CONSTRAINT matches_reveal_duration_ms_check,
+  ADD CONSTRAINT matches_reveal_duration_ms_check CHECK (
+    reveal_duration_ms BETWEEN 0 AND 10000
+    OR (game_type = 'rhythm_recall' AND reveal_duration_ms = 13000)
+  );
 
-revoke all on function public.game_reveal_duration(text)
-  from public, anon, authenticated;
-
+create table public.workshop_release_control (
+  singleton boolean primary key default true check (singleton),
+  activated boolean not null default false
+);
+alter table public.workshop_release_control enable row level security;
+revoke all on public.workshop_release_control from public, anon, authenticated, service_role;
+insert into public.workshop_release_control(singleton) values (true);
 
 -- Service-only acknowledgments for new 60-second frequency matches.
 CREATE TABLE public.frequency_listen_acks (
@@ -61,39 +51,17 @@ BEGIN
   INSERT INTO public.frequency_listen_acks VALUES(m.id,r.round_index,requested_user_id,at_time);
   IF (SELECT count(*) FROM public.frequency_listen_acks WHERE match_id=m.id AND round_index=r.round_index) = 2 THEN
     gate_end := least(r.reveal_ends_at,at_time+interval '250 milliseconds');
-    UPDATE public.match_rounds SET reveal_ends_at=gate_end, answer_ends_at=gate_end+interval '8200 milliseconds'
+    UPDATE public.match_rounds SET reveal_ends_at=gate_end, answer_ends_at=gate_end+make_interval(secs =>
+      (case when not m.ranked and to_jsonb(m)->'match_rules'->>'kind'='workshop'
+        and to_jsonb(m)->'match_rules'->'rules'->>'roundAnswerMs' ~ '^[0-9]{4}$'
+        then greatest(3000,least(6000,(to_jsonb(m)->'match_rules'->'rules'->>'roundAnswerMs')::integer))
+        else 8200 end)::double precision / 1000)
       WHERE match_id=m.id AND round_index=r.round_index;
   END IF;
 END;
 $ack$;
 REVOKE ALL ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ack_frequency_listened(uuid,uuid,smallint) TO service_role;
-
-CREATE OR REPLACE FUNCTION public.game_answer_duration(requested_game text)
- RETURNS integer
- LANGUAGE sql
- IMMUTABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-  select case requested_game
-    when 'memory_grid' then 7000
-    when 'frequency_recall' then 12000
-    when 'frequency_recall_v2' then 60000
-    when 'colour_recall' then 16000
-    when 'colour_recall_v2' then 40000
-    when 'time_recall' then 14000
-    when 'shape_recall' then 14000
-    when 'rhythm_recall' then 20000
-    when 'dot_estimate' then 7000
-    when 'number_order' then 8000
-    when 'odd_one_out' then 6000
-    when 'pattern_complete' then 18000
-    when 'typing_sprint' then 30000
-    when 'reaction_test' then 26000
-    when 'target_tap' then 16000
-    else 8000
-  end;
-$function$;
 
 CREATE OR REPLACE FUNCTION public.advance_recall_round(requested_match_id uuid, requested_user_id uuid, requested_target_round_index smallint, requested_target jsonb)
  RETURNS jsonb
@@ -104,7 +72,7 @@ AS $function$
 declare
   match_row public.matches;
   round_row public.match_rounds;
-  current_time timestamptz := clock_timestamp();
+  v_now timestamptz := clock_timestamp();
   reveal_ms integer;
   answer_ms integer;
   next_round smallint;
@@ -129,7 +97,7 @@ begin
   from public.matches
   where id = requested_match_id
   for update;
-  current_time := clock_timestamp();
+  v_now := clock_timestamp();
 
   if not found
     or match_row.game_type not in ('frequency_recall_v2', 'colour_recall_v2')
@@ -176,7 +144,7 @@ begin
       'opponentScore', 0
     );
   end if;
-  if match_row.starts_at is null or current_time < match_row.starts_at then
+  if match_row.starts_at is null or v_now < match_row.starts_at then
     return jsonb_build_object(
       'gameId', match_row.game_type,
       'roundIndex', 0,
@@ -200,6 +168,15 @@ begin
     when match_row.game_type = 'frequency_recall_v2' then 3200
     else 5200
   end;
+  -- Custom secure recall changes only the answer window. Keep the existing
+  -- five-round score, reveal/listen gate, feedback, and overall time budget.
+  if not match_row.ranked and to_jsonb(match_row)->'match_rules'->>'kind'='workshop'
+    and to_jsonb(match_row)->'match_rules'->'rules'->>'roundAnswerMs' ~ '^[0-9]{4}$' then
+    answer_ms := greatest(3000, least(
+      case when match_row.game_type='frequency_recall_v2' then 6000 else 5200 end,
+      (to_jsonb(match_row)->'match_rules'->'rules'->>'roundAnswerMs')::integer
+    ));
+  end if;
 
   select array_agg(mp.user_id order by mp.user_id) into participant_ids
   from public.match_players mp
@@ -227,9 +204,9 @@ begin
       match_id, round_index, target_json, started_at,
       reveal_ends_at, answer_ends_at
     ) values (
-      requested_match_id, 0, requested_target, current_time,
-      current_time + make_interval(secs => reveal_ms::double precision / 1000),
-      current_time + make_interval(
+      requested_match_id, 0, requested_target, v_now,
+      v_now + make_interval(secs => reveal_ms::double precision / 1000),
+      v_now + make_interval(
         secs => (reveal_ms + answer_ms)::double precision / 1000
       )
     )
@@ -240,7 +217,7 @@ begin
   end if;
 
   if round_row.resolved_at is null
-    and current_time >= round_row.answer_ends_at then
+    and v_now >= round_row.answer_ends_at then
     foreach participant_id in array participant_ids loop
       insert into public.match_round_submissions (
         match_id, round_index, user_id, answer_json, feedback_json,
@@ -283,8 +260,8 @@ begin
     end loop;
     update public.match_rounds
     set
-      resolved_at = current_time,
-      feedback_ends_at = current_time + interval '2 seconds'
+      resolved_at = v_now,
+      feedback_ends_at = v_now + interval '2 seconds'
     where match_id = requested_match_id
       and round_index = round_row.round_index
       and resolved_at is null
@@ -292,7 +269,7 @@ begin
   end if;
 
   if round_row.resolved_at is not null
-    and current_time >= round_row.feedback_ends_at then
+    and v_now >= round_row.feedback_ends_at then
     if round_row.round_index < 4 then
       next_round := round_row.round_index + 1;
       if requested_target_round_index <> next_round then
@@ -302,9 +279,9 @@ begin
         match_id, round_index, target_json, started_at,
         reveal_ends_at, answer_ends_at
       ) values (
-        requested_match_id, next_round, requested_target, current_time,
-        current_time + make_interval(secs => reveal_ms::double precision / 1000),
-        current_time + make_interval(
+        requested_match_id, next_round, requested_target, v_now,
+        v_now + make_interval(secs => reveal_ms::double precision / 1000),
+        v_now + make_interval(
           secs => (reveal_ms + answer_ms)::double precision / 1000
         )
       )
@@ -412,7 +389,7 @@ begin
 
           update public.match_players
           set
-            submitted_at = current_time,
+            submitted_at = v_now,
             submission_json = jsonb_build_object(
               'rounds',
               (
@@ -491,7 +468,7 @@ begin
     phase := 'feedback';
     exposed_target := round_row.target_json;
     exposed_feedback := own_submission.feedback_json;
-  elsif current_time < round_row.reveal_ends_at then
+  elsif v_now < round_row.reveal_ends_at then
     phase := 'reveal';
     exposed_target := round_row.target_json;
   elsif own_submission.user_id is not null or (listen_required and not listen_acknowledged) then
@@ -541,12 +518,12 @@ language plpgsql
 volatile
 security definer
 set search_path = ''
-as $
+as $function$
 declare
   match_row public.matches;
   round_row public.match_rounds;
   existing_answer jsonb;
-  current_time timestamptz := clock_timestamp();
+  v_now timestamptz := clock_timestamp();
   submission_count integer;
 begin
   if submitted_answer is null or calculated_feedback is null
@@ -578,15 +555,15 @@ begin
   if not found or round_row.resolved_at is not null then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
   end if;
-  current_time := clock_timestamp();
+  v_now := clock_timestamp();
   if match_row.game_type = 'frequency_recall_v2' and match_row.answer_duration_ms >= 60000
     and not exists (select 1 from public.frequency_listen_acks where match_id=requested_match_id and round_index=requested_round_index and user_id=requested_user_id) then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
   end if;
-  if current_time < round_row.reveal_ends_at then
+  if v_now < round_row.reveal_ends_at then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
   end if;
-  if current_time > round_row.answer_ends_at then
+  if v_now > round_row.answer_ends_at then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
   end if;
 
@@ -605,7 +582,7 @@ begin
     score, timed_out, submitted_at
   ) values (
     requested_match_id, requested_round_index, requested_user_id,
-    submitted_answer, calculated_feedback, calculated_score, false, current_time
+    submitted_answer, calculated_feedback, calculated_score, false, v_now
   );
 
   select count(*) into submission_count
@@ -615,14 +592,14 @@ begin
   if submission_count = 2 then
     update public.match_rounds
     set
-      resolved_at = current_time,
-      feedback_ends_at = current_time + interval '2 seconds'
+      resolved_at = v_now,
+      feedback_ends_at = v_now + interval '2 seconds'
     where match_id = requested_match_id
       and round_index = requested_round_index
       and resolved_at is null;
   end if;
 end;
-$;
+$function$;
 
 
 REVOKE ALL ON FUNCTION public.game_answer_duration(text) FROM PUBLIC, anon, authenticated;

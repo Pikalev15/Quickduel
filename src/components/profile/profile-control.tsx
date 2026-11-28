@@ -38,7 +38,7 @@ export function ProfileControl() {
     return()=>{active=false;unsubscribe?.();};
   },[]);
   return <>
-    <button type="button" className="profile-chip qd-profile-control" aria-label="Player profile" onClick={()=>setOpen(true)}><span className={`accent-${profile?.accent_colour??"volt"}`}>{(profile?.display_name??"QD").slice(0,2).toUpperCase()}</span><b>Player profile</b></button>
+    <button type="button" className="profile-chip qd-profile-control" aria-label="Player profile" onClick={()=>setOpen(true)}><span data-profile-frame={profile?.equipped_cosmetics?.profile_frame ?? undefined} className={`accent-${profile?.accent_colour??"volt"}`}>{(profile?.display_name??"QD").slice(0,2).toUpperCase()}</span><b>Player profile</b></button>
     {open&&<ProfileDrawer key={`${profile?.id??user?.id??"guest"}:${profile?"profile":"initial"}`} open profile={profile} user={user} onClose={()=>setOpen(false)} onUpdated={setProfile} onSignedOut={()=>{setUser(null);setProfile(null);setOpen(false);}}/>}
   </>;
 }

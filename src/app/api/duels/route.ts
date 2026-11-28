@@ -1,3 +1,4 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { readJson, rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -20,13 +21,16 @@ export async function POST(request: Request) {
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await supabase.rpc("create_private_duel", {
+    const args = {
       requested_selection_kind: parsed.data.selectionKind,
       requested_game: parsed.data.game,
       requested_playlist: parsed.data.playlist,
       requested_best_of: parsed.data.bestOf,
       requested_ranked: parsed.data.ranked,
-    });
+    };
+    const {data,error}=parsed.data.workshop
+      ? await serverQueueOrDuel(supabase, user.id, "create_private_duel_workshop",{...args,requested_rules:parsed.data.workshop})
+      : await serverQueueOrDuel(supabase, user.id, "create_private_duel",args);
     if (error) throw error;
     return apiSuccess(data, 201, correlationId);
   } catch (error) {

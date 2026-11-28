@@ -1,4 +1,5 @@
 "use client";
+import {rulesLabel} from "@/games/match-rules";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LockAnswerButton } from "@/components/game/lock-answer-button";
@@ -11,7 +12,9 @@ import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
+import { CorrectAnswer } from "@/components/results/correct-answer";
 import { ResultPanel } from "@/components/results/result-panel";
+import {RankedRecordNotice} from "@/components/stats/skill-progress";
 import { track } from "@/lib/analytics";
 import { MatchChat } from "@/components/match-chat/match-chat";
 import { MEMORY_GRID_FLASH_MS } from "@/games/memory-grid-timing";
@@ -35,6 +38,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [clockOffset, setClockOffset] = useState(0);
   const clockOffsetRef = useRef(0);
+  const clockSynced = useRef(false);
   const serverNow = now + clockOffset;
   const [connected, setConnected] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -61,9 +65,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
       const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now(), next.server_received_at);
       if (offset !== null) {
-        clockOffsetRef.current = offset;
-        setClockOffset(offset);
+        const nextOffset = clockSynced.current ? clockOffsetRef.current + Math.max(-50, Math.min(50, offset - clockOffsetRef.current)) : offset;
+        clockSynced.current = true;
+        clockOffsetRef.current = nextOffset;
+        setClockOffset(nextOffset);
       }
+      const current = latestSnapshot.current;
+      if (current?.starts_at && !next.starts_at && next.status === "waiting") return;
       latestSnapshot.current = next;
       setSnapshot(next);
       setError(null);
@@ -105,8 +113,25 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady) || (typing && !keyboardReady)) return;
     readySent.current = true;
+    const sentAt = Date.now();
     void request<MatchSnapshot>(`/api/matches/${matchId}/ready`, { method: "POST" })
-      .then(() => void reload())
+      .then((ready) => {
+        const current = latestSnapshot.current;
+        if (current?.status === "waiting" && ready?.status === "countdown" && ready.starts_at) {
+          const receivedAt = Date.now();
+          const offset = estimateServerClockOffset(ready.server_now, sentAt, receivedAt, ready.server_received_at);
+          if (offset !== null && !clockSynced.current) {
+            clockSynced.current = true;
+            clockOffsetRef.current = offset;
+            setClockOffset(offset);
+          }
+          const next: MatchSnapshot = { ...current, ...ready, phase: "countdown", challenge: {} };
+          latestSnapshot.current = next;
+          setNow(receivedAt);
+          setSnapshot(next);
+        }
+        void reload();
+      })
       .catch((caught) => {
         setError(caught instanceof Error ? caught.message : "Ready failed.");
         readySent.current = false;
@@ -389,6 +414,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         <ResultPanel
           outcome={outcome}
           gameName={game?.name}
+          correctAnswer={game ? CorrectAnswer({ gameId: game.id, challenge: snapshot.challenge }) : undefined}
           player={{
             name: me.display_name,
             score: me.result.rankScore,
@@ -411,6 +437,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             ratingAfter: opponent.rating_after ?? opponent.rating_before,
             details: opponent.result.details,
           }}
+          recordNotice={snapshot.ranked&&snapshot.completion_reason==="normal"?<RankedRecordNotice matchId={snapshot.id}/>:undefined}
           unranked={!snapshot.ranked}
           placementMatches={currentUserId ? placementCounts?.[currentUserId] ?? null : null}
           rematchWaiting={rematchWaiting || Boolean(me.rematch_requested_at && !snapshot.rematch_match_id)}
@@ -487,7 +514,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <div className="display qd-countdown mt-3 text-[clamp(6rem,25vw,10rem)] leading-none text-[var(--accent)]">
               <span key={phase === "countdown" ? countdown : "waiting"}>{phase === "countdown" ? countdown : "…"}</span>
             </div>
-            <p className="mt-4 text-sm text-[var(--muted)]">{game?.instructions}</p>
+            <p className="mt-4 text-sm text-[var(--muted)]">{snapshot?.match_rules?.kind==="workshop" ? rulesLabel(snapshot.match_rules) : game?.instructions}</p>
             {requiresAudio && !audioReady && snapshot?.status === "waiting" && (
               <Button className="mt-4" onClick={() => {
                 void AudioManager.shared().unlock().then((ready) => {
@@ -501,7 +528,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
           <>
             <div className="game-title-row">
               <div>
-                <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : "Experimental · unranked"}</p>
+                <p className="game-kicker">{snapshot?.ranked ? "Ranked duel" : snapshot?.match_rules?.kind==="workshop" ? "Workshop · unranked" : "Experimental · unranked"}{snapshot?.match_rules?.kind==="adaptive"?` · ${rulesLabel(snapshot.match_rules)}`:""}</p>
                 <h1 className="display">{game?.name}</h1>
               </div>
               <div className="game-timer" data-urgent={!secureRecall && phase === "answer" && remaining <= 3000 ? "true" : undefined}>
@@ -521,7 +548,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
             <p className="game-instructions">
               {phase === "submitted"
                 ? opponent?.submitted_at ? "Finalizing result…" : "Opponent is still playing."
-                : game?.instructions}
+                : snapshot?.match_rules?.kind==="workshop" && snapshot.game_type==="memory_grid" ? snapshot.match_rules.rules.memory?.ordered ? "Memorize the numbered tiles in order, then tap in that same order." : `Remember ${snapshot.match_rules.rules.memory?.tiles} tiles. Select the positions.` : game?.instructions}
             </p>
             {!secureRecall && phase === "answer" && snapshot && (
               <div

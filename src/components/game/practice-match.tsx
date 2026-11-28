@@ -5,7 +5,9 @@ import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
+import { CorrectAnswer } from "@/components/results/correct-answer";
 import { ResultPanel } from "@/components/results/result-panel";
+import {PracticeRecordNotice} from "@/components/results/practice-record";
 import { compareGameResults, type GameId, type Submission } from "@/games/types";
 import { getGame } from "@/games/registry";
 import { practiceChallenge,practiceTiming,type PracticeDifficulty } from "@/games/practice-difficulty";
@@ -38,11 +40,10 @@ export function PracticeMatch({
   const [keyboardReady, setKeyboardReady] = useState(!typing);
   const prepared = audioReady && keyboardReady;
   const [audioError, setAudioError] = useState(false);
-  const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
+  const [scheduledStart, setScheduledStart] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const prepareKeyboard = useCallback(() => {
     if (keyboardReady) return;
-    setStartAt(Date.now() + 2_000);
     setKeyboardReady(true);
   }, [keyboardReady]);
   const [submission, setSubmission] = useState<Submission>({});
@@ -62,6 +63,17 @@ export function PracticeMatch({
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!prepared || scheduledStart !== null) return;
+    const frame = window.requestAnimationFrame(() => {
+      const at = Date.now();
+      setNow(at);
+      setScheduledStart(at + 3_000);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [prepared, scheduledStart]);
+
+  const startAt = scheduledStart ?? now + 3_000;
   const answerDurationMs = timing.answerMs;
   const answerStart = startAt + timing.revealMs;
   const answerEnd = answerStart + answerDurationMs;
@@ -71,18 +83,18 @@ export function PracticeMatch({
   }, [answerEnd, canSubmit, submittedAt]);
 
   useEffect(() => {
-    if (submittedAt !== null || !prepared) return;
+    if (submittedAt !== null || !prepared || scheduledStart === null) return;
     const timeout = window.setTimeout(
       () => setSubmittedAt((current) => current ?? answerEnd),
       Math.max(0, answerEnd - Date.now()),
     );
     return () => window.clearTimeout(timeout);
-  }, [answerEnd, submittedAt, prepared]);
+  }, [answerEnd, submittedAt, prepared, scheduledStart]);
 
   let phase: Phase;
   if (submittedAt !== null) {
     phase = now >= answerStart + bot.completionTimeMs ? "result" : "waiting";
-  } else if (!prepared || now < startAt) {
+  } else if (!prepared || scheduledStart === null || now < startAt) {
     phase = "countdown";
   } else if (now < answerStart) {
     phase = "reveal";
@@ -153,8 +165,9 @@ export function PracticeMatch({
         <ResultPanel
           outcome={outcome}
           gameName={game.name}
-          completionNotice={gameId === "cryptic_duel" ? `Answer: ${String(challenge.answer)}. ${String(challenge.explanation)}` : undefined}
+          correctAnswer={CorrectAnswer({ gameId: game.id, challenge })}
           unranked
+          recordNotice={!onboardingStep&&parsed.success?<PracticeRecordNotice recordKey={`${gameId}:${game.version}:${difficulty}:${timing.revealMs}:${timing.answerMs}`} score={playerResult.rankScore} accuracy={playerResult.accuracy} timeMs={playerTime} summary={playerResult.summary}/>:undefined}
           player={{
             name: "You",
             score: playerResult.rankScore,
@@ -210,7 +223,6 @@ export function PracticeMatch({
               <Button className="mt-4" onClick={() => {
                 void AudioManager.shared().unlock().then((ready) => {
                   if (!ready) { setAudioError(true); return; }
-                  setStartAt(Date.now() + 2_000);
                   setAudioReady(true);
                 }).catch(() => setAudioError(true));
               }}>Enable sound and start</Button>

@@ -1,3 +1,5 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/route";
@@ -25,7 +27,10 @@ export async function GET(
     });
     if (error) throw error;
     if (!data) return apiError(404, "NOT_FOUND", "Private duel not found.", undefined, correlationId);
-    return apiSuccess(data, 200, correlationId);
+    const admin=createSupabaseAdminClient();
+    const {data:settings,error:settingsError}=await admin.from("private_duels").select("workshop_rules").eq("code",code.data).maybeSingle();
+    if(settingsError)throw settingsError;
+    return apiSuccess({...data,workshop:settings?.workshop_rules??null}, 200, correlationId);
   } catch (error) {
     return rpcErrorResponse(error, correlationId, "/api/duels/[code]");
   }
@@ -49,7 +54,7 @@ export async function POST(
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await supabase.rpc("join_private_duel", {
+    const { data, error } = await serverQueueOrDuel(supabase, user.id, "join_private_duel", {
       requested_code: code.data,
     });
     if (error) throw error;

@@ -85,6 +85,8 @@ export function MemoryGridGame({
   const targetCount = Number(challenge.targetCount ?? 0);
   const flashMs = Number(challenge.flashMs ?? MEMORY_GRID_FLASH_MS);
   const showingPattern = revealing && phaseElapsedMs < flashMs;
+  const ordered = challenge.ordered===true;
+  const visibleOrder = Math.min(revealed.length-1,Math.floor(phaseElapsedMs/Math.max(1,flashMs/revealed.length)));
   const retentionRemainingMs = Math.max(
     0,
     Number(challenge.revealMs ?? MEMORY_GRID_REVEAL_DURATION_MS) - phaseElapsedMs,
@@ -98,7 +100,7 @@ export function MemoryGridGame({
       >
         {Array.from({ length: size * size }, (_, cell) => {
           const active =
-            (showingPattern && revealed.includes(cell)) ||
+            (showingPattern && (ordered ? revealed[visibleOrder]===cell : revealed.includes(cell))) ||
             selected.includes(cell);
           return (
             <button
@@ -115,14 +117,14 @@ export function MemoryGridGame({
                 setSelected(next);
                 onChange({ selectedCells: next }, next.length > 0);
               }}
-            />
+            >{ordered && showingPattern && revealed[visibleOrder]===cell ? visibleOrder+1 : ordered && selected.includes(cell) ? selected.indexOf(cell)+1 : null}</button>
           );
         })}
       </div>
       {revealing && (
         <p className="memory-phase-status" aria-live="polite">
           {showingPattern
-            ? "Memorize"
+            ? ordered ? `Memorize the order · ${visibleOrder+1}/${revealed.length}` : "Memorize"
             : `Hold · ${(retentionRemainingMs / 1000).toFixed(1)}s`}
         </p>
       )}
@@ -546,25 +548,80 @@ function ShapeSvg({ radii }: { radii: number[] }) {
 export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const target = (challenge.radii as number[] | undefined) ?? [];
   const [radii, setRadii] = useState([50, 50, 50, 50, 50, 50]);
+  const dragging = useRef<{ index: number; pointerId: number } | null>(null);
+  const currentRadii = useRef(radii);
   useSubmitInitialValidAnswer(disabled, onChange, { radii });
+  const points = radii.map((radius, index) => {
+    const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
+    const scaled = 30 + radius * 0.65;
+    return { x: 100 + Math.cos(angle) * scaled, y: 100 + Math.sin(angle) * scaled };
+  });
+  const updatePoint = (index: number, clientX: number, clientY: number, svg: SVGSVGElement) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
+    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
+    const x = point.x - 100;
+    const y = point.y - 100;
+    const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
+    const radius = Math.max(10, Math.min(90, (x * Math.cos(angle) + y * Math.sin(angle) - 30) / 0.65));
+    const next = currentRadii.current.map((value, cursor) => cursor === index ? radius : value);
+    currentRadii.current = next;
+    setRadii(next);
+    onChange({ radii: next }, true);
+  };
   return (
     <div className="shape-game">
-      <ShapeSvg radii={target.length ? target : radii} />
-      {!target.length && radii.map((value, index) => (
-        <Range
-          key={index}
-          label={`Point ${index + 1}`}
-          value={value}
-          min={10}
-          max={90}
-          disabled={disabled}
-          onChange={(nextValue) => {
-            const next = radii.map((current, cursor) => cursor === index ? nextValue : current);
-            setRadii(next);
-            onChange({ radii: next }, true);
+      {target.length ? <ShapeSvg radii={target} /> : (
+        <svg
+          className="shape-canvas"
+          style={{ touchAction: "none" }}
+          viewBox="0 0 200 200"
+          role="group"
+          aria-label="Drag the six points to rebuild the shape"
+          onPointerMove={(event) => {
+            const active = dragging.current;
+            if (active && active.pointerId === event.pointerId && !disabled) updatePoint(active.index, event.clientX, event.clientY, event.currentTarget);
           }}
-        />
-      ))}
+          onPointerUp={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
+          onPointerCancel={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
+          onLostPointerCapture={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
+        >
+          <polygon points={points.map(({ x, y }) => `${x},${y}`).join(" ")} />
+          {points.map(({ x, y }, index) => (
+            <g
+              key={index}
+              className="shape-point-label"
+              role="slider"
+              aria-label={`Point ${index + 1}`}
+              aria-valuemin={10}
+              aria-valuemax={90}
+              aria-valuenow={Math.round(radii[index])}
+              tabIndex={disabled ? -1 : 0}
+              onPointerDown={(event) => {
+                if (disabled || dragging.current || event.button !== 0) return;
+                const svg = event.currentTarget.ownerSVGElement;
+                if (!svg) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                dragging.current = { index, pointerId: event.pointerId };
+                updatePoint(index, event.clientX, event.clientY, svg);
+              }}
+              onKeyDown={(event) => {
+                const delta = event.key === "ArrowUp" || event.key === "ArrowRight" ? 2 : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -2 : 0;
+                if (!delta || disabled) return;
+                event.preventDefault();
+                const next = currentRadii.current.map((value, cursor) => cursor === index ? Math.max(10, Math.min(90, value + delta)) : value);
+                currentRadii.current = next;
+                setRadii(next);
+                onChange({ radii: next }, true);
+              }}
+              aria-disabled={disabled}
+            >
+              <circle cx={x} cy={y} r="10" />
+              <text x={x} y={y}>{index + 1}</text>
+            </g>
+          ))}
+        </svg>
+      )}
     </div>
   );
 }

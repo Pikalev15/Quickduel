@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateServerClockOffset } from "./game-clock";
+import { estimateServerClockOffset, submissionWindow, formatQueueElapsed } from "./game-clock";
 const iso = (n: number) => new Date(n).toISOString();
 describe("game clock synchronization", () => {
   it("removes 800ms processing from a 100ms each-way request", () => {
@@ -16,5 +16,29 @@ describe("game clock synchronization", () => {
     expect(estimateServerClockOffset(iso(1900), 2000, 1000, iso(1100))).toBeNull();
     expect(estimateServerClockOffset(iso(1100), 1000, 2000, iso(1900))).toBeNull();
     expect(estimateServerClockOffset(iso(1900), 1000, 4500, iso(1100))).toBeNull();
+  });
+});
+
+describe("server submission receipt boundary", () => {
+  it("allows only bounded transport tolerance for scored answers", () => {
+    expect(submissionWindow(999, 1000, 8000, false, false)).toBe("not-open");
+    expect(submissionWindow(9000, 1000, 8000, false, false)).toBe("open");
+    expect(submissionWindow(10000, 1000, 8000, false, false)).toBe("open");
+    expect(submissionWindow(10001, 1000, 8000, false, false)).toBe("expired");
+    expect(submissionWindow(13000, 1000, 8000, true, false)).toBe("open");
+    expect(submissionWindow(14001, 1000, 8000, true, false)).toBe("expired");
+  });
+  it("keeps deadline games and timeout markers from submitting prematurely", () => {
+    expect(submissionWindow(8749, 1000, 8000, false, true)).toBe("too-early");
+    expect(submissionWindow(8750, 1000, 8000, false, true)).toBe("open");
+    expect(submissionWindow(8749, 1000, 8000, true, false)).toBe("too-early");
+    expect(submissionWindow(9000, NaN, 8000, false, false)).toBe("invalid");
+  });
+});
+
+
+describe("matchmaking clock", () => {
+  it.each([[0,"00:00"],[59,"00:59"],[60,"01:00"],[101,"01:41"],[3600,"60:00"],[-1,"00:00"]])("formats %s elapsed seconds", (seconds, expected) => {
+    expect(formatQueueElapsed(Number(seconds))).toBe(expected);
   });
 });

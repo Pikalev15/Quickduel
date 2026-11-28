@@ -1,3 +1,4 @@
+import type {WorkshopRules,MatchRules} from "@/games/match-rules";
 import type { GameId } from "@/games/types";
 
 export type MatchStatus =
@@ -76,6 +77,7 @@ export type MatchPlayer = {
 };
 
 export type MatchSnapshot = {
+  match_rules?:MatchRules|null;
   id: string;
   status: MatchStatus;
   game_type: GameId;
@@ -109,6 +111,7 @@ export type MatchSnapshot = {
 };
 
 export type PrivateDuelSnapshot = {
+  workshop?: WorkshopRules | null;
   code: string;
   state: "waiting" | "ready" | "active" | "completed" | "expired" | "cancelled";
   host_name: string;

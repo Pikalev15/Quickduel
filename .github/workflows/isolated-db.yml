@@ -1,0 +1,86 @@
+name: Isolated database validation
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'e2e/release-live.spec.ts'
+      - 'playwright.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/isolated-db.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.4.0
+      - name: Start disposable local Supabase
+        run: supabase start
+      - name: Apply staged migrations in dependency order
+        shell: bash
+        run: |
+          set -euo pipefail
+          db='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          for file in frequency_round_timing workshop_adaptive daily_duel skill_progress_daily_rotation competitive_integrity; do
+            psql "$db" -v ON_ERROR_STOP=1 -f "supabase/pending/$file.sql"
+          done
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Verify expansion preserves the old application and preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/qd-local.env"
+          set -a
+          source "$RUNNER_TEMP/qd-local.env"
+          set +a
+          node scripts/verify-workshop-expansion.mjs
+          if VERCEL_ENV=production NEXT_PUBLIC_SUPABASE_URL= SUPABASE_SECRET_KEY= node scripts/check-production-schema.mjs; then
+            echo "Missing production schema was accepted" >&2
+            exit 1
+          fi
+          VERCEL_ENV=production NEXT_PUBLIC_SUPABASE_URL="$API_URL" SUPABASE_SECRET_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY:-}}" node scripts/check-production-schema.mjs
+      - name: Activate after expansion verification
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/pending/release_cutover.sql
+      - name: Verify competitive integrity policies
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/tests/competitive_integrity_policy_check.sql
+      - name: Verify with real local Auth sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/qd-local.env"
+          set -a
+          source "$RUNNER_TEMP/qd-local.env"
+          set +a
+          node scripts/verify-competitive-integrity.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Exercise the real app against disposable Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/qd-local.env"
+          set +a
+          export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${ANON_KEY:-${PUBLISHABLE_KEY:-}}"
+          export SUPABASE_SECRET_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY:-}}"
+          export NEXT_PUBLIC_APP_URL=http://localhost:3000
+          export ABUSE_CHALLENGE_DEV_BYPASS=true
+          export E2E_LIVE_SUPABASE=1
+          npx playwright test e2e/release-live.spec.ts --project=chromium-desktop --workers=1
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup

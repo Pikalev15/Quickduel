@@ -29,7 +29,7 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const { data: privateMatch, error: privateError } = await admin
       .from("matches")
-      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms,status,source,private_duel_id,series_round")
+      .select("challenge_seed,game_type,game_version,starts_at,reveal_duration_ms,answer_duration_ms,status,source,private_duel_id,series_round,match_rules")
       .eq("id", parsed.data)
       .single();
     if (privateError || !privateMatch) throw privateError ?? new Error("Match data missing.");
@@ -59,7 +59,7 @@ export async function GET(
     else if (!startsAt || now < startsAt) phase = "countdown";
     else if (now < startsAt + privateMatch.reveal_duration_ms) phase = "reveal";
     else phase = "answer";
-    const completeChallenge = generateMatchChallenge(game, String(privateMatch.challenge_seed), privateMatch.reveal_duration_ms, privateMatch.answer_duration_ms);
+    const completeChallenge = generateMatchChallenge(game, String(privateMatch.challenge_seed), privateMatch.reveal_duration_ms, privateMatch.answer_duration_ms, privateMatch.match_rules);
     return apiSuccess({
       ...data,
       phase,
@@ -70,6 +70,7 @@ export async function GET(
           : game.publicChallenge(completeChallenge, phase),
       server_received_at: serverReceivedAt,
       server_now: new Date().toISOString(),
+      match_rules: privateMatch.match_rules ?? null,
       source: privateMatch.source,
       private_duel_code: privateDuelCode,
       series_round: privateMatch.series_round,

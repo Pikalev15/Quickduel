@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const correlationId = requestCorrelationId(request);
   let supabase = false;
   let migrationCompatible = false;
+  let releaseActivated = false;
   let expirySweep: {
     last_expiry_sweep_at: string | null;
     last_expiry_sweep_count: number;
@@ -19,7 +20,10 @@ export async function GET(request: Request) {
       client.rpc("get_season_overview", { requested_season_id: null }),
     ]);
     supabase = !connectivity.error;
-    migrationCompatible = !migration.error;
+    const readiness = await createSupabaseAdminClient().rpc("get_workshop_release_status");
+    migrationCompatible = !migration.error && !readiness.error
+      && readiness.data?.schemaVersion === 1 && readiness.data?.prepared === true;
+    releaseActivated = migrationCompatible && readiness.data?.activated === true;
     if (migrationCompatible) {
       const runtime = await createSupabaseAdminClient()
         .from("integrity_runtime")
@@ -41,6 +45,7 @@ export async function GET(request: Request) {
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
       supabase,
       migrationCompatible,
+      releaseActivated,
       expirySweep,
       timestamp: new Date().toISOString(),
     },

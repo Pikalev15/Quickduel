@@ -4,7 +4,7 @@ import {rpcErrorResponse} from "@/lib/server/http";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {enforceNetworkAbuseBoundary} from "@/lib/server/network-abuse";
-import {DAILY_DURATION_MS,dailyDate,dailyRequestSchema,dailyPublicChallenge,scoreDaily,dailyLeaderboard} from "@/games/daily-duel";
+import {DAILY_DURATION_MS,DAILY_LATEST_VERSION,dailyDate,dailyRequestSchema,dailyPublicChallenge,scoreDaily,dailyLeaderboard,dailyKind,dailyKindLabel} from "@/games/daily-duel";
 export const dynamic="force-dynamic";
 function noStore<T extends Response>(response:T){response.headers.set("Cache-Control","private, no-store");return response;}
 function unavailable(id:string){return noStore(apiError(503,"BACKEND_NOT_CONFIGURED","Daily Duel is not available yet. Please try again later.",undefined,id));}
@@ -16,15 +16,17 @@ export async function GET(request:Request){
  const id=requestCorrelationId(request),date=dailyDate();
  try{
   const db=createSupabaseAdminClient();
-  const board=await db.from("daily_duel_attempts").select("score,profiles!inner(display_name,deleted_at)").eq("challenge_date",date).not("completed_at","is",null).is("profiles.deleted_at",null).order("score",{ascending:false}).limit(100);
+  const board=await db.from("daily_duel_attempts").select("score,profiles!inner(display_name,deleted_at,account_state)").eq("challenge_date",date).not("completed_at","is",null).is("profiles.deleted_at",null).eq("profiles.account_state","normal").order("score",{ascending:false}).limit(100);
   if(board.error)return unavailable(id);
   const client=await createSupabaseServerClient(),auth=await client.auth.getUser();
+  const {data:day}=await db.from("daily_duel_challenges").select("game_version").eq("challenge_date",date).maybeSingle();
+  const weekly=await db.rpc("get_daily_weekly_board",{requested_date:date});
   const own=auth.data.user?await ownAttempt(db,date,auth.data.user.id):null;
   const rows=(board.data??[]).flatMap(row=>{
    const profile=Array.isArray(row.profiles)?row.profiles[0]:row.profiles;
    return profile&&typeof row.score==="number"?[{name:String(profile.display_name),score:row.score}]:[];
   });
-  return noStore(apiSuccess({date,durationMs:DAILY_DURATION_MS,leaderboard:dailyLeaderboard(rows),attempt:own?{status:own.completed_at?"complete":Date.parse(own.deadline)>Date.now()?"active":"expired",score:own.score}:null},200,id));
+  return noStore(apiSuccess({date,gameLabel:dailyKindLabel(dailyKind(date,day?.game_version??DAILY_LATEST_VERSION)),weekly:weekly.error?null:weekly.data,durationMs:DAILY_DURATION_MS,leaderboard:dailyLeaderboard(rows),attempt:own?{status:own.completed_at?"complete":Date.parse(own.deadline)>Date.now()?"active":"expired",score:own.score}:null},200,id));
  }catch(error){return noStore(rpcErrorResponse(error,id,"/api/daily"));}
 }
 export async function POST(request:Request){
@@ -53,9 +55,9 @@ export async function POST(request:Request){
   if(Date.parse(attempt.deadline)+(parsed.data.action==="submit"?1000:0)<Date.now())return noStore(apiSuccess({date,status:"expired",score:null},200,id));
   const challenge=await db.from("daily_duel_challenges").select("seed,game_version").eq("challenge_date",date).single();
   if(challenge.error)throw challenge.error;
-  if(challenge.data.game_version!==1)return unavailable(id);
-  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,challenge:dailyPublicChallenge(challenge.data.seed),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
-  const score=scoreDaily(challenge.data.seed,parsed.data.answers);
+  if(![1,2,3].includes(challenge.data.game_version))return unavailable(id);
+  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,attemptKey:`${user.id}:${date}:${attempt.deadline}`,challenge:dailyPublicChallenge(challenge.data.seed,date,challenge.data.game_version),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
+  const score=scoreDaily(challenge.data.seed,parsed.data.answers,date,challenge.data.game_version);
   const finished=await db.rpc("finish_daily_duel",{requested_date:date,requested_user:user.id,calculated_score:score});
   if(finished.error)throw finished.error;
   return noStore(apiSuccess({date,status:typeof finished.data==="number"?"complete":"expired",score:finished.data??null},200,id));

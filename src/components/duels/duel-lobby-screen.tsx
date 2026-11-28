@@ -1,4 +1,5 @@
 "use client";
+import {rulesLabel} from "@/games/match-rules";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -130,6 +131,7 @@ export function DuelLobbyScreen({ code }: { code: string }) {
               <div><dt>Game</dt><dd>{gameName}</dd></div>
               <div><dt>Format</dt><dd>{duel.best_of === 1 ? "Single game" : `Best of ${duel.best_of}`}</dd></div>
               <div><dt>Mode</dt><dd>{duel.ranked ? "Ranked" : "Unranked"}</dd></div>
+              {duel.workshop&&<div><dt>Custom rules</dt><dd>{rulesLabel({kind:"workshop",version:1,rules:duel.workshop})}</dd></div>}
               <div><dt>Duel code</dt><dd>{duel.code}</dd></div>
             </dl>
             {error && <p className="inline-error" role="alert">{error}</p>}

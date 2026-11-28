@@ -5674,3 +5674,31 @@ dd,
 .qd-daily-table th:last-child,.qd-daily-table td:last-child{width:22%;text-align:right}
 @media(max-width:600px){.qd-difficulty-grid{grid-template-columns:1fr}.qd-difficulty-option{gap:.35rem}.qd-daily-screen,.qd-practice-setup{padding-block:1.5rem 3rem}.qd-daily-screen .pattern-list{gap:.8rem}.qd-round-bars{height:60px}}
 @media(prefers-reduced-motion:no-preference){.qd-result-hero,.qd-round-chart{animation:qd-result-settle 300ms var(--qd-settle) both}.qd-difficulty-option{transition:border-color 160ms,background-color 160ms}}
+
+.qd-workshop,.qd-workshop-controls{display:grid;gap:1rem}.qd-workshop-controls{padding:1rem;border:1px solid var(--border);border-radius:8px}.qd-workshop-grid{display:grid;gap:4px;width:min(100%,240px);margin:auto}.qd-workshop-grid i{aspect-ratio:1;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border);border-radius:3px;font-size:.75rem;font-style:normal}.qd-workshop-grid i[data-lit=true]{background:var(--accent);color:var(--accent-ink)}.qd-workshop-controls input[type=range]{width:100%;accent-color:var(--accent)}.memory-board button.is-active{font-weight:700}
+
+.qd-personal-record,.qd-recommended-practice{display:grid;gap:.35rem;padding:.8rem 1rem;border:1px solid var(--border);border-radius:8px;max-width:100%;text-align:center;margin:.8rem 0}.qd-personal-record[data-record=true]{border-color:var(--accent);color:var(--accent)}.qd-personal-record small,.qd-skill-progress small{color:var(--muted);font-size:.8rem}.qd-skill-progress{display:grid;gap:.8rem}.qd-skill-progress article{display:grid;gap:.45rem;border-bottom:1px solid var(--border);padding:.8rem 0}.qd-skill-progress article>div{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}.qd-skill-progress meter{width:100%;accent-color:var(--accent)}.qd-rivalry{margin-top:.4rem}.qd-rivalry p{font-size:.8rem;margin:.25rem 0}.profile-avatar[data-profile-frame="frame-precision"],.profile-chip span[data-profile-frame="frame-precision"]{outline:2px solid #c99531;outline-offset:3px;box-shadow:0 0 0 6px #c9953122}@media(prefers-reduced-motion:no-preference){.qd-personal-record[data-record=true]{animation:qd-record-enter .38s ease-out both}@keyframes qd-record-enter{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}}
+
+.profile-avatar[data-profile-frame="frame-versatility"],.profile-chip span[data-profile-frame="frame-versatility"]{outline:2px solid #24a7bd;outline-offset:3px;box-shadow:0 0 0 6px #24a7bd33}
+.profile-avatar[data-profile-frame="frame-champion"],.profile-chip span[data-profile-frame="frame-champion"]{outline:3px double #b58aff;outline-offset:3px;box-shadow:0 0 0 6px #b58aff33}
+
+.qd-daily-colour-reference{height:3.25rem;width:min(100%,14rem);margin:.5rem auto;border:1px solid var(--border);border-radius:8px}.qd-daily-colour-option{display:block;width:100%;min-width:2rem;height:2rem;border:1px solid var(--border);border-radius:4px}.qd-daily-dot-field{height:6rem;position:relative;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin:.5rem 0}.qd-daily-dot-field i{position:absolute;border-radius:50%;background:var(--text);transform:translate(-50%,-50%)}
+
+/* Shape Recall uses one full-size canvas rather than the old slider grid. */
+.active-game .shape-game {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.active-game .shape-game .shape-canvas {
+  width: min(100%, 340px, 43dvh);
+  height: auto;
+  max-height: none;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.shape-canvas [role="slider"] { cursor: grab; touch-action: none; }
+.shape-canvas [role="slider"]:active { cursor: grabbing; }
+.shape-canvas [role="slider"] circle { fill: var(--surface, #fff); stroke: var(--accent); stroke-width: 2; }
+.shape-canvas [role="slider"] text { text-anchor: middle; dominant-baseline: central; font-size: 9px; fill: currentColor; pointer-events: none; }
+.shape-canvas [role="slider"]:focus-visible circle { stroke-width: 4; }

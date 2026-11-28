@@ -242,7 +242,7 @@ test("Frequency Recall v2 gives per-round feedback before advancing", async ({ p
   await confirm.click();
   await expect(page.getByText("Round score", { exact: true })).toBeVisible();
   await expect(page.locator(".recall-comparison").getByText("Target", { exact: true })).toBeVisible();
-  await expect(page.getByText("Your guess", { exact: true })).toBeVisible();
+  await expect(page.locator(".recall-comparison").getByText("Your guess", { exact: true })).toBeVisible();
   await expect(page.getByText("Difference", { exact: true })).toBeVisible();
   await expect(page.getByText("Percent", { exact: true })).toBeVisible();
   await expect(page.getByText("Cents", { exact: true })).toBeVisible();
@@ -1098,13 +1098,56 @@ test("game library uses distinct mechanic icons rather than numeric markers", as
   await page.goto("/");
   const library = page.getByRole("region", { name: "Game library" });
   await expect(library.locator("[data-game-icon]")).toHaveCount(5);
-  const expand = library.getByRole("button", { name: "See all", exact: true });
+  const expand = library.locator(".all-games-disclosure");
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
   await expect(expand).toBeEnabled();
   await expand.click();
-  await expect(library.getByRole("button", { name: "Hide all", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(expand).toHaveAttribute("aria-expanded", "true");
   const icons = library.locator("[data-game-icon]");
   await expect(icons).toHaveCount(15);
   const ids = await icons.evaluateAll(elements => elements.map(element => element.getAttribute("data-game-icon")));
   expect(new Set(ids).size).toBe(15);
   await expect(library.locator(".game-mark").filter({ hasText: /^\d{2}$/ })).toHaveCount(0);
+});
+
+test("practice viewport displays all countdown digits and draggable shape points", async ({page}) => {
+  await page.goto("/match/practice?game=shape_recall&seed=shape-drag-regression");
+  const digit=page.locator(".qd-countdown > span");
+  await expect(digit).toHaveText("3");
+  await expect(digit).toHaveText("2");
+  await expect(digit).toHaveText("1");
+  const point=page.getByRole("slider",{name:"Point 1",exact:true});
+  await expect(point).toBeVisible({timeout:10000});
+  await expect(page.locator(".shape-game input[type=range]")).toHaveCount(0);
+  const before=await point.getAttribute("aria-valuenow");
+  const bounds=await point.locator("circle").boundingBox();
+  expect(bounds).not.toBeNull();
+  if(!bounds)throw new Error("No draggable point");
+  await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2-20,{steps:5});
+  await page.mouse.up();
+  await expect(point).not.toHaveAttribute("aria-valuenow",before??"");
+  await page.getByRole("button",{name:"Lock answer",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Correct answer"})).toBeVisible({timeout:30000});
+  await expect(page.getByRole("img",{name:"Correct six-point shape"})).toBeVisible();
+});
+
+test("ranked countdown shows 3, 2 and 1 before an authoritative reveal", async ({page}) => {
+  const id="00000000-0000-4000-8000-000000000073";
+  let start=0;
+  await page.route(`**/api/matches/${id}/chat**`,route=>route.fulfill({json:{ok:true,data:[]}}));
+  await page.route(`**/api/matches/${id}/placements`,route=>route.fulfill({json:{ok:true,data:{}}}));
+  await page.route(`**/api/matches/${id}`,async route=>{
+    const at=Date.now();
+    if(!start)start=at+3000;
+    const phase=at<start?"countdown":at<start+2500?"reveal":"answer";
+    await route.fulfill({json:{ok:true,data:timingSnapshot(id,"memory_grid",start,7000,phase,at,Date.now())}});
+  });
+  await page.goto(`/match/${id}`);
+  const digit=page.locator(".qd-countdown > span");
+  await expect(digit).toHaveText("3");
+  await expect(digit).toHaveText("2");
+  await expect(digit).toHaveText("1");
+  await expect(page.locator(".memory-board button.is-active")).toHaveCount(6);
 });
