@@ -1132,3 +1132,22 @@ test("practice viewport displays all countdown digits and draggable shape points
   await expect(page.getByRole("region",{name:"Correct answer"})).toBeVisible({timeout:30000});
   await expect(page.getByRole("img",{name:"Correct six-point shape"})).toBeVisible();
 });
+
+test("ranked countdown shows 3, 2 and 1 before an authoritative reveal", async ({page}) => {
+  const id="00000000-0000-4000-8000-000000000073";
+  let start=0;
+  await page.route(`**/api/matches/${id}/chat**`,route=>route.fulfill({json:{ok:true,data:[]}}));
+  await page.route(`**/api/matches/${id}/placements`,route=>route.fulfill({json:{ok:true,data:{}}}));
+  await page.route(`**/api/matches/${id}`,async route=>{
+    const at=Date.now();
+    if(!start)start=at+3000;
+    const phase=at<start?"countdown":at<start+2500?"reveal":"answer";
+    await route.fulfill({json:{ok:true,data:timingSnapshot(id,"memory_grid",start,7000,phase,at,Date.now())}});
+  });
+  await page.goto(`/match/${id}`);
+  const digit=page.locator(".qd-countdown > span");
+  await expect(digit).toHaveText("3");
+  await expect(digit).toHaveText("2");
+  await expect(digit).toHaveText("1");
+  await expect(page.locator(".memory-board button.is-active")).toHaveCount(6);
+});

@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - 'supabase/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'e2e/release-live.spec.ts'
+      - 'playwright.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/isolated-db.yml'
 
 permissions:
