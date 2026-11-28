@@ -1109,3 +1109,26 @@ test("game library uses distinct mechanic icons rather than numeric markers", as
   expect(new Set(ids).size).toBe(15);
   await expect(library.locator(".game-mark").filter({ hasText: /^\d{2}$/ })).toHaveCount(0);
 });
+
+test("practice viewport displays all countdown digits and draggable shape points", async ({page}) => {
+  await page.goto("/match/practice?game=shape_recall&seed=shape-drag-regression");
+  const digit=page.locator(".qd-countdown > span");
+  await expect(digit).toHaveText("3");
+  await expect(digit).toHaveText("2");
+  await expect(digit).toHaveText("1");
+  const point=page.getByRole("slider",{name:"Point 1",exact:true});
+  await expect(point).toBeVisible({timeout:10000});
+  await expect(page.locator(".shape-game input[type=range]")).toHaveCount(0);
+  const before=await point.getAttribute("aria-valuenow");
+  const bounds=await point.locator("circle").boundingBox();
+  expect(bounds).not.toBeNull();
+  if(!bounds)throw new Error("No draggable point");
+  await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2-20,{steps:5});
+  await page.mouse.up();
+  await expect(point).not.toHaveAttribute("aria-valuenow",before??"");
+  await page.getByRole("button",{name:"Lock answer",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Correct answer"})).toBeVisible({timeout:30000});
+  await expect(page.getByRole("img",{name:"Correct six-point shape"})).toBeVisible();
+});

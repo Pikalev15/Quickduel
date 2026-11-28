@@ -27,3 +27,8 @@ export function submissionWindow(
   if ((timedOut || submitAtDeadline) && receivedAt < deadline - 250) return "too-early";
   return "open";
 }
+
+export function formatQueueElapsed(seconds: number): string {
+  const elapsed = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  return `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+}

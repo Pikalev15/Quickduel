@@ -548,19 +548,24 @@ function ShapeSvg({ radii }: { radii: number[] }) {
 export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const target = (challenge.radii as number[] | undefined) ?? [];
   const [radii, setRadii] = useState([50, 50, 50, 50, 50, 50]);
-  const [dragging, setDragging] = useState<number | null>(null);
+  const dragging = useRef<{ index: number; pointerId: number } | null>(null);
+  const currentRadii = useRef(radii);
   useSubmitInitialValidAnswer(disabled, onChange, { radii });
   const points = radii.map((radius, index) => {
     const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
     const scaled = 30 + radius * 0.65;
     return { x: 100 + Math.cos(angle) * scaled, y: 100 + Math.sin(angle) * scaled };
   });
-  const updatePoint = (index: number, clientX: number, clientY: number, rect: DOMRect) => {
-    const x = ((clientX - rect.left) / rect.width) * 200 - 100;
-    const y = ((clientY - rect.top) / rect.height) * 200 - 100;
+  const updatePoint = (index: number, clientX: number, clientY: number, svg: SVGSVGElement) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
+    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
+    const x = point.x - 100;
+    const y = point.y - 100;
     const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
     const radius = Math.max(10, Math.min(90, (x * Math.cos(angle) + y * Math.sin(angle) - 30) / 0.65));
-    const next = radii.map((value, cursor) => cursor === index ? radius : value);
+    const next = currentRadii.current.map((value, cursor) => cursor === index ? radius : value);
+    currentRadii.current = next;
     setRadii(next);
     onChange({ radii: next }, true);
   };
@@ -574,10 +579,12 @@ export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponent
           role="group"
           aria-label="Drag the six points to rebuild the shape"
           onPointerMove={(event) => {
-            if (dragging !== null && !disabled) updatePoint(dragging, event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+            const active = dragging.current;
+            if (active && active.pointerId === event.pointerId && !disabled) updatePoint(active.index, event.clientX, event.clientY, event.currentTarget);
           }}
-          onPointerUp={() => setDragging(null)}
-          onPointerCancel={() => setDragging(null)}
+          onPointerUp={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
+          onPointerCancel={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
+          onLostPointerCapture={(event) => { if (dragging.current?.pointerId === event.pointerId) dragging.current = null; }}
         >
           <polygon points={points.map(({ x, y }) => `${x},${y}`).join(" ")} />
           {points.map(({ x, y }, index) => (
@@ -591,16 +598,19 @@ export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponent
               aria-valuenow={Math.round(radii[index])}
               tabIndex={disabled ? -1 : 0}
               onPointerDown={(event) => {
-                if (disabled) return;
+                if (disabled || dragging.current || event.button !== 0) return;
+                const svg = event.currentTarget.ownerSVGElement;
+                if (!svg) return;
                 event.currentTarget.setPointerCapture(event.pointerId);
-                setDragging(index);
-                updatePoint(index, event.clientX, event.clientY, event.currentTarget.ownerSVGElement!.getBoundingClientRect());
+                dragging.current = { index, pointerId: event.pointerId };
+                updatePoint(index, event.clientX, event.clientY, svg);
               }}
               onKeyDown={(event) => {
                 const delta = event.key === "ArrowUp" || event.key === "ArrowRight" ? 2 : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -2 : 0;
                 if (!delta || disabled) return;
                 event.preventDefault();
-                const next = radii.map((value, cursor) => cursor === index ? Math.max(10, Math.min(90, value + delta)) : value);
+                const next = currentRadii.current.map((value, cursor) => cursor === index ? Math.max(10, Math.min(90, value + delta)) : value);
+                currentRadii.current = next;
                 setRadii(next);
                 onChange({ radii: next }, true);
               }}

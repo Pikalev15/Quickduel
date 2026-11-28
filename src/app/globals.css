@@ -5683,3 +5683,22 @@ dd,
 .profile-avatar[data-profile-frame="frame-champion"],.profile-chip span[data-profile-frame="frame-champion"]{outline:3px double #b58aff;outline-offset:3px;box-shadow:0 0 0 6px #b58aff33}
 
 .qd-daily-colour-reference{height:3.25rem;width:min(100%,14rem);margin:.5rem auto;border:1px solid var(--border);border-radius:8px}.qd-daily-colour-option{display:block;width:100%;min-width:2rem;height:2rem;border:1px solid var(--border);border-radius:4px}.qd-daily-dot-field{height:6rem;position:relative;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin:.5rem 0}.qd-daily-dot-field i{position:absolute;border-radius:50%;background:var(--text);transform:translate(-50%,-50%)}
+
+/* Shape Recall uses one full-size canvas rather than the old slider grid. */
+.active-game .shape-game {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.active-game .shape-game .shape-canvas {
+  width: min(100%, 340px, 43dvh);
+  height: auto;
+  max-height: none;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.shape-canvas [role="slider"] { cursor: grab; touch-action: none; }
+.shape-canvas [role="slider"]:active { cursor: grabbing; }
+.shape-canvas [role="slider"] circle { fill: var(--surface, #fff); stroke: var(--accent); stroke-width: 2; }
+.shape-canvas [role="slider"] text { text-anchor: middle; dominant-baseline: central; font-size: 9px; fill: currentColor; pointer-events: none; }
+.shape-canvas [role="slider"]:focus-visible circle { stroke-width: 4; }

@@ -38,6 +38,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [clockOffset, setClockOffset] = useState(0);
   const clockOffsetRef = useRef(0);
+  const clockSynced = useRef(false);
   const serverNow = now + clockOffset;
   const [connected, setConnected] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -64,9 +65,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       const next = await request<MatchSnapshot>(`/api/matches/${matchId}`);
       const offset = estimateServerClockOffset(next.server_now, requestedAt, Date.now(), next.server_received_at);
       if (offset !== null) {
-        clockOffsetRef.current = offset;
-        setClockOffset(offset);
+        const nextOffset = clockSynced.current ? clockOffsetRef.current + Math.max(-50, Math.min(50, offset - clockOffsetRef.current)) : offset;
+        clockSynced.current = true;
+        clockOffsetRef.current = nextOffset;
+        setClockOffset(nextOffset);
       }
+      const current = latestSnapshot.current;
+      if (current?.starts_at && !next.starts_at && next.status === "waiting") return;
       latestSnapshot.current = next;
       setSnapshot(next);
       setError(null);
@@ -108,8 +113,25 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (!snapshot || readySent.current || snapshot.status !== "waiting" || (requiresAudio && !audioReady) || (typing && !keyboardReady)) return;
     readySent.current = true;
+    const sentAt = Date.now();
     void request<MatchSnapshot>(`/api/matches/${matchId}/ready`, { method: "POST" })
-      .then(() => void reload())
+      .then((ready) => {
+        const current = latestSnapshot.current;
+        if (current?.status === "waiting" && ready?.status === "countdown" && ready.starts_at) {
+          const receivedAt = Date.now();
+          const offset = estimateServerClockOffset(ready.server_now, sentAt, receivedAt, ready.server_received_at);
+          if (offset !== null && !clockSynced.current) {
+            clockSynced.current = true;
+            clockOffsetRef.current = offset;
+            setClockOffset(offset);
+          }
+          const next: MatchSnapshot = { ...current, ...ready, phase: "countdown", challenge: {} };
+          latestSnapshot.current = next;
+          setNow(receivedAt);
+          setSnapshot(next);
+        }
+        void reload();
+      })
       .catch((caught) => {
         setError(caught instanceof Error ? caught.message : "Ready failed.");
         readySent.current = false;

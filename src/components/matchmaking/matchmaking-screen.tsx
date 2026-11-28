@@ -11,6 +11,7 @@ import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { track } from "@/lib/analytics";
 import { getDivision } from "@/lib/divisions";
 import { getPlacement } from "@/lib/placements";
+import { formatQueueElapsed } from "@/lib/game-clock";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
 
 type QueueResult = { queued: boolean; match_id: string | null };
@@ -78,10 +79,13 @@ export function MatchmakingScreen({
   const queueStartedAt = useRef(0);
   const tabId = useRef("");
   const leaving = useRef(false);
+  const heartbeatInFlight = useRef(false);
 
   const handleQueueResult = useCallback(
     (result: QueueResult) => {
       if (result.match_id) {
+        if (leaving.current) return;
+        leaving.current = true;
         const durationMs = Date.now() - queueStartedAt.current;
         track("human_match_found", {
           playlist: activePlaylist,
@@ -184,25 +188,27 @@ export function MatchmakingScreen({
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setSeconds((value) => {
-        const next = value + 1;
-        if (next >= 8) setOfferBot(true);
-        return next;
-      });
+      if (!queueStartedAt.current) return;
+      const elapsed = Math.max(0, Math.floor((Date.now() - queueStartedAt.current) / 1000));
+      setSeconds(elapsed);
+      if (elapsed >= 8) setOfferBot(true);
     }, 1_000);
     return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
     const heartbeat = window.setInterval(async () => {
-      if (leaving.current || status !== "searching") return;
+      if (leaving.current || heartbeatInFlight.current || status !== "searching") return;
+      heartbeatInFlight.current = true;
       try {
         handleQueueResult(await postQueue("heartbeat", activePlaylist, activeGame));
       } catch {
         setStatus(navigator.onLine ? "error" : "offline");
         setMessage(navigator.onLine ? "Connection interrupted" : "You are offline");
+      } finally {
+        heartbeatInFlight.current = false;
       }
-    }, 5_000);
+    }, 1_250);
     return () => window.clearInterval(heartbeat);
   }, [activeGame, activePlaylist, handleQueueResult, status]);
 
@@ -305,7 +311,7 @@ export function MatchmakingScreen({
           {message}
         </h1>
         <time className="queue-time" aria-live="polite">
-          {String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}
+          {formatQueueElapsed(seconds)}
         </time>
         {challengeSiteKey && (
           <AdaptiveChallenge

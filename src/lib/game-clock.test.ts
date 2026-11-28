@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateServerClockOffset, submissionWindow } from "./game-clock";
+import { estimateServerClockOffset, submissionWindow, formatQueueElapsed } from "./game-clock";
 const iso = (n: number) => new Date(n).toISOString();
 describe("game clock synchronization", () => {
   it("removes 800ms processing from a 100ms each-way request", () => {
@@ -33,5 +33,12 @@ describe("server submission receipt boundary", () => {
     expect(submissionWindow(8750, 1000, 8000, false, true)).toBe("open");
     expect(submissionWindow(8749, 1000, 8000, true, false)).toBe("too-early");
     expect(submissionWindow(9000, NaN, 8000, false, false)).toBe("invalid");
+  });
+});
+
+
+describe("matchmaking clock", () => {
+  it.each([[0,"00:00"],[59,"00:59"],[60,"01:00"],[101,"01:41"],[3600,"60:00"],[-1,"00:00"]])("formats %s elapsed seconds", (seconds, expected) => {
+    expect(formatQueueElapsed(Number(seconds))).toBe(expected);
   });
 });
