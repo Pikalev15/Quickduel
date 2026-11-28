@@ -5,7 +5,7 @@ import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
-import { CorrectShapeAnswer } from "@/components/results/correct-answer";
+import { CorrectAnswer } from "@/components/results/correct-answer";
 import { ResultPanel } from "@/components/results/result-panel";
 import {PracticeRecordNotice} from "@/components/results/practice-record";
 import { compareGameResults, type GameId, type Submission } from "@/games/types";
@@ -155,7 +155,7 @@ export function PracticeMatch({
         <ResultPanel
           outcome={outcome}
           gameName={game.name}
-          correctAnswer={game.id === "shape_recall" && Array.isArray(challenge.radii) ? <CorrectShapeAnswer radii={challenge.radii as number[]} /> : undefined}
+          correctAnswer={CorrectAnswer({ gameId: game.id, challenge })}
           completionNotice={gameId === "cryptic_duel" ? `Answer: ${String(challenge.answer)}. ${String(challenge.explanation)}` : undefined}
           unranked
           recordNotice={!onboardingStep&&parsed.success?<PracticeRecordNotice recordKey={`${gameId}:${game.version}:${difficulty}:${timing.revealMs}:${timing.answerMs}`} score={playerResult.rankScore} accuracy={playerResult.accuracy} timeMs={playerTime} summary={playerResult.summary}/>:undefined}

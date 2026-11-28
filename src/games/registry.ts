@@ -633,7 +633,8 @@ const patternComplete: GameDefinition = {
       }),
     };
   },
-  publicChallenge(challenge) {
+  publicChallenge(challenge, phase) {
+    if (phase === "result") return challenge;
     return {
       puzzles: (challenge.puzzles as Array<Record<string, unknown>>).map((puzzle) =>
         Object.fromEntries(Object.entries(puzzle).filter(([key]) => key !== "answer")),
