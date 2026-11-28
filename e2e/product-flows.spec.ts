@@ -625,6 +625,100 @@ test("timeout result is not presented as an accuracy win and match chat stays sc
   await captureProductScreenshot(page, testInfo, "ranked-timeout-chat");
 });
 
+test("normal result uses the database winner instead of client tie-breaks", async ({ page }) => {
+  const matchId = "00000000-0000-4000-8000-000000000100";
+  const playerId = "00000000-0000-4000-8000-000000000001";
+  const opponentId = "00000000-0000-4000-8000-000000000002";
+  await page.route(`**/api/matches/${matchId}/chat`, route => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.route(`**/api/matches/${matchId}/placements`, route => route.fulfill({ json: { ok: true, data: {} } }));
+  await page.route(`**/api/matches/${matchId}`, route => route.fulfill({
+    json: {
+      ok: true,
+      data: {
+        id: matchId,
+        status: "completed",
+        game_type: "memory_grid",
+        game_version: 1,
+        ranked: true,
+        phase: "result",
+        challenge: {},
+        reveal_duration_ms: 2500,
+        answer_duration_ms: 7000,
+        starts_at: new Date(Date.now() - 20_000).toISOString(),
+        expires_at: new Date(Date.now() - 5_000).toISOString(),
+        winner_id: playerId,
+        completed_at: new Date().toISOString(),
+        completion_reason: "normal",
+        rematch_match_id: null,
+        current_user_id: playerId,
+        players: [
+          {
+            user_id: playerId,
+            display_name: "Levi",
+            ready_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
+            calculated_score: 3,
+            correct_count: 4,
+            incorrect_count: 2,
+            completion_time_ms: 1000,
+            rating_before: 1000,
+            rating_after: 1016,
+            rating_delta: 16,
+            rematch_requested_at: null,
+            result: { rankScore: 3, accuracy: 0.5, summary: "4/6 cells", details: { correct: 4, incorrect: 2, missed: 2 } },
+          },
+          {
+            user_id: opponentId,
+            display_name: "Nova",
+            ready_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
+            calculated_score: 3,
+            correct_count: 5,
+            incorrect_count: 4,
+            completion_time_ms: 2000,
+            rating_before: 1000,
+            rating_after: 984,
+            rating_delta: -16,
+            rematch_requested_at: null,
+            result: { rankScore: 3, accuracy: 0.5, summary: "5/6 cells", details: { correct: 5, incorrect: 4, missed: 1 } },
+          },
+        ],
+      },
+    },
+  }));
+  await page.goto(`/match/${matchId}`);
+  await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Defeat" })).toHaveCount(0);
+});
+
+test("ranked deadline submission retries after a transient failure", async ({ page }) => {
+  const id = "00000000-0000-4000-8000-000000000074";
+  let start = 0;
+  let attempts = 0;
+  await page.route(`**/api/matches/${id}/chat`, route => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.route(`**/api/matches/${id}/placements`, route => route.fulfill({ json: { ok: true, data: {} } }));
+  await page.route(`**/api/matches/${id}`, route => {
+    const received = Date.now();
+    if (!start) start = received + 2000;
+    const phase = received < start ? "countdown" : "answer";
+    return route.fulfill({ json: { ok: true, data: timingSnapshot(id, "typing_sprint", start, 3000, phase, received, Date.now()) } });
+  });
+  await page.route(`**/api/matches/${id}/submit`, route => {
+    attempts += 1;
+    if (attempts === 1) {
+      return route.fulfill({
+        status: 409,
+        json: { ok: false, error: { code: "CONFLICT", message: "This game submits at the deadline.", details: { domainCode: "QD_SUBMISSION_TOO_EARLY" } } },
+      });
+    }
+    return route.fulfill({ json: { ok: true, data: timingSnapshot(id, "typing_sprint", start, 3000, "answer", Date.now(), Date.now()) } });
+  });
+  await page.goto(`/match/${id}`);
+  await page.getByRole("button", { name: "Ready keyboard", exact: true }).click();
+  await page.keyboard.type("alpha ");
+  await expect.poll(() => attempts, { timeout: 10_000 }).toBeGreaterThan(1);
+});
+
 test("statistics use game-specific metrics and division thresholds", async ({ page }) => {
   await page.route("**/api/stats", (route) =>
     route.fulfill({
@@ -946,10 +1040,44 @@ test("request inbox supports incoming friend and duel requests and rematches", a
   await expect(page.getByText("No pending requests.")).toBeVisible();
 });
 
-function timingSnapshot(matchId: string, game: "typing_sprint" | "memory_grid", start: number, duration: number, phase: "countdown" | "reveal" | "answer", received: number, sent: number) {
+function timingSnapshot(matchId: string, game: "typing_sprint" | "memory_grid", start: number, duration: number, phase: "countdown" | "reveal" | "answer", received: number, sent: number, completed = false) {
   const iso = (n: number) => new Date(n).toISOString();
-  const participants = [profile.id,"00000000-0000-4000-8000-000000000002"].map((id,i)=>({user_id:id,display_name:i?"Opponent":"Player",ready_at:iso(start-2000),submitted_at:null,calculated_score:null,correct_count:null,incorrect_count:null,completion_time_ms:null,rating_before:1000,rating_after:null,rating_delta:null,rematch_requested_at:null,result:null}));
-  return { id:matchId,status:phase==="countdown"?"countdown":"active",game_type:game,game_version:1,ranked:true,phase,challenge:phase==="countdown"?{}:game==="typing_sprint"?{text:"alpha bravo charlie delta",words:["alpha","bravo","charlie","delta"],durationMs:duration}:phase==="reveal"?{size:4,highlightedCells:[0,1,2,3,4,5],flashMs:2500,revealMs:2500}:{size:4,flashMs:2500,revealMs:2500},reveal_duration_ms:game==="memory_grid"?2500:0,answer_duration_ms:duration,starts_at:iso(start),expires_at:iso(start+60000),winner_id:null,completed_at:null,rematch_match_id:null,current_user_id:profile.id,players:participants,server_received_at:iso(received),server_now:iso(sent)};
+  const participants = [profile.id,"00000000-0000-4000-8000-000000000002"].map((id,i)=>({
+    user_id:id,
+    display_name:i?"Opponent":"Player",
+    ready_at:iso(start-2000),
+    submitted_at:null,
+    calculated_score:completed?-999999:null,
+    correct_count:null,
+    incorrect_count:null,
+    completion_time_ms:completed?duration:null,
+    rating_before:1000,
+    rating_after:completed?1000:null,
+    rating_delta:completed?0:null,
+    rematch_requested_at:null,
+    result:completed?{rankScore:-999999,accuracy:0,summary:"No answer",details:{timedOut:true}}:null,
+  }));
+  return {
+    id:matchId,
+    status:completed?"completed":phase==="countdown"?"countdown":"active",
+    game_type:game,
+    game_version:1,
+    ranked:true,
+    phase:completed?"result":phase,
+    challenge:phase==="countdown"?{}:game==="typing_sprint"?{text:"alpha bravo charlie delta",words:["alpha","bravo","charlie","delta"],durationMs:duration}:phase==="reveal"?{size:4,highlightedCells:[0,1,2,3,4,5],flashMs:2500,revealMs:2500}:{size:4,flashMs:2500,revealMs:2500},
+    reveal_duration_ms:game==="memory_grid"?2500:0,
+    answer_duration_ms:duration,
+    starts_at:iso(start),
+    expires_at:iso(start+60000),
+    winner_id:null,
+    completed_at:completed?iso(sent):null,
+    completion_reason:completed?"double_timeout":null,
+    rematch_match_id:null,
+    current_user_id:profile.id,
+    players:participants,
+    server_received_at:iso(received),
+    server_now:iso(sent),
+  };
 }
 
 test("ranked timing viewport keeps the keyboard input through a delayed answer snapshot",async({page})=>{
@@ -978,20 +1106,22 @@ test("ranked timing viewport keeps the keyboard input through a delayed answer s
   await expect(input).toHaveValue("alpha ");
 });
 
-test("delayed ranked snapshot processing does not consume extra reveal or answer time",async({page})=>{
+test("delayed ranked snapshots preserve the deadline without timeout receipts",async({page})=>{
   const id="00000000-0000-4000-8000-000000000072";
   let start=0;
-  let submittedAt=0;
+  let submissionAttempts=0;
   await page.route(`**/api/matches/${id}/chat**`,route=>route.fulfill({json:{ok:true,data:[]}}));
   await page.route(`**/api/matches/${id}/placements`,route=>route.fulfill({json:{ok:true,data:{}}}));
-  await page.route(`**/api/matches/${id}/submit`,route=>{submittedAt=Date.now();return route.fulfill({json:{ok:true,data:{}}});});
+  await page.route(`**/api/matches/${id}/submit`,route=>{submissionAttempts+=1;return route.fulfill({json:{ok:true,data:{}}});});
   await page.route(`**/api/matches/${id}`,async route=>{
     const received=Date.now();
     if(!start)start=received+2500;
     await new Promise(resolve=>setTimeout(resolve,800));
     const sent=Date.now();
     const phase=sent<start?"countdown":sent<start+2500?"reveal":"answer";
-    await route.fulfill({json:{ok:true,data:timingSnapshot(id,"memory_grid",start,7000,phase,received,sent)}});
+    const completed=sent>=start+2500+7000+5000;
+    const snapshot=timingSnapshot(id,"memory_grid",start,7000,phase,received,sent,completed);
+    await route.fulfill({json:{ok:true,data:snapshot}});
   });
   await page.goto(`/match/${id}`);
   await expect(page.locator(".memory-board button.is-active")).toHaveCount(6,{timeout:10000});
@@ -1000,8 +1130,8 @@ test("delayed ranked snapshot processing does not consume extra reveal or answer
   await new Promise(resolve=>setTimeout(resolve,Math.max(0,revealEnd-240-Date.now())));
   await expect(page.locator(".memory-board button.is-active")).toHaveCount(6,{timeout:150});
   await expect(page.locator(".memory-board button").first()).toBeEnabled({timeout:3000});
-  await expect.poll(()=>submittedAt,{timeout:11000}).toBeGreaterThan(0);
-  expect(submittedAt).toBeGreaterThanOrEqual(start+2500+7000-125);
+  await expect(page.getByRole("heading",{name:"No result"})).toBeVisible({timeout:15000});
+  expect(submissionAttempts).toBe(0);
 });
 
 test("Reaction viewport times out missed taps and finishes after five attempts",async({page})=>{

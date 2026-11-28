@@ -22,6 +22,14 @@ describe("database domain errors", () => {
     expect(isDuplicateSubmission(rewritten)).toBe(true);
   });
 
+  it("recognizes the retryable deadline code", () => {
+    expect(databaseDomainCode({
+      code: "P0001",
+      message: "This game submits at the deadline.",
+      details: "QD_SUBMISSION_TOO_EARLY",
+    })).toBe("QD_SUBMISSION_TOO_EARLY");
+  });
+
   it("does not classify arbitrary database prose", () => {
     expect(databaseDomainCode({
       code: "P0001",
