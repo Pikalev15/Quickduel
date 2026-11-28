@@ -220,6 +220,7 @@ const frequencyRecallV2: GameDefinition = {
   calculate(challenge, submission) {
     const expected = challenge.frequencies as number[];
     const guesses = submission.guessesHz as (number | null)[];
+    const answeredCount = guesses.filter((guess) => guess !== null).length;
     const roundFeedback = expected.map((frequency, index) =>
       frequencyRoundFeedback(frequency, guesses[index]),
     );
@@ -232,7 +233,7 @@ const frequencyRecallV2: GameDefinition = {
         roundFeedback.reduce(
           (total, feedback) => total + Math.abs(feedback.centsError ?? 0),
           0,
-        ) / 5,
+        ) / Math.max(1, answeredCount),
         2,
       ),
       ...Object.fromEntries(roundScores.flatMap((score, index) => [
@@ -272,7 +273,8 @@ const colourRecallV2: GameDefinition = {
   ranked: true,
   revealDurationMs: 0,
   answerDurationMs: 40_000,
-  submissionSchema: object({ colors: z.array(colorSchema).length(5) }) as z.ZodType<Submission>,
+  autoSubmitOnValid: true,
+  submissionSchema: object({ colors: z.array(colorSchema.nullable()).length(5) }) as z.ZodType<Submission>,
   generate(seed) {
     const random = createRandom(seed);
     return {
@@ -286,9 +288,10 @@ const colourRecallV2: GameDefinition = {
   publicChallenge: alwaysPublic,
   calculate(challenge, submission) {
     const expected = challenge.colors as Array<{ l: number; c: number; h: number }>;
-    const guesses = submission.colors as typeof expected;
+    const guesses = submission.colors as Array<{ l: number; c: number; h: number } | null>;
+    const answeredCount = guesses.filter((guess) => guess !== null).length;
     const roundFeedback = expected.map((color, index) =>
-      colourRoundFeedback(color, guesses[index]),
+      colourRoundFeedback(color, guesses[index] ?? null),
     );
     const roundScores = roundFeedback.map((feedback) => feedback.score);
     const totalScore = round(roundScores.reduce((total, score) => total + score, 0), 3);
@@ -299,18 +302,18 @@ const colourRecallV2: GameDefinition = {
         roundFeedback.reduce(
           (total, feedback) => total + (feedback.distance ?? 0),
           0,
-        ) / 5,
+        ) / Math.max(1, answeredCount),
         4,
       ),
       ...Object.fromEntries(roundScores.flatMap((score, index) => [
         [`round${index + 1}Score`, score],
-        [`round${index + 1}Answered`, true],
+        [`round${index + 1}Answered`, guesses[index] !== null],
         [`round${index + 1}TargetL`, expected[index].l],
         [`round${index + 1}TargetC`, expected[index].c],
         [`round${index + 1}TargetH`, expected[index].h],
-        [`round${index + 1}GuessL`, guesses[index].l],
-        [`round${index + 1}GuessC`, guesses[index].c],
-        [`round${index + 1}GuessH`, guesses[index].h],
+        [`round${index + 1}GuessL`, guesses[index]?.l ?? 0],
+        [`round${index + 1}GuessC`, guesses[index]?.c ?? 0],
+        [`round${index + 1}GuessH`, guesses[index]?.h ?? 0],
         [`round${index + 1}Distance`, roundFeedback[index].distance ?? 0],
       ])),
     });

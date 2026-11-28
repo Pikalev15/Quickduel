@@ -46,9 +46,19 @@ export function HomeScreen() {
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const libraryRef = useRef<HTMLDivElement>(null);
   const shouldFocusLibrary = useRef(false);
   const placement = getPlacement(profile?.matches_played);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("auth_error") === "google") {
+        setAuthError("Google sign-in did not finish. Please try again.");
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -162,39 +172,42 @@ export function HomeScreen() {
     track("play_clicked");
     setStarting(true);
     setError(null);
-    const supabase = await loadSupabaseBrowserClient();
-    if (!supabase) {
-      setStarting(false);
-      setError("Ranked play needs Supabase configuration. Practice remains available.");
-      return;
-    }
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      const { error: authError } = await supabase.auth.signInAnonymously();
-      if (authError) {
-        setStarting(false);
-        setError("Anonymous sign-in failed. Check Supabase Auth settings.");
+    try {
+      const supabase = await loadSupabaseBrowserClient();
+      if (!supabase) {
+        setError("Ranked play needs Supabase configuration. Practice remains available.");
         return;
       }
-      track("anonymous_auth_created");
-    }
-    const { error: profileError } = await supabase.rpc("ensure_profile");
-    if (profileError) {
-      setStarting(false);
-      setError("Your player profile could not be created. Please try again.");
-      return;
-    }
-    const profileResponse = await fetch("/api/profile", { cache: "no-store" });
-    if (profileResponse.ok) {
-      const body = await profileResponse.json();
-      if (body.data?.onboarding_completed === false) {
-        router.push("/onboarding");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        const { error: authError } = await supabase.auth.signInAnonymously();
+        if (authError) {
+          setError("Anonymous sign-in failed. Check Supabase Auth settings.");
+          return;
+        }
+        track("anonymous_auth_created");
+      }
+      const { error: profileError } = await supabase.rpc("ensure_profile");
+      if (profileError) {
+        setError("Your player profile could not be created. Please try again.");
         return;
       }
+      const profileResponse = await fetch("/api/profile", { cache: "no-store" });
+      if (profileResponse.ok) {
+        const body = await profileResponse.json();
+        if (body.data?.onboarding_completed === false) {
+          router.push("/onboarding");
+          return;
+        }
+      }
+      router.push("/play");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Quick Play could not start. Please try again.");
+    } finally {
+      setStarting(false);
     }
-    router.push("/play");
   }
 
   return (
@@ -243,9 +256,9 @@ export function HomeScreen() {
             <span><b>{placement?.placed && profile ? getDivision(profile.rating).name : placement ? `Placement ${placement.completed}/${placement.required}` : "Unranked"}</b>{placement?.placed && profile ? ` · ${profile.rating} Elo` : ""}</span>
             <span><SignalIcon className="h-4 w-4" /><b>{online ?? "–"}</b> online</span>
           </div>
-          {error && (
+          {(error || authError) && (
             <div role="alert" className="calm-error">
-              <span>{error}</span>
+              <span>{error ?? authError}</span>
               <Button onClick={() => router.push("/match/practice?game=memory_grid&seed=fallback")}>
                 Practice instead
               </Button>
@@ -347,15 +360,19 @@ export function HomeScreen() {
               </div>
               <Link href="/leaderboard">Full leaderboard</Link>
             </div>
-            <ol>
-              {leaders.slice(0, 5).map((leader) => (
-                <li key={leader.id}>
-                  <span>{leader.rank}</span>
-                  <b>{leader.display_name}</b>
-                  <strong>{leader.rating}</strong>
-                </li>
-              ))}
-            </ol>
+            {leaders.length === 0 ? (
+              <div className="calm-leaderboard-empty">No ranked players yet. Finish the first placements to open the board.</div>
+            ) : (
+              <ol>
+                {leaders.slice(0, 5).map((leader) => (
+                  <li key={leader.id}>
+                    <span>{leader.rank}</span>
+                    <b>{leader.display_name}</b>
+                    <strong>{leader.rating}</strong>
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
         )}
         <section className="qd-home-band qd-final-cta" data-qd-reveal="">

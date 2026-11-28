@@ -430,7 +430,7 @@ a {
   max-height: min(31rem, calc(100vh - 6rem));
   grid-template-rows: auto minmax(7rem, 1fr) auto auto;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--background) 94%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 1rem 3rem rgb(0 0 0 / 35%);
   backdrop-filter: blur(14px);
 }
@@ -4353,7 +4353,7 @@ header .page-shell {
   overflow: hidden;
   border-radius: 8px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-ink);
   box-shadow: 0 28px 70px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
@@ -4363,7 +4363,7 @@ header .page-shell {
   bottom: -6.5rem;
   width: 19rem;
   height: 19rem;
-  border: 1px solid rgb(255 255 255 / 18%);
+  border: 1px solid color-mix(in srgb, var(--accent-ink) 18%, transparent);
   border-radius: 50%;
   content: "";
 }
@@ -4379,7 +4379,7 @@ header .page-shell {
 }
 
 .arena-preview-head {
-  border-bottom: 1px solid rgb(255 255 255 / 24%);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-ink) 24%, transparent);
   padding: 1rem 1.15rem;
   font-size: 0.68rem;
   font-weight: 800;
@@ -4387,14 +4387,14 @@ header .page-shell {
 }
 
 .arena-live { display: flex; align-items: center; gap: 0.4rem; }
-.arena-live i { width: 7px; height: 7px; border-radius: 50%; background: white; box-shadow: 0 0 0 5px rgb(255 255 255 / 14%); }
+.arena-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-ink); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-ink) 14%, transparent); }
 .arena-scoreline { padding: 1.4rem 1.15rem 1.15rem; }
 .arena-scoreline > div { display: grid; min-width: 82px; }
 .arena-scoreline > div:last-child { text-align: right; }
 
 .arena-scoreline span,
 .arena-preview-foot span {
-  color: rgb(255 255 255 / 72%);
+  color: color-mix(in srgb, var(--accent-ink) 72%, transparent);
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -4407,7 +4407,7 @@ header .page-shell {
   line-height: 1;
 }
 
-.arena-mark { width: 42px; height: 42px; filter: grayscale(1) brightness(0) invert(1); opacity: 0.45; }
+.arena-mark { width: 42px; height: 42px; opacity: 0.45; }
 
 .arena-grid-preview {
   position: relative;
@@ -4421,10 +4421,10 @@ header .page-shell {
   aspect-ratio: 1;
 }
 
-.arena-grid-preview i { border: 1px solid rgb(255 255 255 / 26%); border-radius: 6px; background: rgb(10 23 73 / 18%); }
-.arena-grid-preview i.is-active { border-color: white; background: white; box-shadow: 0 8px 20px rgb(11 26 79 / 20%); }
+.arena-grid-preview i { border: 1px solid color-mix(in srgb, var(--accent-ink) 26%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--accent-ink) 18%, transparent); }
+.arena-grid-preview i.is-active { border-color: var(--accent-ink); background: var(--accent-ink); box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-ink) 20%, transparent); }
 
-.arena-preview-foot { border-top: 1px solid rgb(255 255 255 / 24%); padding: 1rem 1.15rem; }
+.arena-preview-foot { border-top: 1px solid color-mix(in srgb, var(--accent-ink) 24%, transparent); padding: 1rem 1.15rem; }
 .arena-preview-foot > div { display: grid; gap: 0.1rem; }
 .arena-preview-foot > div:last-child { text-align: right; }
 .arena-preview-foot strong { font-family: var(--display); font-size: 1.2rem; text-transform: uppercase; }
@@ -4434,6 +4434,7 @@ header .page-shell {
 .calm-content { padding-bottom: 5rem; }
 .calm-library,
 .calm-leaderboard { border-top: 1px solid var(--border); padding-top: 1.4rem; }
+.calm-leaderboard-empty { padding: 1rem; color: var(--muted); }
 .calm-section-head { margin-bottom: 1rem; }
 .calm-section-head span { font-size: 0.9rem; }
 

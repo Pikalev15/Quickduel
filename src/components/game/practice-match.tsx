@@ -40,6 +40,7 @@ export function PracticeMatch({
   const [keyboardReady, setKeyboardReady] = useState(!typing);
   const prepared = audioReady && keyboardReady;
   const [audioError, setAudioError] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [scheduledStart, setScheduledStart] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const prepareKeyboard = useCallback(() => {
@@ -148,19 +149,26 @@ export function PracticeMatch({
       values.reduce((total, item) => total + item.accuracy, 0) /
       Math.max(1, values.length);
     const recommendation = average(sensory) > average(mind) ? "sensory" : "mind";
-    await fetch("/api/onboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true, skipped: false, recommendation }),
-    });
-    track("onboarding_completed", { properties: { recommendation } });
-    localStorage.removeItem("quickduel:onboarding-results");
-    router.push(`/onboarding/complete?recommendation=${recommendation}`);
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: true, skipped: false, recommendation }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message ?? "Could not save onboarding progress.");
+      track("onboarding_completed", { properties: { recommendation } });
+      localStorage.removeItem("quickduel:onboarding-results");
+      router.push(`/onboarding/complete?recommendation=${recommendation}`);
+    } catch (caught) {
+      setOnboardingError(caught instanceof Error ? caught.message : "Could not save onboarding progress.");
+    }
   }
 
   if (phase === "result") {
     return (
       <main className="min-h-screen">
+        {onboardingError && <p className="inline-error" role="alert">{onboardingError}</p>}
         <GameHeader player="You" playerRating={1000} opponent="Practice Bot" connected practice />
         <ResultPanel
           outcome={outcome}
@@ -250,7 +258,7 @@ export function PracticeMatch({
               </div>
             </div>
             <p className="game-instructions">
-              {phase === "waiting" ? "Practice Bot is finishing." : gameId === "cryptic_duel" ? `Solve the clue in ${answerDurationMs/1000} seconds. Hints cost two points each.` : game.instructions}
+              {phase === "waiting" ? "Practice Bot is finishing." : gameId === "cryptic_duel" ? `Solve the clue in ${answerDurationMs/1000} seconds. Hints cost two points each.` : gameId === "reaction_test" ? `Wait for green, then tap. False starts and misses use the ${(Number(challenge.tapWindowMs ?? 1250) / 1000).toFixed(2)}-second tap window.` : game.instructions}
             </p>
             {phase === "answer" && gameId !== "frequency_recall_v2" && (
               <div

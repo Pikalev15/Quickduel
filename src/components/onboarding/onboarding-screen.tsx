@@ -40,7 +40,7 @@ export function OnboardingScreen() {
     setActing(true);
     try {
       await ensureSession();
-      await fetch("/api/onboarding", {
+      const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -49,6 +49,8 @@ export function OnboardingScreen() {
           recommendation: null,
         }),
       });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message ?? "Could not skip onboarding.");
       track("onboarding_completed", { properties: { skipped: true } });
       router.push("/play");
     } catch (caught) {

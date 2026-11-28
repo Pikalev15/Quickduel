@@ -13,6 +13,7 @@ import { track } from "@/lib/analytics";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
 import { ProductHeader } from "@/components/ui/product-header";
 import { AdaptiveChallenge } from "@/components/security/adaptive-challenge";
+import { canRankPrivateDuel } from "@/lib/duel-options";
 
 export function CreateDuelScreen() {
   const router = useRouter();
@@ -45,10 +46,19 @@ export function CreateDuelScreen() {
     () => gameCatalog.find((entry) => entry.id === game),
     [game],
   );
-  const rankedAllowed =
-    !workshop && user?.is_anonymous === false &&
-    playlist !== "experimental" &&
-    selectedGame?.ranked !== false;
+  const rankedAllowed = canRankPrivateDuel({
+    selectionKind,
+    gameRanked: selectedGame?.ranked === true,
+    playlist,
+    workshop: Boolean(workshop),
+    linked: user?.is_anonymous === false,
+  });
+  const rankedSelected = rankedAllowed && ranked;
+  const requestPlaylist = selectionKind === "game"
+    ? selectedGame?.category === "experimental"
+      ? "experimental"
+      : selectedGame?.category ?? "quick"
+    : playlist;
 
   const shareCode = selectionKind === "game" && workshop
     ? encodeWorkshopPreset({ game, bestOf, rules: workshop })
@@ -104,14 +114,9 @@ export function CreateDuelScreen() {
         body: JSON.stringify({
           selectionKind,
           game: selectionKind === "game" ? game : null,
-          playlist:
-            selectionKind === "game"
-              ? selectedGame?.category === "experimental"
-                ? "experimental"
-                : selectedGame?.category ?? "quick"
-              : playlist,
+          playlist: requestPlaylist,
           bestOf,
-          ranked: !workshop && ranked && currentUser?.is_anonymous === false,
+          ranked: rankedSelected,
           ...(workshop?{workshop}:{}),
         }),
       });
@@ -129,8 +134,8 @@ export function CreateDuelScreen() {
       setChallengeSiteKey(null);
       track("private_duel_created", {
         gameType: selectionKind === "game" ? game : null,
-        playlist,
-        properties: { bestOf, ranked },
+        playlist: requestPlaylist,
+        properties: { bestOf, ranked: rankedSelected },
       });
       router.push(`/duel/${body.data.code}`);
     } catch (caught) {
@@ -156,10 +161,10 @@ export function CreateDuelScreen() {
           <fieldset>
             <legend>What should stay fixed?</legend>
             <div className="segmented-control">
-              <button type="button" aria-pressed={selectionKind === "game"} onClick={() => setSelectionKind("game")}>
+              <button type="button" aria-pressed={selectionKind === "game"} onClick={() => { setSelectionKind("game"); setRanked(false); }}>
                 One game
               </button>
-              <button type="button" aria-pressed={selectionKind === "playlist"} onClick={() => {setSelectionKind("playlist");setWorkshop(null);}}>
+              <button type="button" aria-pressed={selectionKind === "playlist"} onClick={() => {setSelectionKind("playlist");setWorkshop(null);setRanked(false);}}>
                 Playlist
               </button>
             </div>
@@ -168,7 +173,7 @@ export function CreateDuelScreen() {
           {selectionKind === "game" ? (
             <label>
               Game
-              <select value={game} onChange={(event) => {setGame(event.target.value as GameId);setWorkshop(null);}}>
+              <select value={game} onChange={(event) => {setGame(event.target.value as GameId);setWorkshop(null);setRanked(false);}}>
                 {gameCatalog.map((entry) => (
                   <option value={entry.id} key={entry.id}>
                     {entry.name}{entry.ranked ? "" : " · unranked"}
@@ -179,7 +184,7 @@ export function CreateDuelScreen() {
           ) : (
             <label>
               Playlist
-              <select value={playlist} onChange={(event) => setPlaylist(event.target.value as PlaylistId)}>
+              <select value={playlist} onChange={(event) => {setPlaylist(event.target.value as PlaylistId);setRanked(false);}}>
                 <option value="quick">Quick Play</option>
                 <option value="sensory">Sensory</option>
                 <option value="mind">Mind</option>
@@ -224,7 +229,7 @@ export function CreateDuelScreen() {
           <label className="feature-check">
             <input
               type="checkbox"
-              checked={ranked}
+              checked={rankedSelected}
               disabled={!rankedAllowed}
               onChange={(event) => setRanked(event.target.checked)}
             />
