@@ -255,7 +255,9 @@ export function MatchmakingScreen({
 
   async function cancel(destination = "/") {
     leaving.current = true;
-    await postQueue("leave", activePlaylist, activeGame).catch(() => undefined);
+    const leave = postQueue("leave", activePlaylist, activeGame).catch(() => undefined);
+    router.prefetch(destination);
+    await leave;
     track("queue_cancelled", {
       playlist: activePlaylist,
       gameType: activeGame,

@@ -558,7 +558,8 @@ export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponent
   const updatePoint = (index: number, clientX: number, clientY: number, rect: DOMRect) => {
     const x = ((clientX - rect.left) / rect.width) * 200 - 100;
     const y = ((clientY - rect.top) / rect.height) * 200 - 100;
-    const radius = Math.max(10, Math.min(90, (Math.hypot(x, y) - 30) / 0.65));
+    const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
+    const radius = Math.max(10, Math.min(90, (x * Math.cos(angle) + y * Math.sin(angle) - 30) / 0.65));
     const next = radii.map((value, cursor) => cursor === index ? radius : value);
     setRadii(next);
     onChange({ radii: next }, true);
