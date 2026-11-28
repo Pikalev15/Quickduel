@@ -13,6 +13,8 @@ if (process.env.VERCEL_ENV === "production") {
     if (error || data?.schemaVersion !== 1 || data?.prepared !== true) {
       throw new Error("Workshop schema is not prepared.");
     }
+    const avatars = await client.from("player_avatars").select("profile_id").limit(0).abortSignal(AbortSignal.timeout(10000));
+    if (avatars.error) throw new Error("Avatar schema is not prepared.");
     console.log("Production schema preflight passed.");
   } catch {
     console.error("Production build blocked: Workshop schema expansion has not been verified.");

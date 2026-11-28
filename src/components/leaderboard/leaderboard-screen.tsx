@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TrophyIcon } from "@/components/ui/icons";
 import { getDivision } from "@/lib/divisions";
+import { PlayerAvatar } from "@/components/ui/player-avatar";
 import { ProductHeader } from "@/components/ui/product-header";
 
 type Leader = {
@@ -68,11 +69,11 @@ export function LeaderboardScreen() {
   return (
     <main className="min-h-screen">
       <ProductHeader current="leaderboard" />
-      <section className="page-shell screen-enter py-12 sm:py-16">
-        <div className="flex items-end justify-between gap-4 border-b border-[var(--border)] pb-7">
+      <section className="page-shell feature-shell">
+        <div className="feature-heading feature-heading-row">
           <div>
             <TrophyIcon className="mb-4 h-9 w-9 text-[var(--accent)]" />
-            <h1 className="route-title display text-[clamp(3.5rem,10vw,7rem)] leading-[0.85]">
+            <h1 className="route-title">
               Leaderboard
             </h1>
             <p className="mt-4 text-sm text-[var(--muted)]">
@@ -119,7 +120,7 @@ export function LeaderboardScreen() {
             </p>
           </div>
         ) : (
-          <div className="mt-8 overflow-x-auto border border-[var(--border)]">
+          <div className="qd-table-surface mt-8 overflow-x-auto border border-[var(--border)]">
             <table className="w-full min-w-[680px] border-collapse text-left">
               <thead className="bg-[var(--surface)] text-xs tracking-[0.12em] text-[var(--muted)]">
                 <tr>
@@ -146,7 +147,7 @@ export function LeaderboardScreen() {
                       {leader.rank}
                     </td>
                     <td className="px-5 py-4 font-bold">
-                      {leader.display_name}
+                      <span className="qd-player-name"><PlayerAvatar name={leader.display_name} code={leader.public_code} />{leader.display_name}</span>
                       {leader.id === currentId && (
                         <span className="ml-3 text-xs text-[var(--accent)]">
                           YOU

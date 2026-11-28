@@ -1035,8 +1035,8 @@ test("shared navigation and site accents remain consistent across pages", async 
   await page.goto("/");
   await openPrimaryMenu(page);
   const nav = page.getByRole("navigation", { name: "Primary" });
-  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
-  await expect(nav.getByRole("link",{name:"Home",exact:true})).toHaveAttribute("aria-current","page");
+  await expect(nav.getByRole("link")).toHaveText(["Friends","History","Leaderboard","Profile"]);
+  await expect(page.getByRole("link",{name:"QuickDuel home",exact:true})).toHaveAttribute("aria-current","page");
   await page.getByRole("button",{name:"Settings",exact:true}).click();
   const settings=page.getByRole("region",{name:"Settings",exact:true});
   await expect(settings.getByRole("button",{name:/sign in|sign up|sign out/i})).toHaveCount(0);
@@ -1052,9 +1052,11 @@ test("shared navigation and site accents remain consistent across pages", async 
   await nav.getByRole("link",{name:"Leaderboard",exact:true}).click();
   await expect(page).toHaveURL(/\/leaderboard$/);
   await openPrimaryMenu(page);
-  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
+  await expect(nav.getByRole("link")).toHaveText(["Friends","History","Leaderboard","Profile"]);
   await expect(nav.getByRole("link",{name:"Leaderboard",exact:true})).toHaveAttribute("aria-current","page");
   await expect(page.locator("html")).toHaveAttribute("data-accent","mint");
+  await page.getByRole("link",{name:"QuickDuel home",exact:true}).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 test("mobile viewport uses a single menu for navigation and notifications", async ({ page }) => {
   await page.setViewportSize({width:320,height:568});
@@ -1069,7 +1071,7 @@ test("mobile viewport uses a single menu for navigation and notifications", asyn
   await expect(page.getByRole("navigation",{name:"Primary"})).toBeHidden();
   await trigger.click();
   const nav=page.getByRole("navigation",{name:"Primary"});
-  await expect(nav.getByRole("link")).toHaveText(["Home","Friends","History","Leaderboard","Profile"]);
+  await expect(nav.getByRole("link")).toHaveText(["Friends","History","Leaderboard","Profile"]);
   await expect(page.getByRole("button",{name:"Settings",exact:true})).toBeVisible();
   await expect(page.getByRole("button",{name:"Player profile",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Notifications",exact:true}).click();

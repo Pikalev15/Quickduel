@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics";
 import type { PublicProfile } from "@/types/database";
+import { PlayerAvatar } from "@/components/ui/player-avatar";
 import { ProductHeader } from "@/components/ui/product-header";
 import {getGameDisplay} from "@/games/display";
 import type {GameId} from "@/games/types";
@@ -205,7 +206,7 @@ export function FriendsScreen() {
         {results.length > 0 && (
           <div className="search-results">
             {results.map((player) => (
-              <article key={player.public_code}><div><b>{player.display_name}#{player.public_code}</b><span>{player.rating} Elo · {player.status === "recent" ? "Recently active" : player.status}</span></div><button type="button" onClick={() => void request(player.public_code)}>Send request</button></article>
+              <article key={player.public_code}><div><b className="qd-player-name"><PlayerAvatar name={player.display_name} code={player.public_code} />{player.display_name}#{player.public_code}</b><span>{player.rating} Elo · {player.status === "recent" ? "Recently active" : player.status}</span></div><button type="button" onClick={() => void request(player.public_code)}>Send request</button></article>
             ))}
           </div>
         )}
@@ -222,7 +223,7 @@ export function FriendsScreen() {
                 <div className="friend-list">
                   {state.friends.map((friend) => (
                     <article key={friend.public_code}>
-                      <span className={`presence presence-${friend.status}`} aria-label={friend.status} />
+                      <div className="qd-friend-avatar"><PlayerAvatar name={friend.display_name} code={friend.public_code} /><span className={`presence presence-${friend.status}`} aria-label={friend.status} /></div>
                       <div><h3>{friend.display_name}#{friend.public_code}</h3><p>{friend.status === "recent" ? "Recently active" : friend.status} · {friend.rating} Elo</p><small>Head to head: {friend.head_to_head.wins}W · {friend.head_to_head.losses}L · {friend.head_to_head.draws}D</small>{Boolean(friend.per_game?.length)&&<details className="qd-rivalry"><summary>Rivalry by game</summary>{friend.per_game?.map(row=><p key={row.game}>{getGameDisplay(row.game).name}: {row.wins}W · {row.losses}L · {row.draws}D</p>)}</details>}</div>
                       <div><button type="button" onClick={() => void invite(friend.public_code)}>Invite</button><button type="button" onClick={() => void friendAction("remove", friend.public_code)}>Remove</button><button className="danger-link" type="button" onClick={() => void friendAction("block", friend.public_code)}>Block</button></div>
                     </article>

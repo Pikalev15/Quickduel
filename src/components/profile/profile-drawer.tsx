@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { AvatarEditor } from "./avatar-editor";
 import { AccentPicker } from "@/components/theme/accent-picker";
 import type { User } from "@supabase/supabase-js";
 import type { PublicProfile } from "@/types/database";
@@ -182,9 +184,8 @@ export function ProfileDrawer({
           <button type="button" onClick={onClose} aria-label="Close profile">×</button>
         </div>
 
-        <div className={`profile-avatar accent-${accent}`} data-profile-frame={profile?.equipped_cosmetics?.profile_frame ?? undefined}>
-          {(name || "QD").slice(0, 2).toUpperCase()}
-        </div>
+        <PlayerAvatar name={name || "QD"} code={profile?.public_code} accent={accent} frame={profile?.equipped_cosmetics?.profile_frame} large />
+        {profile?.public_code && <AvatarEditor />}
 
         <label className="profile-field">
           <span>Display name</span>

@@ -21,6 +21,7 @@ export default function RouteTemplate({
       update="none"
     >
       <div
+        key={pathname}
         className={`route-transition route-transition--${motion}`}
         data-route-transition={pathname}
       >

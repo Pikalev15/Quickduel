@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import sharp from "sharp";
 
 test("real browser sessions can match, create a Workshop and submit a daily attempt", async ({ browser }) => {
   test.skip(process.env.E2E_LIVE_SUPABASE !== "1", "Requires disposable local Supabase");
@@ -17,6 +18,21 @@ test("real browser sessions can match, create a Workshop and submit a daily atte
     expect(snapA.ok()).toBeTruthy();expect(snapB.ok()).toBeTruthy();
     expect((await snapA.json()).data.current_user_id).not.toBe((await snapB.json()).data.current_user_id);
     await Promise.all([a.goto("/"),b.goto("/")]);
+    const profileResponse=await a.request.get("/api/profile");
+    expect(profileResponse.ok()).toBeTruthy();
+    const playerCode=(await profileResponse.json()).data.public_code;
+    const png=await sharp({create:{width:32,height:32,channels:3,background:"#3157d5"}}).png().toBuffer();
+    const upload=await a.request.post("/api/profile/avatar",{headers:{"content-type":"image/png"},data:png});
+    expect(upload.ok(),await upload.text()).toBeTruthy();
+    const icon=await b.request.get("/api/avatars/"+playerCode);
+    expect(icon.ok()).toBeTruthy();
+    expect(icon.headers()["content-type"]).toBe("image/webp");
+    expect((await sharp(await icon.body()).metadata()).width).toBe(192);
+    const invalid=await a.request.post("/api/profile/avatar",{headers:{"content-type":"image/png"},data:Buffer.from("not an image")});
+    expect(invalid.status()).toBe(400);
+    const removal=await a.request.delete("/api/profile/avatar");
+    expect(removal.ok()).toBeTruthy();
+    expect((await b.request.get("/api/avatars/"+playerCode)).status()).toBe(404);
     const created=await a.request.post("/api/duels",{data:{selectionKind:"game",game:"memory_grid",playlist:"quick",bestOf:1,ranked:false,workshop:{version:1,revealMs:3000,answerMs:9000,memory:{size:5,tiles:7,ordered:false}}}});
     expect(created.ok(),await created.text()).toBeTruthy();
     const {code}=(await created.json()).data;

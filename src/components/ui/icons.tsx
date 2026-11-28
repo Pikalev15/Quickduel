@@ -8,9 +8,9 @@ export function ArrowIcon(props: IconProps) {
       <path
         d="M5 12h13m-5-5 5 5-5 5"
         stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -30,8 +30,8 @@ export function TrophyIcon(props: IconProps) {
       <path
         d="M8 4h8v4a4 4 0 0 1-8 0V4Zm4 8v4m-4 4h8m-6-4h4M8 6H4v1a4 4 0 0 0 4 4m8-5h4v1a4 4 0 0 1-4 4"
         stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="miter"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -53,8 +53,8 @@ export function ShareIcon(props: IconProps) {
       <path
         d="M12 16V4m0 0L7 9m5-5 5 5M6 13H4v7h16v-7h-2"
         stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="square"
+        strokeWidth="1.75"
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -66,7 +66,7 @@ export function SettingsIcon(props: IconProps) {
       <path
         d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8 3.5-2.1-1.1.1-2.4-2.5-1.4-2 1.3L11.5 7 9 8.4 7 7.1 4.5 8.5l.1 2.4L2.5 12l2.1 1.1-.1 2.4L7 16.9l2-1.3 2.5 1.4 2-1.4 2 1.3 2.5-1.4-.1-2.4L20 12Z"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.75"
         strokeLinejoin="round"
       />
     </svg>

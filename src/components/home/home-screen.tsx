@@ -10,6 +10,7 @@ import { Header } from "@/components/ui/header";
 import { LogoMark } from "@/components/ui/logo-mark";
 import { Button } from "@/components/ui/button";
 import type { PublicProfile } from "@/types/database";
+import { PlayerAvatar } from "@/components/ui/player-avatar";
 import { ProfileDrawer } from "@/components/profile/profile-drawer";
 import { GameLibrary } from "./game-library";
 import {
@@ -25,6 +26,7 @@ type Leader = {
   id: string;
   display_name: string;
   rating: number;
+  public_code?: string;
 };
 
 const defaultPreferences: HomePreferences = {
@@ -209,9 +211,7 @@ export function HomeScreen() {
               onReset={resetPreferences}
             />
             <button type="button" className="profile-chip" aria-label="Player profile" onClick={openProfile}>
-              <span data-precision-frame={profile?.equipped_cosmetics?.profile_frame==="frame-precision"} className={`accent-${profile?.accent_colour ?? "volt"}`}>
-                {(profile?.display_name ?? "QD").slice(0, 2).toUpperCase()}
-              </span>
+              <PlayerAvatar name={profile?.display_name ?? "QD"} code={profile?.public_code} accent={profile?.accent_colour} frame={profile?.equipped_cosmetics?.profile_frame} />
               <b>{profile?.display_name ?? "Profile"}</b>
             </button>
           </div>
@@ -350,7 +350,7 @@ export function HomeScreen() {
               {leaders.slice(0, 5).map((leader) => (
                 <li key={leader.id}>
                   <span>{leader.rank}</span>
-                  <b>{leader.display_name}</b>
+                  <b className="qd-player-name"><PlayerAvatar name={leader.display_name} code={leader.public_code} />{leader.display_name}</b>
                   <strong>{leader.rating}</strong>
                 </li>
               ))}

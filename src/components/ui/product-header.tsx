@@ -8,7 +8,6 @@ import { RequestBell } from "@/components/notifications/request-bell";
 import { ProfileControl } from "@/components/profile/profile-control";
 
 const links = [
-  ["home", "/", "Home"],
   ["friends", "/friends", "Friends"],
   ["history", "/history", "History"],
   ["leaderboard", "/leaderboard", "Leaderboard"],
@@ -55,10 +54,10 @@ export function ProductHeader({ current, trailing, profileSlot }: {
   return (
     <header ref={header} className="product-header" data-menu-open={open}>
       <div className="page-shell product-header-inner">
-        <Wordmark />
+        <Wordmark current={active === "home"} onClick={() => setOpenPath(null)} />
         <button ref={trigger} className="qd-menu-trigger" type="button" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls={panelId} onClick={() => setOpenPath(open ? null : pathname)}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-            {open ? <path d="m6 6 12 12M18 6 6 18"/> : <path d="M4 6h16M4 12h16M4 18h16"/>}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+            <g key={String(open)} className="qd-icon-swap">{open ? <path d="m6 6 12 12M18 6 6 18"/> : <path d="M4 6h16M4 12h16M4 18h16"/>}</g>
           </svg>
           <span className="qd-menu-pending" aria-hidden="true" />
         </button>

@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           db='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
-          for file in frequency_round_timing workshop_adaptive daily_duel skill_progress_daily_rotation competitive_integrity; do
+          for file in frequency_round_timing workshop_adaptive daily_duel skill_progress_daily_rotation competitive_integrity player_avatars; do
             psql "$db" -v ON_ERROR_STOP=1 -f "supabase/pending/$file.sql"
           done
       - uses: actions/setup-node@v7
