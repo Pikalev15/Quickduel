@@ -55,6 +55,8 @@ jobs:
           VERCEL_ENV=production NEXT_PUBLIC_SUPABASE_URL="$API_URL" SUPABASE_SECRET_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY:-}}" node scripts/check-production-schema.mjs
       - name: Activate after expansion verification
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/pending/release_cutover.sql
+      - name: Apply the post-cutover Frequency match budget
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/pending/frequency_match_budget.sql
       - name: Verify competitive integrity policies
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/tests/competitive_integrity_policy_check.sql
       - name: Verify current game durations and service-only grants
