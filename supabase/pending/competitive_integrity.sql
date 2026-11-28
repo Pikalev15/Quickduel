@@ -61,52 +61,69 @@ $$;
 revoke all on function public.check_rate_limit(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.check_rate_limit(text, integer, integer) to authenticated;
 
-create or replace function public.server_queue_or_duel(
-  requested_user_id uuid,
-  requested_action text,
-  requested_payload jsonb
+create table public.queue_duel_tickets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null,
+  payload jsonb not null,
+  expires_at timestamptz not null default (clock_timestamp() + interval '30 seconds')
+);
+alter table public.queue_duel_tickets enable row level security;
+revoke all on public.queue_duel_tickets from public, anon, authenticated, service_role;
+create index queue_duel_ticket_expiry on public.queue_duel_tickets(expires_at);
+
+create or replace function public.issue_queue_duel_ticket(
+  requested_user_id uuid, requested_action text, requested_payload jsonb
 )
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-set "request.jwt.claim.sub" = ''
-set "request.jwt.claim.role" = ''
-set "request.jwt.claim" = '{}'
-set "request.jwt.claims" = '{}'
-as $$
+returns uuid language plpgsql security definer set search_path = ''
+as $issue$
 declare
-  anonymous_user boolean;
-  claims jsonb;
+  ticket_id uuid;
 begin
-  select u.is_anonymous into anonymous_user
-  from auth.users u where u.id = requested_user_id;
-  if not found then
-    raise exception using errcode = 'P0001', message = 'QD_UNAUTHENTICATED';
-  end if;
-  if exists (
-    select 1 from public.profiles p
-    where p.id = requested_user_id and p.deleted_at is not null
-  ) or exists (
-    select 1 from public.account_enforcement e
-    where e.user_id = requested_user_id
-      and e.state in ('temporarily_suspended', 'manually_banned')
-      and (e.expires_at is null or e.expires_at > now())
-  ) then
-    raise exception using errcode = 'P0001', message = 'QD_FORBIDDEN';
-  end if;
-  if jsonb_typeof(requested_payload) is distinct from 'object' then
+  if requested_user_id is null or not exists (
+    select 1 from auth.users u where u.id = requested_user_id
+  ) then raise exception using errcode='P0001', message='QD_UNAUTHENTICATED'; end if;
+  if requested_action is null or requested_action not in (
+    'join_matchmaking','heartbeat_matchmaking','create_private_duel',
+    'create_private_duel_workshop','join_private_duel','send_duel_invitation','respond_duel_invitation'
+  ) or jsonb_typeof(requested_payload) is distinct from 'object'
+     or pg_column_size(requested_payload) > 16384 then
     raise exception 'Invalid action payload';
   end if;
-
-  claims := jsonb_build_object(
-    'sub', requested_user_id, 'role', 'authenticated',
-    'is_anonymous', coalesce(anonymous_user, false)
+  delete from public.queue_duel_tickets where id in (
+    select id from public.queue_duel_tickets where expires_at <= clock_timestamp()
+    order by expires_at limit 100 for update skip locked
   );
-  perform set_config('request.jwt.claim.sub', requested_user_id::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
-  perform set_config('request.jwt.claim', claims::text, true);
-  perform set_config('request.jwt.claims', claims::text, true);
+  insert into public.queue_duel_tickets(user_id, action, payload)
+  values (requested_user_id, requested_action, requested_payload) returning id into ticket_id;
+  return ticket_id;
+end;
+$issue$;
+revoke all on function public.issue_queue_duel_ticket(uuid,text,jsonb) from public, anon, authenticated;
+grant execute on function public.issue_queue_duel_ticket(uuid,text,jsonb) to service_role;
+
+create or replace function public.server_queue_or_duel(requested_ticket uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $redeem$
+declare
+  caller_id uuid := auth.uid();
+  requested_action text;
+  requested_payload jsonb;
+begin
+  if caller_id is null then
+    raise exception using errcode='P0001', message='QD_UNAUTHENTICATED';
+  end if;
+  delete from public.queue_duel_tickets t
+  where t.id = requested_ticket and t.user_id = caller_id and t.expires_at > clock_timestamp()
+  returning t.action, t.payload into requested_action, requested_payload;
+  if not found then raise exception using errcode='P0001', message='QD_FORBIDDEN'; end if;
+  if exists (
+    select 1 from public.profiles p where p.id = caller_id and p.deleted_at is not null
+  ) or exists (
+    select 1 from public.account_enforcement e where e.user_id = caller_id
+    and e.state in ('temporarily_suspended','manually_banned')
+    and (e.expires_at is null or e.expires_at > now())
+  ) then raise exception using errcode='P0001', message='QD_FORBIDDEN'; end if;
 
   case requested_action
     when 'join_matchmaking' then
@@ -147,10 +164,10 @@ begin
       raise exception 'Invalid server action';
   end case;
 end;
-$$;
+$redeem$;
 
-revoke all on function public.server_queue_or_duel(uuid, text, jsonb) from public, anon, authenticated;
-grant execute on function public.server_queue_or_duel(uuid, text, jsonb) to service_role;
+revoke all on function public.server_queue_or_duel(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.server_queue_or_duel(uuid) to authenticated;
 
 revoke all on function public.join_matchmaking(text, text) from public, anon, authenticated;
 revoke all on function public.heartbeat_matchmaking(text, text) from public, anon, authenticated;

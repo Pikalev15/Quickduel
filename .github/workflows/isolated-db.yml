@@ -30,6 +30,20 @@ jobs:
           done
       - name: Verify competitive integrity policies
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/tests/competitive_integrity_policy_check.sql
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Verify with real local Auth sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/qd-local.env"
+          set -a
+          source "$RUNNER_TEMP/qd-local.env"
+          set +a
+          node scripts/verify-competitive-integrity.mjs
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

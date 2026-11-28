@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const profileResult = await supabase.rpc("ensure_profile");
     if (profileResult.error) throw profileResult.error;
 
-    const { data, error } = await serverQueueOrDuel(user.id, "join_matchmaking", {
+    const { data, error } = await serverQueueOrDuel(supabase, user.id, "join_matchmaking", {
       requested_playlist: parsed.data.playlist,
       requested_game: parsed.data.preferredGame,
     });

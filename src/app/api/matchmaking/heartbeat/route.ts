@@ -12,9 +12,9 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return apiError(400, "INVALID_REQUEST", "Matchmaking preference is invalid.", undefined, correlationId);
     }
-    const { user } = await requireUser();
+    const { supabase, user } = await requireUser();
     await enforceNetworkAbuseBoundary(request, "matchmaking_heartbeat", 240, 60, { adaptiveChallenge: false });
-    const { data, error } = await serverQueueOrDuel(user.id, "heartbeat_matchmaking", {
+    const { data, error } = await serverQueueOrDuel(supabase, user.id, "heartbeat_matchmaking", {
       requested_playlist: parsed.data.playlist,
       requested_game: parsed.data.preferredGame,
     });

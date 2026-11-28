@@ -46,7 +46,7 @@ export async function POST(
     return apiError(400, "INVALID_REQUEST", "That duel code is invalid.", code.error.issues, correlationId);
   }
   try {
-    const { user } = await requireUser();
+    const { supabase, user } = await requireUser();
     await enforceNetworkAbuseBoundary(
       request,
       "private_duel_join",
@@ -54,7 +54,7 @@ export async function POST(
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await serverQueueOrDuel(user.id, "join_private_duel", {
+    const { data, error } = await serverQueueOrDuel(supabase, user.id, "join_private_duel", {
       requested_code: code.data,
     });
     if (error) throw error;
