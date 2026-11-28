@@ -1,3 +1,4 @@
+import { serverQueueOrDuel } from "@/lib/server/queue-or-duel";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiSuccess, requestCorrelationId } from "@/lib/api";
 import { rpcErrorResponse } from "@/lib/server/http";
@@ -53,7 +54,7 @@ export async function POST(
       3600,
       { adaptiveChallenge: user.is_anonymous === true },
     );
-    const { data, error } = await supabase.rpc("join_private_duel", {
+    const { data, error } = await serverQueueOrDuel(supabase, user.id, "join_private_duel", {
       requested_code: code.data,
     });
     if (error) throw error;

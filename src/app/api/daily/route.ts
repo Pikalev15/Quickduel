@@ -16,7 +16,7 @@ export async function GET(request:Request){
  const id=requestCorrelationId(request),date=dailyDate();
  try{
   const db=createSupabaseAdminClient();
-  const board=await db.from("daily_duel_attempts").select("score,profiles!inner(display_name,deleted_at)").eq("challenge_date",date).not("completed_at","is",null).is("profiles.deleted_at",null).order("score",{ascending:false}).limit(100);
+  const board=await db.from("daily_duel_attempts").select("score,profiles!inner(display_name,deleted_at,account_state)").eq("challenge_date",date).not("completed_at","is",null).is("profiles.deleted_at",null).eq("profiles.account_state","normal").order("score",{ascending:false}).limit(100);
   if(board.error)return unavailable(id);
   const client=await createSupabaseServerClient(),auth=await client.auth.getUser();
   const {data:day}=await db.from("daily_duel_challenges").select("game_version").eq("challenge_date",date).maybeSingle();
@@ -56,7 +56,7 @@ export async function POST(request:Request){
   const challenge=await db.from("daily_duel_challenges").select("seed,game_version").eq("challenge_date",date).single();
   if(challenge.error)throw challenge.error;
   if(![1,2,3].includes(challenge.data.game_version))return unavailable(id);
-  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,challenge:dailyPublicChallenge(challenge.data.seed,date,challenge.data.game_version),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
+  if(parsed.data.action==="start")return noStore(apiSuccess({date,status:"active",deadline:attempt.deadline,attemptKey:`${user.id}:${date}:${attempt.deadline}`,challenge:dailyPublicChallenge(challenge.data.seed,date,challenge.data.game_version),serverReceivedAt:receivedAt,serverNow:new Date().toISOString()},200,id));
   const score=scoreDaily(challenge.data.seed,parsed.data.answers,date,challenge.data.game_version);
   const finished=await db.rpc("finish_daily_duel",{requested_date:date,requested_user:user.id,calculated_score:score});
   if(finished.error)throw finished.error;
