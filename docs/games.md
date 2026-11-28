@@ -1,20 +1,21 @@
 # Game registry
 
-QuickDuel has thirteen active games and two immutable legacy recall versions.
-`src/games/registry.ts` is the authoritative deterministic engine. Every entry
+QuickDuel has thirteen active games, two immutable legacy recall versions, and
+two practice-only games. `src/games/registry.ts` is the authoritative deterministic engine. Every entry
 defines a numeric version, seeded generator, strict Zod submission schema,
 server-side result calculation, and game-specific Practice Bot.
-`src/games/client-registry.tsx` maps all fifteen resolvable IDs to React
+`src/games/client-registry.tsx` maps all seventeen resolvable IDs to React
 controllers without importing client code into scoring routes.
 
-New matchmaking, Quick Play, Practice, and private-duel selection use only the
-thirteen active IDs. `frequency_recall` v1 and `colour_recall` v1 remain
+New matchmaking, Quick Play, and private-duel selection use only the thirteen
+active IDs. Practice also offers `memory_grid_v2` and `cryptic_duel` as clearly
+labelled practice-only games. `frequency_recall` v1 and `colour_recall` v1 remain
 resolvable solely so open and historical matches retain their original
 generator, schema, and scoring behavior.
 
 | Game ID | Version | State | Playlist | Ranked | Format |
 | --- | ---: | --- | --- | --- | --- |
-| `memory_grid` | 1 | Active | Mind | Yes | 1.2s flash + 1.75s hold / 8s answer |
+| `memory_grid` | 1 | Active | Mind | Yes | 2.5s reveal / 7s answer |
 | `frequency_recall` | 1 | Legacy | Sensory | Yes | Three-tone batch; 2.4s / 12s |
 | `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 3.2s answer + 2s feedback |
 | `colour_recall` | 1 | Legacy | Sensory | Yes | Three-colour batch; 2.6s / 16s |
@@ -26,9 +27,11 @@ generator, schema, and scoring behavior.
 | `number_order` | 1 | Active | Mind | Yes | Immediate / 8s |
 | `odd_one_out` | 1 | Active | Mind | Yes | Immediate / 6s |
 | `pattern_complete` | 1 | Active | Mind | Yes | Immediate / 18s |
-| `typing_sprint` | 1 | Active | Mind | Yes | Fixed 15-second test |
+| `typing_sprint` | 1 | Active | Mind | Yes | Fixed 30-second test |
 | `reaction_test` | 1 | Active | Experimental | No | Immediate / 18s |
 | `target_tap` | 1 | Active | Experimental | No | Immediate / 16s |
+| `memory_grid_v2` | 1 | Practice only | Mind | No | 4s reveal / 10s answer |
+| `cryptic_duel` | 1 | Practice only | Mind | No | Immediate / 40s |
 
 Quick Play contains the eleven active ranked IDs. The Sensory and Mind
 playlists use the active v2 recall modes and Typing Sprint. A rematch preserves
@@ -36,11 +39,10 @@ the exact game ID and version while generating a fresh seed.
 
 ## Memory Grid timing
 
-The six highlighted cells flash for 1.2 seconds, followed by a 1.75-second
-blank retention interval where the board remains locked. The full eight-second
-answer window begins only after that hold. Ranked matches persist the combined
-2.95-second reveal window so both players see the same server-authoritative
-schedule; already-created matches retain their stored timing.
+The six highlighted cells flash for 2.5 seconds. The seven-second answer window
+begins immediately after the reveal. Ranked matches persist both durations so
+both players see the same server-authoritative schedule; already-created matches
+retain their stored timing.
 
 ## Game input and timing feedback
 
@@ -118,7 +120,7 @@ speed-focused exception:
 
 Both players receive the same deterministic sequence of 120 words selected from
 QuickDuel's original 385-word lowercase vocabulary. Adjacent duplicates are
-prevented. The passage stays visible throughout the fixed 15-second answer
+prevented. The passage stays visible throughout the fixed 30-second answer
 window and is intentionally much longer than a player should finish.
 
 The browser shows live WPM, accuracy, errors, remaining time, current word,
@@ -140,11 +142,11 @@ ranked WPM.
 
 This prevents one insertion from shifting every later character.
 
-For the fixed 15-second duration:
+For the fixed 30-second duration:
 
 ```text
-gross WPM = normalized typed characters / 5 / 0.25 minutes
-net WPM   = max(0, (correct characters - incorrect characters) / 5 / 0.25)
+gross WPM = normalized typed characters / 5 / 0.5 minutes
+net WPM   = max(0, (correct characters - incorrect characters) / 5 / 0.5)
 accuracy  = correct / max(1, correct + incorrect)
 ```
 

@@ -82,7 +82,7 @@ timestamp commit together.
 Most QuickDuel games rank accuracy first and use speed only as a tiebreaker.
 Typing Sprint is an explicit exception: net WPM is the primary result because
 speed and accuracy are inseparable parts of typing performance. Its server
-scoring always uses the fixed 15-second duration, then compares accuracy,
+scoring always uses the fixed 30-second duration, then compares accuracy,
 correct characters, fewer incorrect characters, and trusted receipt time only
 when net WPM is equal.
 

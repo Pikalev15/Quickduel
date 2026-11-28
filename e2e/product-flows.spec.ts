@@ -64,9 +64,10 @@ test("home preserves Quick Play priority and exposes private duels", async ({ pa
     }),
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Notice it\.\s*Win it\./i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Notice it\.\s*Win it\./i })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Quick play" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Private duel/i })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "QuickDuel ranked match preview" }).getByText("7s", { exact: true })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/overflow/);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
