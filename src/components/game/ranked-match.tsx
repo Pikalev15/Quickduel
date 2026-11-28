@@ -12,6 +12,7 @@ import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import type { MatchSnapshot } from "@/types/database";
 import { GameHeader } from "./game-header";
+import { CorrectShapeAnswer } from "@/components/results/correct-answer";
 import { ResultPanel } from "@/components/results/result-panel";
 import {RankedRecordNotice} from "@/components/stats/skill-progress";
 import { track } from "@/lib/analytics";
@@ -391,6 +392,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
         <ResultPanel
           outcome={outcome}
           gameName={game?.name}
+          correctAnswer={game?.id === "shape_recall" && Array.isArray(snapshot.challenge.radii) ? <CorrectShapeAnswer radii={snapshot.challenge.radii as number[]} /> : undefined}
           player={{
             name: me.display_name,
             score: me.result.rankScore,

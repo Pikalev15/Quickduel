@@ -5,6 +5,7 @@ import { LockAnswerButton } from "@/components/game/lock-answer-button";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameHeader } from "./game-header";
+import { CorrectShapeAnswer } from "@/components/results/correct-answer";
 import { ResultPanel } from "@/components/results/result-panel";
 import {PracticeRecordNotice} from "@/components/results/practice-record";
 import { compareGameResults, type GameId, type Submission } from "@/games/types";
@@ -39,11 +40,11 @@ export function PracticeMatch({
   const [keyboardReady, setKeyboardReady] = useState(!typing);
   const prepared = audioReady && keyboardReady;
   const [audioError, setAudioError] = useState(false);
-  const [startAt, setStartAt] = useState(() => Date.now() + 2_000);
+  const [startAt, setStartAt] = useState(() => Date.now() + 3_000);
   const [now, setNow] = useState(() => Date.now());
   const prepareKeyboard = useCallback(() => {
     if (keyboardReady) return;
-    setStartAt(Date.now() + 2_000);
+    setStartAt(Date.now() + 3_000);
     setKeyboardReady(true);
   }, [keyboardReady]);
   const [submission, setSubmission] = useState<Submission>({});
@@ -154,6 +155,7 @@ export function PracticeMatch({
         <ResultPanel
           outcome={outcome}
           gameName={game.name}
+          correctAnswer={game.id === "shape_recall" && Array.isArray(challenge.radii) ? <CorrectShapeAnswer radii={challenge.radii as number[]} /> : undefined}
           completionNotice={gameId === "cryptic_duel" ? `Answer: ${String(challenge.answer)}. ${String(challenge.explanation)}` : undefined}
           unranked
           recordNotice={!onboardingStep&&parsed.success?<PracticeRecordNotice recordKey={`${gameId}:${game.version}:${difficulty}:${timing.revealMs}:${timing.answerMs}`} score={playerResult.rankScore} accuracy={playerResult.accuracy} timeMs={playerTime} summary={playerResult.summary}/>:undefined}
@@ -212,7 +214,7 @@ export function PracticeMatch({
               <Button className="mt-4" onClick={() => {
                 void AudioManager.shared().unlock().then((ready) => {
                   if (!ready) { setAudioError(true); return; }
-                  setStartAt(Date.now() + 2_000);
+                  setStartAt(Date.now() + 3_000);
                   setAudioReady(true);
                 }).catch(() => setAudioError(true));
               }}>Enable sound and start</Button>

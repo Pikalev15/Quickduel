@@ -303,7 +303,7 @@ export function MatchmakingScreen({
           {message}
         </h1>
         <time className="queue-time" aria-live="polite">
-          00:{String(seconds).padStart(2, "0")}
+          {String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}
         </time>
         {challengeSiteKey && (
           <AdaptiveChallenge

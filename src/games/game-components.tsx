@@ -548,25 +548,69 @@ function ShapeSvg({ radii }: { radii: number[] }) {
 export function ShapeRecallGame({ challenge, disabled, onChange }: GameComponentProps) {
   const target = (challenge.radii as number[] | undefined) ?? [];
   const [radii, setRadii] = useState([50, 50, 50, 50, 50, 50]);
+  const [dragging, setDragging] = useState<number | null>(null);
   useSubmitInitialValidAnswer(disabled, onChange, { radii });
+  const points = radii.map((radius, index) => {
+    const angle = (Math.PI * 2 * index) / radii.length - Math.PI / 2;
+    const scaled = 30 + radius * 0.65;
+    return { x: 100 + Math.cos(angle) * scaled, y: 100 + Math.sin(angle) * scaled };
+  });
+  const updatePoint = (index: number, clientX: number, clientY: number, rect: DOMRect) => {
+    const x = ((clientX - rect.left) / rect.width) * 200 - 100;
+    const y = ((clientY - rect.top) / rect.height) * 200 - 100;
+    const radius = Math.max(10, Math.min(90, (Math.hypot(x, y) - 30) / 0.65));
+    const next = radii.map((value, cursor) => cursor === index ? radius : value);
+    setRadii(next);
+    onChange({ radii: next }, true);
+  };
   return (
     <div className="shape-game">
-      <ShapeSvg radii={target.length ? target : radii} />
-      {!target.length && radii.map((value, index) => (
-        <Range
-          key={index}
-          label={`Point ${index + 1}`}
-          value={value}
-          min={10}
-          max={90}
-          disabled={disabled}
-          onChange={(nextValue) => {
-            const next = radii.map((current, cursor) => cursor === index ? nextValue : current);
-            setRadii(next);
-            onChange({ radii: next }, true);
+      {target.length ? <ShapeSvg radii={target} /> : (
+        <svg
+          className="shape-canvas"
+          style={{ touchAction: "none" }}
+          viewBox="0 0 200 200"
+          role="group"
+          aria-label="Drag the six points to rebuild the shape"
+          onPointerMove={(event) => {
+            if (dragging !== null && !disabled) updatePoint(dragging, event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
           }}
-        />
-      ))}
+          onPointerUp={() => setDragging(null)}
+          onPointerCancel={() => setDragging(null)}
+        >
+          <polygon points={points.map(({ x, y }) => `${x},${y}`).join(" ")} />
+          {points.map(({ x, y }, index) => (
+            <g
+              key={index}
+              className="shape-point-label"
+              role="slider"
+              aria-label={`Point ${index + 1}`}
+              aria-valuemin={10}
+              aria-valuemax={90}
+              aria-valuenow={Math.round(radii[index])}
+              tabIndex={disabled ? -1 : 0}
+              onPointerDown={(event) => {
+                if (disabled) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setDragging(index);
+                updatePoint(index, event.clientX, event.clientY, event.currentTarget.ownerSVGElement!.getBoundingClientRect());
+              }}
+              onKeyDown={(event) => {
+                const delta = event.key === "ArrowUp" || event.key === "ArrowRight" ? 2 : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -2 : 0;
+                if (!delta || disabled) return;
+                event.preventDefault();
+                const next = radii.map((value, cursor) => cursor === index ? Math.max(10, Math.min(90, value + delta)) : value);
+                setRadii(next);
+                onChange({ radii: next }, true);
+              }}
+              aria-disabled={disabled}
+            >
+              <circle cx={x} cy={y} r="10" />
+              <text x={x} y={y}>{index + 1}</text>
+            </g>
+          ))}
+        </svg>
+      )}
     </div>
   );
 }

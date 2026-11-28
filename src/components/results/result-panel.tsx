@@ -38,6 +38,7 @@ export function ResultPanel({
   onCreateShare,
   completionNotice,
   resultTitle,
+  correctAnswer,
   recordNotice,
 }: {
   outcome: DuelOutcome;
@@ -56,6 +57,7 @@ export function ResultPanel({
   onCreateShare?: () => Promise<string>;
   completionNotice?: string;
   resultTitle?: string;
+  correctAnswer?: React.ReactNode;
   recordNotice?: React.ReactNode;
 }) {
   const [shared, setShared] = useState(false);
@@ -96,6 +98,7 @@ export function ResultPanel({
       <div className="qd-result-signal" aria-hidden="true"><i /><i /><i /><i /><i /></div>
       {gameName && <p className="game-kicker mt-4">{gameName}</p>}
       {scored && !completionNotice?.toLowerCase().includes("forfeit") && <div className="qd-result-hero"><span>Your score</span><strong>{recall ? `${player.score.toFixed(2)}/50` : player.summary ?? player.score.toFixed(1)}</strong>{recall && <p>{player.score >= 45 ? "Remarkably precise." : player.score >= 35 ? "Strong recall." : player.score >= 20 ? "Keep refining your estimates." : "Build accuracy one round at a time."}</p>}{!unranked && placement?.placed && <span className="qd-result-elo">{player.ratingAfter-player.ratingBefore>=0?"+":""}{player.ratingAfter-player.ratingBefore} Elo</span>}</div>}
+      {correctAnswer && <section aria-label="Correct answer" className="mt-7 w-full max-w-3xl"><h2>Correct answer</h2>{correctAnswer}</section>}
       {recordNotice}
       {completionNotice && (
         <p className="result-completion-notice" role="status">{completionNotice}</p>
