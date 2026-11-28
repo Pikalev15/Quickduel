@@ -13,7 +13,7 @@ npm run test:e2e
 Unit tests cover all thirteen active deterministic generators, both immutable
 legacy recall versions, bot payload validation,
 scoring, accuracy-before-speed fairness, Typing Sprint's fixed-duration net-WPM
-exception, the 8-second Memory Grid window, seed
+exception, the 7-second Memory Grid window, seed
 variance, tie handling, Elo symmetry, payload validation, and division
 boundaries.
 

@@ -19,6 +19,7 @@ import {
 import { track } from "@/lib/analytics";
 import { DIVISIONS, getDivision } from "@/lib/divisions";
 import { getPlacement, PLACEMENT_MATCHES } from "@/lib/placements";
+import { MEMORY_GRID_ANSWER_MS } from "@/games/memory-grid-timing";
 
 type Leader = {
   rank: number;
@@ -269,7 +270,7 @@ export function HomeScreen() {
           </div>
           <div className="arena-preview-foot">
             <div><span>Remember</span><strong>6 tiles</strong></div>
-            <div><span>Answer time</span><strong>8s</strong></div>
+            <div><span>Answer time</span><strong>{MEMORY_GRID_ANSWER_MS / 1000}s</strong></div>
           </div>
         </aside>
       </section>

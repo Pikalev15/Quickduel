@@ -22,7 +22,7 @@ Generated composition references live in `docs/design-references/`.
   and single-game preferences
 - Explicit Practice Bot offer after eight seconds; never disguised or ranked
 - Eleven ranked games and two experimental unranked games
-- Memory Grid answer window reduced from 12 seconds to 8 seconds
+- Memory Grid answer window reduced from 12 seconds to 7 seconds
 - Correctness/accuracy first for most games; Typing Sprint ranks net WPM
 - Deterministic versioned challenges, Zod validation, and game-specific bots
 - Server-regenerated results, server-measured time, atomic idempotent Elo

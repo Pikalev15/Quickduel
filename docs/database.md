@@ -73,8 +73,10 @@ version 1. The migration updates public and private matchmaking pools, persisted
 durations, and match inserts while preserving explicit function revokes and
 narrow authenticated grants.
 
-`20260731052027_memory_grid_retention_interval.sql` changes only the duration
-helper used when creating new matches. Memory Grid now persists a 2.95-second
-reveal phase: 1.2 seconds visible followed by a 1.75-second locked retention
-interval. The function remains security-definer with an empty search path and
-no browser-role execute grant.
+`20260731052027_memory_grid_retention_interval.sql` originally changed the
+creation helper to a 2.95-second reveal: 1.2 seconds visible plus a 1.75-second
+locked retention interval. The later `release_cutover.sql` replaced that helper
+with the current 2.5-second reveal and 7-second answer window used by the game
+registry. Adaptive ranked timing may override these values by rating tier, and
+already-created matches keep their persisted durations. The helper remains
+security-definer with an empty search path and no browser-role execute grant.
