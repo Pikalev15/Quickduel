@@ -52,6 +52,12 @@ const DOMAIN_ERRORS: Record<string, DomainErrorDefinition> = {
     message: "The answer phase has not started.",
     logLevel: "info",
   },
+  QD_SUBMISSION_TOO_EARLY: {
+    status: 409,
+    apiCode: "CONFLICT",
+    message: "This game submits at the deadline.",
+    logLevel: "info",
+  },
   QD_ANSWER_EXPIRED: {
     status: 409,
     apiCode: "CONFLICT",

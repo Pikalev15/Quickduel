@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(18);
 
 select ok(
   exists (
@@ -29,8 +29,8 @@ select ok(
 
 select is(
   public.game_reveal_duration('memory_grid'),
-  2950,
-  'Memory Grid persists its flash and retention interval'
+  2500,
+  'Memory Grid persists the current reveal window'
 );
 select is(
   public.game_reveal_duration('rhythm_recall'),
@@ -44,8 +44,8 @@ select is(
 );
 select is(
   public.game_answer_duration('frequency_recall_v2'),
-  30000,
-  'Frequency Recall v2 has a 30-second match window'
+  71000,
+  'Frequency Recall v2 has a complete five-round match window'
 );
 select is(
   public.game_reveal_duration('colour_recall_v2'),
@@ -59,8 +59,8 @@ select is(
 );
 select is(
   public.game_answer_duration('typing_sprint'),
-  15000,
-  'Typing Sprint has a fixed 15-second match window'
+  30000,
+  'Typing Sprint has a fixed 30-second match window'
 );
 
 select is_definer(
@@ -91,20 +91,28 @@ select ok(
   'anonymous database role cannot invoke matchmaking directly'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'authenticated',
     'public.join_matchmaking(text,text)',
     'EXECUTE'
   ),
-  'authenticated users retain matchmaking access'
+  'authenticated users cannot bypass the server-only matchmaking gateway'
 );
 select ok(
   has_function_privilege(
     'authenticated',
+    'public.server_queue_or_duel(uuid)',
+    'EXECUTE'
+  ),
+  'authenticated users retain the ticketed server gateway'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
     'public.create_private_duel(text,text,text,smallint,boolean)',
     'EXECUTE'
   ),
-  'authenticated users retain private duel creation access'
+  'authenticated users cannot bypass the server-only private-duel gateway'
 );
 select ok(
   not has_function_privilege(

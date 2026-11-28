@@ -7,7 +7,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getGame, generateMatchChallenge } from "@/games/registry";
 import { isSecureRecallGame } from "@/games/recall-rounds";
 import { submissionWindow } from "@/lib/game-clock";
-import { isDuplicateSubmission } from "@/lib/server/domain-errors";
 import { enforceNetworkAbuseBoundary } from "@/lib/server/network-abuse";
 
 export async function POST(
@@ -85,20 +84,24 @@ export async function POST(
       return apiError(409, "CONFLICT", "The answer window has closed.", undefined, correlationId);
     }
     if (window === "too-early") {
-      return apiError(409, "CONFLICT", parsed.data.timedOut ? "The answer window is still open." : "This game submits at the deadline.", undefined, correlationId);
+      return apiError(409, "CONFLICT", parsed.data.timedOut ? "The answer window is still open." : "This game submits at the deadline.", { domainCode: "QD_SUBMISSION_TOO_EARLY" }, correlationId);
+    }
+    if (parsed.data.timedOut) {
+      const { data, error } = await supabase.rpc("get_match_snapshot", {
+        requested_match_id: matchId.data,
+      });
+      if (error) throw error;
+      return apiSuccess(data, 200, correlationId);
     }
     const challenge = generateMatchChallenge(game, String(match.challenge_seed), match.reveal_duration_ms, match.answer_duration_ms, match.match_rules);
     const rules=matchRulesSchema.safeParse(match.match_rules);
     const customMemory=rules.success&&rules.data.kind==="workshop"&&match.game_type==="memory_grid";
-    const submission = parsed.data.timedOut
-      ? { success: true as const, data: { timedOut: true } }
-      : customMemory ? memorySelectionSchema.safeParse(parsed.data.submission) : game.submissionSchema.safeParse(parsed.data.submission);
+    const submission = customMemory ? memorySelectionSchema.safeParse(parsed.data.submission) : game.submissionSchema.safeParse(parsed.data.submission);
     if (!submission.success) {
       return apiError(400, "INVALID_REQUEST", "Game submission is invalid.", submission.error.issues, correlationId);
     }
-    if(customMemory&&!parsed.data.timedOut&&!validMemorySelection(challenge,submission.data as {selectedCells:number[]}))return apiError(400,"INVALID_REQUEST","Selected cells do not fit the custom grid.",undefined,correlationId);
+    if(customMemory&&!validMemorySelection(challenge,submission.data as {selectedCells:number[]}))return apiError(400,"INVALID_REQUEST","Selected cells do not fit the custom grid.",undefined,correlationId);
     if (
-      !parsed.data.timedOut &&
       game.validateSubmission &&
       !game.validateSubmission(challenge, submission.data)
     ) {
@@ -110,20 +113,11 @@ export async function POST(
         correlationId,
       );
     }
-    const completionTimeMs = parsed.data.timedOut
-      ? match.answer_duration_ms
-      : Math.max(
-          0,
-          Math.min(match.answer_duration_ms, receivedAt - answerStartedAt),
-        );
-    const calculated = parsed.data.timedOut
-      ? {
-          rankScore: -999_999,
-          accuracy: 0,
-          summary: "No answer",
-          details: { timedOut: true },
-        }
-      : game.calculate(challenge, submission.data, completionTimeMs);
+    const completionTimeMs = Math.max(
+      0,
+      Math.min(match.answer_duration_ms, receivedAt - answerStartedAt),
+    );
+    const calculated = game.calculate(challenge, submission.data, completionTimeMs);
     const correct = Number(calculated.details.correct ?? calculated.details.hits ?? 0);
     const incorrect = Number(
       calculated.details.incorrect ??
@@ -141,19 +135,9 @@ export async function POST(
       calculated_incorrect: Math.max(0, Math.min(32767, Math.round(incorrect))),
     });
     if (error) {
-      if (isDuplicateSubmission(error)) {
-        await admin.from("abuse_flags").insert({
-          user_id: user.id,
-          match_id: matchId.data,
-          signal: "duplicate_submission",
-          severity: 2,
-          evidence: {},
-        });
-      }
       throw error;
     }
     if (
-      !parsed.data.timedOut &&
       completionTimeMs < 150 &&
       calculated.accuracy >= 0.99
     ) {

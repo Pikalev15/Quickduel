@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { loadSupabaseBrowserClient } from "@/lib/supabase/lazy-client";
-import { compareGameResults, type Submission } from "@/games/types";
+import type { Submission } from "@/games/types";
 import { getGame } from "@/games/registry";
 import { GameRenderer } from "@/games/client-registry";
 import type { MatchSnapshot } from "@/types/database";
@@ -300,9 +300,10 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       void submit(false);
       return;
     }
+    if (!game?.submitAtDeadline) return;
     const timer = window.setTimeout(() => {
-      void submit(!game?.submitAtDeadline);
-    }, Math.max(0, answerEnd - (Date.now() + clockOffsetRef.current)));
+      void submit(false, answerEnd + 900);
+    }, Math.max(0, answerEnd - (Date.now() + clockOffsetRef.current) + 250));
     return () => window.clearTimeout(timer);
     // Submission is intentionally captured at the deadline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -325,7 +326,7 @@ export function RankedMatch({ matchId }: { matchId: string }) {
     setError(message);
   }, []);
 
-  async function submit(timedOut = false) {
+  async function submit(timedOut = false, retryUntil?: number) {
     if ((!timedOut && !canSubmitRef.current) || submissionSent.current) return;
     submissionSent.current = true;
     setLockStatus("sending");
@@ -338,8 +339,13 @@ export function RankedMatch({ matchId }: { matchId: string }) {
       setLockStatus("locked");
       await reload();
     } catch (caught) {
-      setLockStatus("idle");
       submissionSent.current = false;
+      if (retryUntil && Date.now() + clockOffsetRef.current < retryUntil) {
+        setError("The answer window is syncing. Retrying…");
+        window.setTimeout(() => void submit(false, retryUntil), 200);
+        return;
+      }
+      setLockStatus("idle");
       setError(caught instanceof Error ? caught.message : "Submission failed.");
     }
   }
@@ -379,16 +385,11 @@ export function RankedMatch({ matchId }: { matchId: string }) {
   }
 
   if (phase === "result" && snapshot && me?.result && opponent?.result) {
-    const outcome = snapshot.completion_reason === "timeout_forfeit"
-      ? snapshot.winner_id === currentUserId ? "win" : "loss"
-      : snapshot.completion_reason === "double_timeout"
-        ? "draw"
-        : compareGameResults(
-            me.result,
-            me.completion_time_ms ?? 0,
-            opponent.result,
-            opponent.completion_time_ms ?? 0,
-          );
+    const outcome = snapshot.winner_id === currentUserId
+      ? "win"
+      : snapshot.winner_id
+        ? "loss"
+        : "draw";
     const completionNotice = snapshot.completion_reason === "timeout_forfeit"
       ? outcome === "win"
         ? "Opponent failed to submit. Win by forfeit."

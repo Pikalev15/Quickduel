@@ -17,7 +17,7 @@ generator, schema, and scoring behavior.
 | --- | ---: | --- | --- | --- | --- |
 | `memory_grid` | 1 | Active | Mind | Yes | 2.5s reveal / 7s answer |
 | `frequency_recall` | 1 | Legacy | Sensory | Yes | Three-tone batch; 2.4s / 12s |
-| `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 3.2s answer + 2s feedback |
+| `frequency_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 4s listen reveal + 8.2s answer + 2s feedback; 71s total |
 | `colour_recall` | 1 | Legacy | Sensory | Yes | Three-colour batch; 2.6s / 16s |
 | `colour_recall_v2` | 2 | Active | Sensory | Yes | Five server-timed rounds; 0.8s reveal + 5.2s answer + 2s feedback |
 | `time_recall` | 1 | Active | Sensory | Yes | 6.5s / 14s |
@@ -69,9 +69,11 @@ Sprint retains its correct and incorrect character counts.
 ## Frequency Recall v2
 
 Five seeded pitches are reconstructed sequentially. Ranked play creates and
-releases one database-owned round at a time: a 0.8-second tone reveal, a
-3.2-second answer window, resolution after both locked answers or the
-authoritative deadline, and exactly two seconds of feedback. Future targets are
+releases one database-owned round at a time: a four-second tone reveal with a
+listen acknowledgement, an 8.2-second answer window, resolution after both locked
+answers or the authoritative deadline, and exactly two seconds of feedback. The
+71-second match budget covers all five complete round lifecycles plus the
+existing five-second expiry grace. Future targets are
 never returned by the normal match snapshot or round endpoint. The current
 frequency can be replayed during reveal and answer on the same screen as the
 slider. The guessed tone cannot be played. A reconnect can request only the current

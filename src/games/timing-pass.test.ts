@@ -7,7 +7,7 @@ describe("initial playtest timing",()=>{
   expect(getGame("memory_grid").answerDurationMs).toBe(7000);
   expect(getGame("memory_grid").revealDurationMs).toBe(2500);
   expect(getGame("memory_grid_v2").revealDurationMs).toBe(4000);
-  expect(getGame("frequency_recall_v2").answerDurationMs).toBe(60000);
+  expect(getGame("frequency_recall_v2").answerDurationMs).toBe(71000);
   expect(getGame("typing_sprint").answerDurationMs).toBe(30000);
   expect(getGame("cryptic_duel").answerDurationMs).toBe(40000);
   const typing=getGame("typing_sprint");

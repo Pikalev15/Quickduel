@@ -47,7 +47,7 @@ AS $function$
   select case requested_game
     when 'memory_grid' then 7000
     when 'frequency_recall' then 12000
-    when 'frequency_recall_v2' then 60000
+    when 'frequency_recall_v2' then 71000
     when 'colour_recall' then 16000
     when 'colour_recall_v2' then 40000
     when 'time_recall' then 14000
