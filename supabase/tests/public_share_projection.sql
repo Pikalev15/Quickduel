@@ -78,6 +78,13 @@ begin
   if payload::text like '%guessesHz%' or payload::text like '%submission_json%' then
     raise exception 'Public share leaked a submission payload';
   end if;
+
+  update public.matches
+  set invalidated_at = now(), completion_reason = 'admin_invalidated', ranked = false, share_enabled = false
+  where id = '00000000-0000-4000-8000-000000000601';
+  if public.get_public_match_share('PRIVACY12345') is not null then
+    raise exception 'Invalidated match remained publicly shareable';
+  end if;
 end;
 $projection$;
 

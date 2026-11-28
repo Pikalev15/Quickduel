@@ -17,7 +17,8 @@ begin
   from public.matches
   where share_code = upper(requested_code)
     and share_enabled
-    and status = 'completed';
+    and status = 'completed'
+    and invalidated_at is null;
   if not found then return null; end if;
 
   select jsonb_agg(jsonb_build_object(
