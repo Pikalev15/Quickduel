@@ -115,7 +115,7 @@ AS $function$
 declare
   match_row public.matches;
   round_row public.match_rounds;
-  current_time timestamptz := clock_timestamp();
+  v_now timestamptz := clock_timestamp();
   reveal_ms integer;
   answer_ms integer;
   next_round smallint;
@@ -140,7 +140,7 @@ begin
   from public.matches
   where id = requested_match_id
   for update;
-  current_time := clock_timestamp();
+  v_now := clock_timestamp();
 
   if not found
     or match_row.game_type not in ('frequency_recall_v2', 'colour_recall_v2')
@@ -187,7 +187,7 @@ begin
       'opponentScore', 0
     );
   end if;
-  if match_row.starts_at is null or current_time < match_row.starts_at then
+  if match_row.starts_at is null or v_now < match_row.starts_at then
     return jsonb_build_object(
       'gameId', match_row.game_type,
       'roundIndex', 0,
@@ -247,9 +247,9 @@ begin
       match_id, round_index, target_json, started_at,
       reveal_ends_at, answer_ends_at
     ) values (
-      requested_match_id, 0, requested_target, current_time,
-      current_time + make_interval(secs => reveal_ms::double precision / 1000),
-      current_time + make_interval(
+      requested_match_id, 0, requested_target, v_now,
+      v_now + make_interval(secs => reveal_ms::double precision / 1000),
+      v_now + make_interval(
         secs => (reveal_ms + answer_ms)::double precision / 1000
       )
     )
@@ -260,7 +260,7 @@ begin
   end if;
 
   if round_row.resolved_at is null
-    and current_time >= round_row.answer_ends_at then
+    and v_now >= round_row.answer_ends_at then
     foreach participant_id in array participant_ids loop
       insert into public.match_round_submissions (
         match_id, round_index, user_id, answer_json, feedback_json,
@@ -303,8 +303,8 @@ begin
     end loop;
     update public.match_rounds
     set
-      resolved_at = current_time,
-      feedback_ends_at = current_time + interval '2 seconds'
+      resolved_at = v_now,
+      feedback_ends_at = v_now + interval '2 seconds'
     where match_id = requested_match_id
       and round_index = round_row.round_index
       and resolved_at is null
@@ -312,7 +312,7 @@ begin
   end if;
 
   if round_row.resolved_at is not null
-    and current_time >= round_row.feedback_ends_at then
+    and v_now >= round_row.feedback_ends_at then
     if round_row.round_index < 4 then
       next_round := round_row.round_index + 1;
       if requested_target_round_index <> next_round then
@@ -322,9 +322,9 @@ begin
         match_id, round_index, target_json, started_at,
         reveal_ends_at, answer_ends_at
       ) values (
-        requested_match_id, next_round, requested_target, current_time,
-        current_time + make_interval(secs => reveal_ms::double precision / 1000),
-        current_time + make_interval(
+        requested_match_id, next_round, requested_target, v_now,
+        v_now + make_interval(secs => reveal_ms::double precision / 1000),
+        v_now + make_interval(
           secs => (reveal_ms + answer_ms)::double precision / 1000
         )
       )
@@ -432,7 +432,7 @@ begin
 
           update public.match_players
           set
-            submitted_at = current_time,
+            submitted_at = v_now,
             submission_json = jsonb_build_object(
               'rounds',
               (
@@ -511,7 +511,7 @@ begin
     phase := 'feedback';
     exposed_target := round_row.target_json;
     exposed_feedback := own_submission.feedback_json;
-  elsif current_time < round_row.reveal_ends_at then
+  elsif v_now < round_row.reveal_ends_at then
     phase := 'reveal';
     exposed_target := round_row.target_json;
   elsif own_submission.user_id is not null or (listen_required and not listen_acknowledged) then
@@ -566,7 +566,7 @@ declare
   match_row public.matches;
   round_row public.match_rounds;
   existing_answer jsonb;
-  current_time timestamptz := clock_timestamp();
+  v_now timestamptz := clock_timestamp();
   submission_count integer;
 begin
   if submitted_answer is null or calculated_feedback is null
@@ -598,15 +598,15 @@ begin
   if not found or round_row.resolved_at is not null then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
   end if;
-  current_time := clock_timestamp();
+  v_now := clock_timestamp();
   if match_row.game_type = 'frequency_recall_v2' and match_row.answer_duration_ms >= 60000
     and not exists (select 1 from public.frequency_listen_acks where match_id=requested_match_id and round_index=requested_round_index and user_id=requested_user_id) then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
   end if;
-  if current_time < round_row.reveal_ends_at then
+  if v_now < round_row.reveal_ends_at then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_ANSWER_NOT_OPEN';
   end if;
-  if current_time > round_row.answer_ends_at then
+  if v_now > round_row.answer_ends_at then
     raise exception using errcode = 'P0001', message = 'QD_ROUND_CLOSED';
   end if;
 
@@ -625,7 +625,7 @@ begin
     score, timed_out, submitted_at
   ) values (
     requested_match_id, requested_round_index, requested_user_id,
-    submitted_answer, calculated_feedback, calculated_score, false, current_time
+    submitted_answer, calculated_feedback, calculated_score, false, v_now
   );
 
   select count(*) into submission_count
@@ -635,8 +635,8 @@ begin
   if submission_count = 2 then
     update public.match_rounds
     set
-      resolved_at = current_time,
-      feedback_ends_at = current_time + interval '2 seconds'
+      resolved_at = v_now,
+      feedback_ends_at = v_now + interval '2 seconds'
     where match_id = requested_match_id
       and round_index = requested_round_index
       and resolved_at is null;
