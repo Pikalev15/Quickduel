@@ -1098,10 +1098,11 @@ test("game library uses distinct mechanic icons rather than numeric markers", as
   await page.goto("/");
   const library = page.getByRole("region", { name: "Game library" });
   await expect(library.locator("[data-game-icon]")).toHaveCount(5);
-  const expand = library.getByRole("button", { name: "See all", exact: true });
+  const expand = library.locator(".all-games-disclosure");
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
   await expect(expand).toBeEnabled();
   await expand.click();
-  await expect(library.getByRole("button", { name: "Hide all", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(expand).toHaveAttribute("aria-expanded", "true");
   const icons = library.locator("[data-game-icon]");
   await expect(icons).toHaveCount(15);
   const ids = await icons.evaluateAll(elements => elements.map(element => element.getAttribute("data-game-icon")));
